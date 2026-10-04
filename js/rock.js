@@ -44,128 +44,152 @@ const LEAF = (() => {
 })();
 
 /* ---------- 일곱 호카게: 얼굴 생김새의 차이 ----------
-   spikes: [밑동 u, 밑동 v, 방향(도, 0=위·+는 보는 쪽 오른쪽), 길이, 굵기], locks: 긴 머리 가닥 [ax,ay,az,ra,bx,by,bz,rb] */
-const fan = (n, a0, a1, len, r, lean = 0, rnd = 0) => {
-  const out = [], hs = i => { const j = Math.sin(i * 12.9898 + rnd) * 43758.5453; return j - Math.floor(j); };
-  for (let i = 0; i < n; i++) {
-    const t = n === 1 ? 0.5 : i / (n - 1), ang = a0 + (a1 - a0) * t + (hs(i + 40) - 0.5) * 14, ar = ang * Math.PI / 180;
-    out.push([Math.sin(ar) * 5.3, 6.6 + Math.cos(ar) * 2.9, ang * 0.92 + lean, len * (0.72 + 0.6 * hs(i)), r * (0.85 + 0.35 * hs(i + 9))]);
-    // 사이사이 짧은 안쪽 가닥
-    if (i < n - 1) { const a2 = (a0 + (a1 - a0) * (i + 0.5) / (n - 1)) * Math.PI / 180; out.push([Math.sin(a2) * 3.6, 6.9 + Math.cos(a2) * 2.2, a2 * 180 / Math.PI * 0.7 + lean, len * 0.55, r * 0.9]); }
-  }
-  return out;
-};
+   원작의 바위 얼굴처럼 각지게 깎는다: 뾰족한 턱, 날 선 콧날, 큼직하게 판 눈매, 덩어리진 머리카락.
+   fans: 머리카락 뭉치 묶음 [가닥 수, 시작 각, 끝 각(도, 0=위·+는 보는 쪽 오른쪽), 길이, 밑동 굵기, 기울임, 앞으로 나온 정도, 씨앗]
+   locks: 길게 늘어진 머리 [ax,ay,az,ra, bx,by,bz,rb], lines: 얼굴에 판 선 */
 const HOKAGE = [
-  { name: '초대 호카게 · 센주 하시라마', band: true, w: 1.0, jaw: 1.0,
-    scalp: true,
-    locks: [[-1.0, 10.2, 3.2, 2.5, -6.3, 4.0, 2.6, 2.3], [-6.3, 4.0, 2.6, 2.3, -7.0, -4.5, 1.4, 2.0], [-7.0, -4.5, 1.4, 2.0, -6.6, -11.5, 0.4, 1.4],
-      [1.0, 10.2, 3.2, 2.5, 6.3, 4.0, 2.6, 2.3], [6.3, 4.0, 2.6, 2.3, 7.0, -4.5, 1.4, 2.0], [7.0, -4.5, 1.4, 2.0, 6.6, -11.5, 0.4, 1.4],
-      [-0.9, 6.6, 5.6, 1.2, -5.0, 1.2, 4.2, 1.0], [-5.0, 1.2, 4.2, 1.0, -5.5, -5.2, 3.0, 0.6], [0.9, 6.6, 5.6, 1.2, 5.0, 1.2, 4.2, 1.0], [5.0, 1.2, 4.2, 1.0, 5.5, -5.2, 3.0, 0.6]],
-    lines: [], mouth: 0 },
-  { name: '2대 호카게 · 센주 토비라마', band: true, w: 0.97, jaw: 0.94,
-    spikes: fan(7, -88, 88, 4.4, 1.9, 0, 2), brow: -0.35,
-    guard: true,
-    lines: [[[-3.1, -0.7], [-3.5, -3.4]], [[3.1, -0.7], [3.5, -3.4]], [[0, -6.3], [0, -8.7]]], mouth: -0.12 },
-  { name: '3대 호카게 · 사루토비 히루젠', band: true, w: 1.02, jaw: 1.02,
-    spikes: fan(6, -80, 80, 4.0, 2.0, 0, 5), brow: 0.1,
-    goatee: true,
-    lines: [[[-3.7, 0.1], [-4.4, -2.3]], [[3.7, 0.1], [4.4, -2.3]], [[-1.5, -2.3], [-2.7, -4.8]], [[1.5, -2.3], [2.7, -4.8]], [[-4.3, 1.4], [-5.0, 0.9]], [[4.3, 1.4], [5.0, 0.9]]], mouth: 0 },
-  { name: '4대 호카게 · 나미카제 미나토', band: true, w: 0.98, jaw: 0.95,
-    spikes: fan(8, -98, 98, 5.2, 1.9, 0, 9),
-    locks: [[-5.1, 6.0, 4.6, 1.5, -6.5, 0.2, 3.6, 1.2], [-6.5, 0.2, 3.6, 1.2, -5.6, -6.4, 2.6, 0.35], [5.1, 6.0, 4.6, 1.5, 6.5, 0.2, 3.6, 1.2], [6.5, 0.2, 3.6, 1.2, 5.6, -6.4, 2.6, 0.35]],
-    lines: [], mouth: 0.1 },
-  { name: '5대 호카게 · 츠나데', band: false, w: 0.95, jaw: 0.9, lashes: true, diamond: true,
-    scalp: true,
-    locks: [[-0.5, 10.0, 4.4, 2.2, -4.7, 5.0, 5.0, 2.0], [-4.7, 5.0, 5.0, 2.0, -6.3, -2.6, 3.4, 1.5], [-6.3, -2.6, 3.4, 1.5, -5.6, -8.6, 2.2, 0.4],
-      [0.5, 10.0, 4.4, 2.2, 4.7, 5.0, 5.0, 2.0], [4.7, 5.0, 5.0, 2.0, 6.3, -2.6, 3.4, 1.5], [6.3, -2.6, 3.4, 1.5, 5.6, -8.6, 2.2, 0.4]],
-    lines: [], mouth: 0.05 },
-  { name: '6대 호카게 · 하타케 카카시', band: true, w: 0.97, jaw: 0.96, mask: true, sleepy: true,
-    spikes: fan(7, -66, 88, 6.2, 2.0, 20, 13),
-    lines: [], mouth: 0 },
-  { name: '7대 호카게 · 우즈마키 나루토', band: true, w: 1.0, jaw: 1.0,
-    spikes: fan(9, -100, 100, 2.8, 1.7, 0, 17),
-    lines: [[[-2.5, -1.5], [-5.2, -1.0]], [[-2.5, -2.5], [-5.2, -2.5]], [[-2.5, -3.5], [-5.0, -4.0]], [[2.5, -1.5], [5.2, -1.0]], [[2.5, -2.5], [5.2, -2.5]], [[2.5, -3.5], [5.0, -4.0]]], mouth: 0.22 },
+  { name: '초대 호카게 · 센주 하시라마', band: true, w: 1.0, jaw: 1.12, brow: -0.1, mouth: -0.05, scalp: true, seed: 3,
+    locks: [[-1.2, 9.6, 3.6, 2.3, -5.9, 4.6, 3.0, 2.2], [-5.9, 4.6, 3.0, 2.2, -6.5, -3.5, 2.2, 1.9], [-6.5, -3.5, 2.2, 1.9, -6.2, -12.5, 1.2, 1.3],
+      [1.2, 9.6, 3.6, 2.3, 5.9, 4.6, 3.0, 2.2], [5.9, 4.6, 3.0, 2.2, 6.5, -3.5, 2.2, 1.9], [6.5, -3.5, 2.2, 1.9, 6.2, -12.5, 1.2, 1.3],
+      [-0.8, 6.0, 5.5, 1.0, -4.9, 1.5, 4.4, 0.85], [-4.9, 1.5, 4.4, 0.85, -5.1, -6.0, 3.2, 0.5], [0.8, 6.0, 5.5, 1.0, 4.9, 1.5, 4.4, 0.85], [4.9, 1.5, 4.4, 0.85, 5.1, -6.0, 3.2, 0.5]],
+    lines: [] },
+  { name: '2대 호카게 · 센주 토비라마', band: true, guard: true, w: 0.97, jaw: 1.0, brow: -0.4, mouth: -0.12, seed: 7,
+    fans: [[6, -95, 95, 5.6, 2.6, 0, 0, 2], [5, -70, 70, 3.6, 2.1, 0, 1.2, 4]],
+    lines: [[[-2.7, -0.3], [-3.2, -3.6]], [[2.7, -0.3], [3.2, -3.6]], [[0, -5.9], [0, -8.2]]] },
+  { name: '3대 호카게 · 사루토비 히루젠', band: true, w: 1.03, jaw: 1.1, brow: -0.05, mouth: -0.02, goatee: true, seed: 11,
+    fans: [[5, -85, 85, 5.2, 2.7, 0, 0, 5], [4, -60, 60, 3.4, 2.2, 0, 1.2, 6]],
+    lines: [[[-3.5, 0.0], [-4.2, -2.6]], [[3.5, 0.0], [4.2, -2.6]], [[-1.1, -2.2], [-2.3, -4.9]], [[1.1, -2.2], [2.3, -4.9]], [[-4.4, 1.2], [-5.0, 0.6]], [[4.4, 1.2], [5.0, 0.6]]] },
+  { name: '4대 호카게 · 나미카제 미나토', band: true, w: 0.96, jaw: 0.9, brow: -0.15, mouth: 0.06, seed: 17,
+    fans: [[7, -105, 105, 6.4, 2.5, 0, 0, 9], [6, -80, 80, 4.2, 2.0, 0, 1.2, 10]],
+    locks: [[-4.9, 5.6, 4.9, 1.5, -6.2, 0.0, 4.0, 1.25], [-6.2, 0.0, 4.0, 1.25, -5.2, -6.6, 3.0, 0.3], [4.9, 5.6, 4.9, 1.5, 6.2, 0.0, 4.0, 1.25], [6.2, 0.0, 4.0, 1.25, 5.2, -6.6, 3.0, 0.3]],
+    lines: [] },
+  { name: '5대 호카게 · 츠나데', band: false, w: 0.94, jaw: 0.82, brow: 0.05, mouth: 0.04, lashes: true, diamond: true, scalp: true, seed: 23,
+    locks: [[-0.5, 9.8, 4.6, 2.2, -4.5, 5.2, 5.1, 2.0], [-4.5, 5.2, 5.1, 2.0, -6.0, -2.4, 3.8, 1.5], [-6.0, -2.4, 3.8, 1.5, -5.4, -9.0, 2.6, 0.35],
+      [0.5, 9.8, 4.6, 2.2, 4.5, 5.2, 5.1, 2.0], [4.5, 5.2, 5.1, 2.0, 6.0, -2.4, 3.8, 1.5], [6.0, -2.4, 3.8, 1.5, 5.4, -9.0, 2.6, 0.35]],
+    lines: [] },
+  { name: '6대 호카게 · 하타케 카카시', band: true, w: 0.96, jaw: 0.95, brow: 0.0, mouth: 0, mask: true, sleepy: true, seed: 29,
+    fans: [[6, -70, 95, 7.2, 2.7, 24, 0, 13], [5, -50, 75, 4.6, 2.1, 24, 1.2, 14]],
+    lines: [] },
+  { name: '7대 호카게 · 우즈마키 나루토', band: true, w: 1.0, jaw: 1.0, brow: -0.12, mouth: 0.16, seed: 31,
+    fans: [[8, -108, 108, 3.6, 2.3, 0, 0, 17], [7, -85, 85, 2.6, 1.8, 0, 1.1, 18]],
+    lines: [[[-2.4, -1.4], [-4.7, -0.9]], [[-2.4, -2.4], [-4.8, -2.4]], [[-2.4, -3.4], [-4.5, -3.9]], [[2.4, -1.4], [4.7, -0.9]], [[2.4, -2.4], [4.8, -2.4]], [[2.4, -3.4], [4.5, -3.9]]] },
 ];
-export const HEAD_X = i => -60 + 20 * i, HEAD_Y = 38, HEAD_S = 1.3;
+export const HEAD_X = i => -60 + 20 * i, HEAD_Y = 37.5, HEAD_S = 1.42;
 
-// 머리뼈(이마 보호대·머리카락이 얹히는 바탕)
-const skull = (u, v) => ell(u, v, 0, 1.5, 6.3, 8.6, -2.0, 7.4);
-
-// 얼굴 하나의 돌출(m). u, v는 얼굴 중심에서의 거리.
-function headDepth(H, u, v) {
-  u /= H.w;
-  const au = Math.abs(u), sg = u < 0 ? -1 : 1, jw = H.jaw;
-  let z = skull(u, v);
-  z = smax(z, ell(u, v, 0, -4.9, 4.3 * jw, 4.7, -1.5, 5.9), 1.1);            // 턱
-  z = smax(z, ell(u, v, 0, -7.5, 2.4 * jw, 2.0, 2.3, 1.25), 0.9);            // 턱끝
-  z = smax(z, ell(u, v, 0, -12.5, 3.2, 5.0, -2.5, 4.4), 1.0);                // 목
-  z = smax(z, ell(au, v, 6.2, 0.4, 0.9, 2.0, 0.2, 1.5), 0.4);                // 귀
-  z = smax(z, ell(au, v, 3.1, -2.0, 2.6, 2.8, 3.1, 1.5), 1.0);               // 광대
-  z = smax(z, ell(au, v, 2.6, 2.5, 2.8, 0.9, 4.3, 1.1), 0.5);                // 눈썹뼈
-  // 눈두덩: 살짝 꺼진 자리에 눈꺼풀과 눈동자를 새긴다
-  { const a = (au - 2.7) / 2.2, b = (v - 0.95) / 1.3, q = 1 - a * a - b * b; if (q > 0) z -= 0.7 * q; }
-  z = smax(z, ell(au, v, 2.75, 0.95, 1.7, 0.85, 3.95, 0.7), 0.25);            // 눈알
-  if (!H.mask) {
-    z = smax(z, cap(u, v, [0, 2.2, 4.5, 0.5, 0, -1.4, 5.5, 0.72]), 0.5);     // 콧등
-    z = smax(z, ell(u, v, 0, -1.75, 0.95, 0.8, 5.0, 1.45), 0.35);            // 코끝
-    z = smax(z, ell(au, v, 0.7, -2.0, 0.5, 0.42, 4.9, 0.8), 0.25);           // 콧방울
-    z = smax(z, ell(u, v, 0, -5.0, 1.15, 0.4, 4.3, 0.42), 0.35);             // 아랫입술
-    const mc = H.mouth;                                                      // 입매(끝이 올라가면 웃는 얼굴)
-    z -= 0.42 * poly(au, v, [[0, -4.45], [1.0, -4.43 + mc * 0.3], [1.75, -4.36 + mc]], 0.2);
-  } else {
-    // 복면: 콧등 아래를 천이 덮어 코·입의 윤곽만 은은하게 비친다
-    z = smax(z, cap(u, v, [0, 1.8, 4.5, 0.6, 0, -1.5, 5.3, 0.85]), 0.9);
-    z = smax(z, ell(u, v, 0, -1.8, 1.0, 0.9, 4.9, 1.1), 0.8);
-    const edge = 0.1 - 0.035 * u * u;
-    z += 0.3 * sstep(edge + 0.12, edge - 0.12, v) * sstep(-11.5, -9.5, v);
-    z -= 0.12 * poly(au, v, [[0.4, -3.2], [3.2, -5.0], [4.6, -7.4]], 0.3);     // 천이 당겨진 주름
+const hs = (i, s) => { const j = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return j - Math.floor(j); };
+// 매듭점 사이를 잇는 값. smooth면 부드럽게, 아니면 곧게(각진 윤곽).
+function knots(v, K, smooth = true) {
+  if (v <= K[0][0]) return K[0][1];
+  for (let i = 0; i < K.length - 1; i++) if (v <= K[i + 1][0]) { let t = (v - K[i][0]) / (K[i + 1][0] - K[i][0]); if (smooth) t = t * t * (3 - 2 * t); return K[i][1] + (K[i + 1][1] - K[i][1]) * t; }
+  return K[K.length - 1][1];
+}
+// 날이 선 머리카락 한 뭉치: 가운데가 능선처럼 솟고 끝으로 갈수록 가늘어진다
+function blade(u, v, b) {
+  const [ax, ay, az, bx, by, bz, r0] = b;
+  const dx = bx - ax, dy = by - ay, t = clamp(((u - ax) * dx + (v - ay) * dy) / (dx * dx + dy * dy), 0, 1);
+  const d = Math.hypot(u - ax - dx * t, v - ay - dy * t), r = r0 * Math.pow(1 - t, 0.75) + 0.06, zc = az + (bz - az) * t;
+  return d >= r ? zc - (d - r) * SKIRT : zc + (r - d) * 0.85;
+}
+// 얼굴마다 미리 계산해 두는 것: 머리카락 뭉치, 바위에 간 금
+for (const H of HOKAGE) {
+  H.blades = [];
+  for (const [n, a0, a1, len, r, lean, lift, seed] of H.fans || []) for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1), ang = a0 + (a1 - a0) * t + (hs(i, seed) - 0.5) * 16, ar = ang * Math.PI / 180;
+    const bu = Math.sin(ar) * 4.6, bv = 6.0 + Math.cos(ar) * 2.4, ta = (ang * 0.9 + lean) * Math.PI / 180, L = len * (0.75 + 0.5 * hs(i + 20, seed));
+    H.blades.push([bu, bv, 4.3 + lift, bu + Math.sin(ta) * L, bv + Math.cos(ta) * L, 2.2 + lift, r * (0.85 + 0.3 * hs(i + 40, seed))]);
   }
-  // 눈매: 위·아래 눈꺼풀 선, 눈동자 테, 눈썹
-  const lt = H.sleepy ? 1.3 : 1.82, bt = H.brow || 0;
-  z -= (H.lashes ? 0.45 : 0.34) * poly(au, v, [[1.05, 0.72], [1.8, lt - 0.28], [2.8, lt], [3.8, lt - 0.3], [4.4, 0.98]], H.lashes ? 0.26 : 0.19);
-  z -= 0.24 * poly(au, v, [[1.05, 0.72], [2.0, 0.22], [2.9, 0.12], [3.8, 0.4], [4.4, 0.98]], 0.15);
-  z -= 0.22 * ring(au, v, 2.78, 0.95, 0.62, 0.13);
-  z -= 0.28 * sstep(0.26, 0.04, Math.hypot(au - 2.78, v - 0.95));
-  z += 0.26 * poly(au, v, [[0.9, 2.85 + bt], [2.5, 3.2 + bt * 0.2], [4.4, 2.75 - bt * 0.6]], 0.36);      // 눈썹(도드라짐)
-  for (const l of H.lines) z -= 0.3 * groove(u, v, l[0][0], l[0][1], l[1][0], l[1][1], 0.2);
-  if (H.goatee) z = smax(z, cap(u, v, [0, -8.9, 3.2, 0.95, 0, -11.9, 2.4, 0.15], 3), 0.3);
-  if (H.diamond) z -= 0.25 * poly(u, v, [[0, 6.0], [0.42, 5.3], [0, 4.6], [-0.42, 5.3], [0, 6.0]], 0.13);
+  H.cracks = [];
+  for (let c = 0; c < 3; c++) {
+    let u = (hs(c, H.seed) - 0.5) * 9, v = 9 - hs(c + 5, H.seed) * 6; const pts = [[u, v]];
+    for (let k = 0; k < 7; k++) { u += (hs(c * 9 + k, H.seed + 1) - 0.5) * 1.5; v -= 1.1 + hs(c * 7 + k, H.seed + 2) * 1.4; pts.push([u, v]); }
+    H.cracks.push(pts);
+  }
+}
+
+const W_K = [[-8.75, 0], [-8.3, 1.25], [-7.4, 1.95], [-3.0, 4.75], [0.5, 5.3], [4.0, 5.4], [7.5, 4.9], [9.6, 3.2], [10.6, 0]];       // 얼굴 반폭(턱끝 → 이마)
+const Z_K = [[-10.6, 1.5], [-9.0, 2.1], [-8.35, 4.25], [-7.2, 4.75], [-4.4, 5.05], [-2.0, 5.25], [1.0, 4.95], [2.7, 5.35], [5.0, 5.1], [8.5, 3.4], [10.6, 0.5]];   // 얼굴 한가운데의 옆모습
+const skull = (u, v) => ell(u, v, 0, 2.6, 5.9, 7.6, -1.5, 6.6);
+
+// 얼굴 하나의 돌출(머리 단위). u, v는 얼굴 중심에서의 거리.
+function headDepth(H, u0, v) {
+  const u = u0 / H.w, au = Math.abs(u), sg = u < 0 ? -1 : 1;
+  // 얼굴 판: 앞은 평평하고 옆으로 급하게 꺾이는 각진 단면, 아래로 갈수록 좁아지는 턱
+  const jw = v < -3 ? 1 + (H.jaw - 1) * sstep(-3, -7.4, v) : 1;
+  const Wd = knots(v, W_K) * jw, Z0 = knots(v, Z_K);
+  let z;
+  if (Wd > 0.05 && au < Wd) z = Z0 - 3.6 * Math.pow(au / Wd, 2.6); else z = Z0 - 3.6 - (au - Wd) * SKIRT;
+  z = smax(z, skull(u, v), 0.6);
+  z = smax(z, cap(u, v, [0, -7.5, 0.5, 2.5, 0, -12.0, 0.2, 2.8]), 0.5);                                  // 목
+  z = smax(z, ell(au, v, 5.6, 0.7, 0.75, 1.75, 1.6, 1.3), 0.3);                               // 귀
+  // 눈: 눈꺼풀 선을 깊게 긋고 그 안을 평평하게 판 다음 눈동자를 새긴다
+  const eo = H.sleepy ? 1.12 : 1.3, upK = H.sleepy ? [[1.0, 0.8], [2.4, 1.36], [4.25, eo]] : [[1.0, 0.72], [2.3, 1.74], [4.25, eo]], loK = [[1.0, upK[0][1]], [2.7, 0.22], [4.25, eo]];
+  if (au > 1.0 && au < 4.25) {
+    const up = knots(au, upK, false), lo = knots(au, loK, false), t = Math.min(v - lo, up - v);
+    if (t > 0) {
+      z -= 0.36 * sstep(0, 0.16, t);
+      z -= 0.2 * ring(au, v, 2.62, 0.98, 0.6, 0.12) * sstep(0.02, 0.12, t);
+      z -= 0.26 * sstep(0.24, 0.1, Math.hypot(au - 2.62, v - 0.98));
+    }
+  }
+  z -= (H.lashes ? 0.55 : 0.46) * poly(au, v, upK, H.lashes ? 0.27 : 0.21);
+  z -= 0.22 * poly(au, v, loK, 0.13);
+  const bt = H.brow || 0, brK = [[0.75, 2.5 + bt], [2.6, 3.0 + bt * 0.3], [4.7, 2.75 - bt * 0.5]];
+  if (au > 0.8 && au < 4.6) { const up = knots(au, upK, false), br = knots(au, brK, false); if (v > up && v < br) z -= 0.3 * Math.sin(Math.PI * (v - up) / (br - up)); }   // 눈두덩 그늘
+  z += 0.4 * poly(au, v, brK, 0.36);                                                           // 눈썹
+  // 코: 날이 선 쐐기, 코끝 밑은 뚝 끊겨 그늘이 진다
+  {
+    const k = clamp((2.2 - v) / 4.1, 0, 1), zr = 5.25 + 1.45 * k + (H.mask ? 0.1 : 0);
+    let zn = zr - au * (H.mask ? 1.25 : 1.95);
+    if (v < -1.9) zn -= (-1.9 - v) * (H.mask ? 2.2 : 7); if (v > 2.2) zn -= (v - 2.2) * 3;
+    z = H.mask ? smax(z, zn, 0.5) : Math.max(z, zn);
+    if (!H.mask) z -= 0.18 * sstep(0.24, 0.08, Math.hypot(au - 0.42, v + 2.02));
+  }
+  if (!H.mask) {
+    const mc = H.mouth;
+    z -= 0.4 * poly(au, v, [[0, -4.45], [0.9, -4.45 + mc * 0.3], [1.6, -4.4 + mc]], 0.16);    // 입
+    z -= 0.16 * groove(au, v, 0, -5.2, 0.6, -5.17, 0.13);                                      // 아랫입술 밑
+  } else {
+    // 복면: 콧등 아래를 덮은 천. 윗단은 도드라진 선, 뺨에는 당겨진 주름
+    const edge = 0.5 - 0.04 * u * u;
+    z += 0.26 * sstep(edge + 0.1, edge - 0.1, v) * sstep(-10.2, -9.0, v);
+    z -= 0.12 * poly(au, v, [[0.5, -3.0], [2.8, -4.6], [3.6, -6.6]], 0.25);
+  }
+  for (const l of H.lines) z -= 0.34 * groove(u, v, l[0][0], l[0][1], l[1][0], l[1][1], 0.2);
+  if (H.goatee) z = Math.max(z, blade(u, v, [0, -8.3, 4.2, 0, -12.2, 3.3, 1.0]));
+  if (H.diamond) z -= 0.26 * poly(u, v, [[0, 5.5], [0.4, 4.85], [0, 4.2], [-0.4, 4.85], [0, 5.5]], 0.13);
   // 이마 보호대: 머리를 두른 띠와 쇠판
+  const bend = 0.012 * u * u, v0 = 3.45 - bend, v1 = 5.25 - bend;
   if (H.band) {
-    const bend = 0.014 * u * u, v0 = 3.75 - bend, v1 = 5.65 - bend, s = skull(u, v);
-    const inb = sstep(v0 - 0.1, v0 + 0.08, v) * sstep(v1 + 0.1, v1 - 0.08, v);
-    if (inb > 0 && s > -1.9) {
-      let b = s + 0.42;
-      const plate = sstep(3.1, 2.9, au);
-      b += 0.22 * plate;
+    const inb = sstep(v0 - 0.06, v0 + 0.06, v) * sstep(v1 + 0.06, v1 - 0.06, v);
+    if (inb > 0 && au < 6.2) {
+      let b = Math.max(z, skull(u, v)) + 0.42;
+      const plate = sstep(3.15, 3.0, au);
+      b += 0.2 * plate;
       if (plate > 0) {
-        b -= 0.16 * poly((u - 0.1) / 0.78, (v - (v0 + v1) / 2) / 0.78, LEAF, 0.16);
-        b -= 0.12 * sstep(0.16, 0.06, Math.hypot(au - 2.55, v - (v0 + v1) / 2 - 0.0));   // 못 자리
+        b -= 0.17 * poly((u - 0.1) / 0.72, (v - (v0 + v1) / 2) / 0.72, LEAF, 0.17);
+        b -= 0.13 * sstep(0.17, 0.07, Math.hypot(au - 2.62, v - (v0 + v1) / 2));               // 못 자리
       }
-      z = z + (Math.max(z, b) - z) * inb;
+      z += (Math.max(z, b) - z) * inb;
     }
     if (H.guard) {   // 2대의 보호대는 광대와 턱 옆까지 내려온다
-      z = smax(z, cap(u, v, [sg * 5.5, 4.2, 3.0, 1.15, sg * 5.3, -2.5, 3.2, 1.0]), 0.2);
-      z = smax(z, cap(u, v, [sg * 5.3, -2.5, 3.2, 1.0, sg * 3.6, -6.6, 3.6, 0.7]), 0.2);
+      z = Math.max(z, cap(u, v, [sg * 5.2, 4.0, 3.2, 1.05, sg * 5.0, -2.2, 3.4, 0.95]));
+      z = Math.max(z, cap(u, v, [sg * 5.0, -2.2, 3.4, 0.95, sg * 3.3, -6.3, 3.7, 0.6]));
     }
   }
   // 머리카락
-  let hair = NEG;
-  if (H.scalp) hair = ell(u, v, 0, 6.6, 6.8, 4.6, 0, 6.3) + 0.1 * Math.cos(u * 3.3) * sstep(5.0, 7.0, v);
-  if (H.spikes) {
-    const mass = (a, b) => ell(a, b, 0, 6.4, 6.6, 4.4, 0, 5.9);
-    hair = mass(u, v);
-    for (const sp of H.spikes) {
-      const a = sp[2] * Math.PI / 180, bz = Math.max(2.2, mass(sp[0] * 0.8, 6.4 + (sp[1] - 6.4) * 0.8)) - 0.2;
-      hair = smax(hair, cap(u, v, [sp[0] * 0.8, 6.4 + (sp[1] - 6.4) * 0.8, bz, sp[4], sp[0] + Math.sin(a) * sp[3], sp[1] + Math.cos(a) * sp[3], bz - 0.9, 0.2], 2), 0.3);
-    }
+  let hair = NEG, any = false;
+  if (H.scalp) { hair = ell(u, v, 0, 6.4, 6.5, 4.6, 0, 6.2) + 0.1 * Math.cos(u * 3.4) * sstep(4.6, 6.6, v) - 0.3 * sstep(0.35, 0.0, au) * sstep(5.5, 7.0, v); any = true; }
+  if (H.blades.length) {
+    hair = ell(u, v, 0, 6.0, 6.2, 4.2, 0.4, 4.9); any = true;
+    for (const b of H.blades) hair = smax(hair, blade(u, v, b), 0.12);
   }
-  if (H.locks) for (const c of H.locks) hair = smax(hair, cap(u, v, c, 4), 0.3);
-  if (H.scalp || H.spikes || H.locks) {
-    const top = H.band ? sstep(5.4 - 0.014 * u * u, 5.8 - 0.014 * u * u, v) : 1;      // 보호대 위에서만 머리숱이 덮는다(가닥은 얼굴 옆으로 내려와도 된다)
-    const cover = Math.max(top, H.locks && au > 3.6 ? 1 : 0, H.diamond ? sstep(6.3, 6.9, v + 0.06 * u * u) + (au > 3.2 ? 1 : 0) : 0);
-    if (cover > 0) z = z + (smax(z, hair, 0.3) - z) * Math.min(1, cover);
+  if (H.locks) { any = true; for (const c of H.locks) hair = smax(hair, cap(u, v, c, 4), 0.2); }
+  if (any) {
+    const top = H.band ? sstep(v1 - 0.25, v1 + 0.1, v) : H.diamond ? sstep(6.0, 6.6, v + 0.07 * u * u) : 0;
+    const cover = Math.max(top, H.locks && au > 3.5 ? 1 : 0);
+    if (cover > 0) z += (Math.max(z, hair) - z) * Math.min(1, cover);
   }
+  for (const c of H.cracks) z -= 0.2 * poly(u, v, c, 0.16);                                    // 바위에 간 금
   return z;
 }
 
@@ -185,26 +209,26 @@ function rockDepth(x, y) {
   return d;
 }
 function cliffDepth(x, y) {
-  let d = rockDepth(x, y);
-  const i = Math.round((x + 60) / 20);
-  if (i >= 0 && i <= 6) {
+  let d = rockDepth(x, y), near = 0, h = NEG;
+  const i0 = Math.floor((x + 60) / 20);
+  for (const i of [i0, i0 + 1]) {
+    if (i < 0 || i > 6) continue;
     const u = (x - HEAD_X(i)) / HEAD_S, v = (y - HEAD_Y) / HEAD_S;
-    if (Math.abs(u) < 9.6 && v > -17 && v < 16.5) {
-      const h = headDepth(HOKAGE[i], u, v);
-      const near = sstep(1.25, 0.8, Math.hypot(u / 8.2, (v - 0.5) / 14.5));         // 얼굴 둘레는 바위를 얕게 쳐냈다
-      d *= 1 - 0.5 * near;
-      d = smax(d, h * HEAD_S + 1.6, 1.2);
-    }
+    if (Math.abs(u) > 11.5 || v < -16.5 || v > 15.5) continue;
+    h = Math.max(h, headDepth(HOKAGE[i], u, v));
+    near = Math.max(near, sstep(1.25, 0.8, Math.hypot(u / 8.4, (v - 0.5) / 15)));       // 얼굴 둘레는 바위를 얕게 쳐냈다
   }
+  d *= 1 - 0.5 * near;
+  if (h > NEG) d = smax(d, h * HEAD_S + 1.8 + 0.07 * (vn(x * 1.7, y * 1.7) - 0.5) + 0.1 * (vn(x * 0.55 + 3.0, y * 0.55) - 0.5), 1.0);   // 정으로 쪼은 자국
   return d;
 }
 
 function buildCliff(scene) {
   // 얼굴이 있는 가운데는 촘촘하게, 바깥은 성기게 나눈 격자
-  const xs = [], ys = [], FINE = 0.2, X1 = 73, Y0 = 17, Y1 = 58.4, W = CLIFF.half + CLIFF.fall + 6;
-  for (let x = -W; x < -X1; x += 2) xs.push(x);
+  const xs = [], ys = [], FINE = 0.16, X1 = 77, Y0 = 13.5, Y1 = 59.2, W = CLIFF.half + CLIFF.fall + 6;
+  for (let x = -W; x < -X1; x += 1.5) xs.push(x);
   for (let x = -X1; x < X1; x += FINE) xs.push(x);
-  for (let x = X1; x <= W + 0.01; x += 2) xs.push(x);
+  for (let x = X1; x <= W + 0.01; x += 1.5) xs.push(x);
   for (let y = -1; y < Y0; y += 1.5) ys.push(y);
   for (let y = Y0; y < Y1; y += FINE) ys.push(y);
   for (let y = Y1; y < CLIFF.top; y += 1.5) ys.push(y);
@@ -215,7 +239,7 @@ function buildCliff(scene) {
     for (let j = 0; j < ny; j++) {
       const y = Math.min(ys[j], top);
       Yv[j * nx + i] = y;
-      D[j * nx + i] = cliffDepth(xs[i], y) * sstep(top, top - 2.5, y) * sstep(0, 6, top);
+      D[j * nx + i] = cliffDepth(xs[i], y) * sstep(top, top - 1.2, y) * sstep(0, 6, top);
     }
   }
   const pos = new Float32Array(nx * ny * 3), nor = new Float32Array(nx * ny * 3), uv = new Float32Array(nx * ny * 2), col = new Float32Array(nx * ny * 3);
@@ -232,7 +256,7 @@ function buildCliff(scene) {
     const s = 3, avg = (at(i - s, j) + at(i + s, j) + at(i, j - s) + at(i, j + s)) / 4;
     const span = Math.max(xs[Math.min(nx - 1, i + s)] - xs[Math.max(0, i - s)], 0.5);
     const spanY = Yv[Math.min(ny - 1, j + s) * nx + i] - Yv[Math.max(0, j - s) * nx + i];
-    const c = span < 1.5 && spanY < 1.5 ? clamp(1 + (d - avg) * 1.9, 0.55, 1.14) : 1;
+    const c = span < 1.5 && spanY < 1.5 ? clamp(1 + (d - avg) * 2.6, 0.42, 1.16) : 1;
     const st = 0.84 + 0.2 * vn(x * 0.22 + 2.0, y * 0.035);                 // 빗물이 흘러내린 세로 얼룩
     col[k * 3] = c * st; col[k * 3 + 1] = c * st * 0.99; col[k * 3 + 2] = c * st * 0.97;
   }
@@ -248,15 +272,15 @@ function buildCliff(scene) {
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
   const t = mat('rock');
-  const m = weatherize(new THREE.MeshStandardMaterial({ color: 0xd2b488, map: t.map, normalMap: t.normalMap, roughness: 0.93, vertexColors: true }));
+  const m = weatherize(new THREE.MeshStandardMaterial({ color: 0xd6b07c, map: t.map, normalMap: t.normalMap, roughness: 0.93, vertexColors: true }));
   const mesh = new THREE.Mesh(g, m);
   mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
   scene.add(mesh);
   // 걸어서 뚫고 들어가지 못하게(아래로 갈수록 앞으로 나온 만큼 계단식으로 막는다)
   const Wc = CLIFF.half + CLIFF.fall;
   for (const [xa, xb] of [[-Wc, 78], [122, Wc]]) {
-    addCollider(xa, 0, CLIFF.z - 8, xb, 12, CLIFF.z + 3.4);
-    addCollider(xa, 12, CLIFF.z - 8, xb, 30, CLIFF.z + 2.2);
+    addCollider(xa, 0, CLIFF.z - 8, xb, 12, CLIFF.z + 4.6);
+    addCollider(xa, 12, CLIFF.z - 8, xb, 30, CLIFF.z + 3.0);
     addCollider(xa, 30, CLIFF.z - 8, xb, 59.6, CLIFF.z + 0.6);
   }
   addCollider(78, 0, CLIFF.z - 8, 122, 59.6, CLIFF.z + 0.25);
