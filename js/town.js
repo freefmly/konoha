@@ -220,7 +220,7 @@ function towerHouse(B, K, s, R, glows) {
 }
 
 /* ---------- 집 자리 잡기: 길 양쪽을 따라 줄지어 세운다 ---------- */
-function planHouses(R) {
+function planHouses(R, mobile) {
   const out = [], lots = Object.values(LOT).map(L => [L.x0 - 2.5, L.z0 - 2.5, L.x1 + 2.5, L.z1 + 2.5]);
   const hit = (a, b, pad = 0) => a[0] < b[2] + pad && a[2] > b[0] - pad && a[1] < b[3] + pad && a[3] > b[1] - pad;
   const ok = r => {
@@ -256,12 +256,12 @@ function planHouses(R) {
         const rect = vert ? [side < 0 ? e - dep : e, a, side < 0 ? e : e + dep, a + wdt] : [a, side < 0 ? e - dep : e, a + wdt, side < 0 ? e : e + dep];
         const front = vert ? (side < 0 ? 'e' : 'w') : (side < 0 ? 's' : 'n');
         add(rect, front, ri === 0);
-        a += wdt + 1.4 + R() * 2.2;
+        a += wdt + (mobile ? 6 : 1.4) + R() * 2.2;   // 폰에서는 집을 성기게 세운다
       }
     }
   });
   // 길에서 물러난 안쪽에도 드문드문
-  for (let i = 0; i < 500 && out.length < 150; i++) {
+  for (let i = 0; i < 500 && out.length < (mobile ? 0 : 150); i++) {
     const x = (R() - 0.5) * 330, z = WALL.cz + (R() - 0.5) * 330, w = 7 + R() * 4, d = 7 + R() * 4, rect = [x, z, x + w, z + d];
     if (out.some(o => hit(rect, o.rect, 4))) continue;
     add(rect, 'nsew'[Math.floor(R() * 4)], false);
@@ -390,12 +390,12 @@ function buildProps(scene, K, R) {
 
 export async function build(scene, ctx) {
   const R = rng(777), K = makeKit(), glows = [];
-  const plan = planHouses(R);
+  const plan = planHouses(R, ctx.mobile);
   // 방향별로 묶어 한 덩어리씩 만든다(등 뒤의 집은 그리지 않게)
   const SECT = 12, groups = Array.from({ length: SECT }, () => []);
   for (const s of plan) {
     const cx = (s.x0 + s.x1) / 2, cz = (s.z0 + s.z1) / 2;
-    s.near = cx > -22 && cx < 22;      // 큰길·광장가의 집은 기와를 곱게
+    s.near = !ctx.mobile && cx > -22 && cx < 22;      // 큰길·광장가의 집은 기와를 곱게
     groups[(Math.floor((cx + 180) / 120) + 3 * Math.floor((cz + 190) / 95)) % SECT].push(s);
   }
   let n = 0;

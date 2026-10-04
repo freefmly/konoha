@@ -223,9 +223,9 @@ function cliffDepth(x, y) {
   return d;
 }
 
-function buildCliff(scene) {
+function buildCliff(scene, mobile) {
   // 얼굴이 있는 가운데는 촘촘하게, 바깥은 성기게 나눈 격자
-  const xs = [], ys = [], FINE = 0.16, X1 = 77, Y0 = 13.5, Y1 = 59.2, W = CLIFF.half + CLIFF.fall + 6;
+  const xs = [], ys = [], FINE = mobile ? 0.26 : 0.16, X1 = 77, Y0 = 13.5, Y1 = 59.2, W = CLIFF.half + CLIFF.fall + 6;
   for (let x = -W; x < -X1; x += 1.5) xs.push(x);
   for (let x = -X1; x < X1; x += FINE) xs.push(x);
   for (let x = X1; x <= W + 0.01; x += 1.5) xs.push(x);
@@ -334,8 +334,8 @@ function buildStairs(scene) {
   B.finish(scene);
 }
 
-export function build(scene) {
-  buildCliff(scene);
+export function build(scene, ctx) {
+  buildCliff(scene, ctx && ctx.mobile);   // 폰에서는 격자를 성기게
   buildStairs(scene);
   const places = HOKAGE.map((h, i) => ({ n: '호카게 바위 꼭대기', t: '발아래가 ' + h.name + '의 얼굴이다.', b: [HEAD_X(i) - 10, HEAD_X(i) + 10, CLIFF.z - 30, CLIFF.z + 1], y: [50, 90] }));
   places.push({ n: '호카게 바위', t: '역대 호카게 일곱 사람의 얼굴. 왼쪽부터 하시라마, 토비라마, 히루젠, 미나토, 츠나데, 카카시, 나루토.', b: [-75, 75, CLIFF.z, CLIFF.z + 14], y: [0, 40] });

@@ -2,9 +2,17 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#12170f">
   <title>나뭇잎 마을</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <!-- 홈 화면에 추가해서 열면 주소 표시줄 없이 화면 전체로 뜬다 -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="나뭇잎 마을">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -54,7 +62,13 @@
           <div id="jumpBtns" class="tags"></div>
         </section>
 
-        <footer>
+        <footer class="touch-only">
+          <span><kbd>화면 왼쪽</kbd> 누른 채 밀면 걷기</span>
+          <span><kbd>더 멀리 밀기</kbd> 달리기</span>
+          <span><kbd>화면 오른쪽</kbd> 끌어서 둘러보기</span>
+          <span><kbd>↑ 단추</kbd> 뛰기</span>
+        </footer>
+        <footer class="pc-only">
           <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 걷기</span>
           <span><kbd>마우스</kbd> 둘러보기</span>
           <span><kbd>Shift</kbd> 달리기</span>
@@ -71,6 +85,16 @@
 
   <!-- 걷는 동안 -->
   <div id="hud" class="hidden">
+    <!-- 터치 조작판: 닿은 자리에 조이스틱이 나타난다 -->
+    <div id="touch">
+      <div id="stick"><i id="knob"></i></div>
+      <button id="btnJump" aria-label="뛰기"><svg viewBox="0 0 24 24"><path d="M12 19V6M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="tbar">
+        <button id="btnWeather">맑음</button>
+        <button id="btnWind">바람 산들</button>
+        <button id="btnMenu" aria-label="메뉴"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
     <div id="placeCard">
       <b id="placeName"></b>
       <p id="placeText"></p>
@@ -81,6 +105,9 @@
     </div>
     <div class="aim"></div>
   </div>
+
+  <!-- 세로로 들었을 때 -->
+  <div id="rotate"><div class="phone"></div><p>폰을 가로로 돌려 주세요</p></div>
 
   <svg width="0" height="0" style="position:absolute">
     <defs>

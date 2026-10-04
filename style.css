@@ -91,3 +91,57 @@ kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--li
 .status i { font-style: normal; opacity: .6; font-size: 11px; }
 .status b { font: 700 13px var(--serif); }
 .aim { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 1px rgba(0, 0, 0, .4); }
+
+/* ============================================================
+   스마트폰(터치) — 가로로 든 화면 기준. body.touch 일 때만 먹는다.
+   ============================================================ */
+.touch-only, #touch, #rotate { display: none; }
+body.touch { position: fixed; left: 0; top: 0; width: var(--W, 100%); height: var(--H, 100%); overflow: hidden; overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+body.touch #view, body.touch #hud, body.touch #loading, body.touch #menu, body.touch #rotate { inset: auto; left: 0; top: 0; width: var(--W, 100%); height: var(--H, 100%); }
+body.touch #view { touch-action: none; }
+body.touch .pc-only, body.touch .status, body.touch .aim, body.touch .wxrow kbd { display: none; }
+body.touch .sheet footer.touch-only { display: flex; }
+
+/* 조작판: 조이스틱은 닿아 있을 때만 붓으로 그린 고리처럼 비친다 */
+body.touch #touch { display: block; position: absolute; inset: 0; pointer-events: auto; touch-action: none; }
+#stick { position: absolute; width: 116px; height: 116px; margin: -58px; border-radius: 50%; border: 3px solid rgba(239, 229, 207, .55); background: rgba(29, 26, 22, .18); opacity: 0; transition: opacity .15s; pointer-events: none; }
+#stick.on { opacity: 1; }
+#stick.run { border-color: rgba(179, 53, 42, .9); }
+#knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px; border-radius: 50%; background: rgba(239, 229, 207, .6); box-shadow: 0 2px 6px rgba(0, 0, 0, .3); }
+#stick.run #knob { background: rgba(179, 53, 42, .85); }
+#touch button { pointer-events: auto; touch-action: none; font: 700 13px var(--serif); color: var(--paper); background: rgba(29, 26, 22, .62); border: 1px solid rgba(239, 229, 207, .35); border-radius: 4px; }
+#touch button:active { background: var(--red); }
+#btnJump { position: absolute; right: calc(env(safe-area-inset-right) + 26px); bottom: calc(env(safe-area-inset-bottom) + 30px); width: 64px; height: 64px; border-radius: 50% !important; display: grid; place-items: center; }
+#btnJump svg { width: 28px; height: 28px; }
+.tbar { position: absolute; right: calc(env(safe-area-inset-right) + 12px); top: calc(env(safe-area-inset-top) + 12px); display: flex; gap: 6px; }
+.tbar button { height: 38px; padding: 0 12px; display: grid; place-items: center; }
+.tbar svg { width: 20px; height: 20px; }
+
+/* 자리 이름: 폰에서는 이름만 작게 */
+body.touch #placeCard { left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 12px); padding: 6px 12px 7px 12px; max-width: 46vw; }
+body.touch #placeCard b { font-size: 15px; }
+body.touch #placeCard p { display: none; }
+
+/* 두루마리: 낮은 가로 화면에 맞춰 넓고 촘촘하게, 안에서 위아래로 민다 */
+body.touch #menu { padding-left: calc(env(safe-area-inset-left) + 14px); }
+body.touch .scroll { width: min(600px, calc(var(--W, 100vw) - 28px)); max-height: calc(var(--H, 100vh) - 16px); }
+body.touch .sheet { padding: 14px 20px 12px; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+body.touch .sheet h1 { font-size: 26px; }
+body.touch .leafmark { width: 38px; height: 38px; }
+body.touch .seal { width: 36px; height: 36px; font-size: 21px; }
+body.touch .lede { display: none; }
+body.touch .sheet .enter { margin-top: 12px; padding: 11px 16px; font-size: 16px; }
+body.touch .sheet section { margin-top: 12px; }
+body.touch .wxrow button { padding: 8px 4px 7px; gap: 4px; }
+body.touch .wx { transform: scale(.8); margin: -3px; }
+body.touch .tags button { padding: 7px 11px; }
+body.touch .sheet footer { margin-top: 12px; padding-top: 10px; }
+
+/* 세로로 들었을 때 */
+@media (orientation: portrait) {
+  body.touch #rotate { display: grid; position: fixed; z-index: 40; place-content: center; justify-items: center; gap: 20px; background: rgba(18, 23, 15, .97); color: #dfe6cf; font: 500 15px var(--serif); }
+  #rotate .phone { width: 46px; height: 78px; border: 3px solid #8fbf6a; border-radius: 9px; animation: turn 2.2s ease-in-out infinite; }
+  #rotate p { margin: 0; }
+}
+@keyframes turn { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
+.sheet footer.touch-only { display: none; }

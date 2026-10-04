@@ -124,7 +124,7 @@ function instanced(scene, geo, material, mats, shadow = true) {
 const inRect = (x, z, r, pad) => x > r[0] - pad && x < r[2] + pad && z > r[1] - pad && z < r[3] + pad;
 
 export async function build(scene, ctx) {
-  const R = rng(4242);
+  const R = rng(4242), MB = ctx.mobile;   // 폰에서는 나무·풀을 줄인다
   let rects = [];
   try { rects = (await import('./town.js')).RECTS || []; } catch (e) { /* 거리가 아직 없으면 빈 땅에 심는다 */ }
   const lots = Object.values(LOT).map(L => [L.x0, L.z0, L.x1, L.z1]);
@@ -143,7 +143,7 @@ export async function build(scene, ctx) {
   const addBig = (x, z, s, k = Math.floor(R() * 3)) => { bigM[k].push(place(x, z, s)); const r = 0.5 * s; addCollider(x - r, 0, z - r, x + r, 6, z + r); };
   let tries = 0;
   const spots = [];
-  while (spots.length < 38 && tries++ < 6000) {
+  while (spots.length < (MB ? 20 : 38) && tries++ < 6000) {
     const x = (R() - 0.5) * 350, z = WALL.cz + (R() - 0.5) * 350;
     if (!inVillage(x, z) || !free(x, z, 4.2) || spots.some(s => Math.hypot(s[0] - x, s[1] - z) < 11)) continue;
     spots.push([x, z]); addBig(x, z, 0.8 + R() * 0.45);
@@ -173,7 +173,7 @@ export async function build(scene, ctx) {
   const addFar = (x, z, s) => { const k = Math.floor(R() * 3), sec = Math.floor(((Math.atan2(z - WALL.cz, x - WALL.cx) + Math.PI) / (Math.PI * 2)) * SECT) % SECT; farM[sec * 3 + k].push(place(x, z, s)); if (Math.hypot(x, z) < 262) addCollider(x - 0.45, terrainH(x, z) - 1, z - 0.45, x + 0.45, terrainH(x, z) + 6, z + 0.45); };
   tries = 0; let nFar = 0;
   const farSpots = [];
-  while (nFar < 175 && tries++ < 9000) {
+  while (nFar < (MB ? 80 : 175) && tries++ < 9000) {
     const a = R() * Math.PI * 2, r = WALL.r + 9 + R() * 95, x = WALL.cx + Math.cos(a) * r, z = WALL.cz + Math.sin(a) * r;
     if (z < CLIFF.z + 6 && Math.abs(x) < CLIFF.half + CLIFF.fall) continue;       // 절벽 앞면
     if (z > 150 && Math.abs(x) < 12) continue;                                     // 정문 앞길
@@ -181,7 +181,7 @@ export async function build(scene, ctx) {
     farSpots.push([x, z]); addFar(x, z, 1.0 + R() * 0.6); nFar++;
   }
   tries = 0; let nTop = 0;
-  while (nTop < 36 && tries++ < 3000) {
+  while (nTop < (MB ? 16 : 36) && tries++ < 3000) {
     const x = (R() - 0.5) * 2 * (CLIFF.half + 20), z = CLIFF.z - 9 - R() * 95;
     if (Math.abs(x - 83) < 9 && z > CLIFF.z - 22) continue;                        // 계단을 올라온 자리
     if (farSpots.some(s => Math.hypot(s[0] - x, s[1] - z) < 9)) continue;
@@ -192,7 +192,7 @@ export async function build(scene, ctx) {
   // 덤불: 집 담 밑과 길가
   const bush = [bushGeometry(5, 1), bushGeometry(9, 1.3)], bushM = [[], []];
   tries = 0; let nb = 0;
-  while (nb < 80 && tries++ < 6000) {
+  while (nb < (MB ? 30 : 80) && tries++ < 6000) {
     const x = (R() - 0.5) * 340, z = WALL.cz + (R() - 0.5) * 340;
     if (!inVillage(x, z) || !free(x, z, 0.9)) continue;
     const nearWall = rects.some(r => inRect(x, z, r, 2.6)) || ROADS.some(r => inRect(x, z, r, 3));
@@ -205,7 +205,7 @@ export async function build(scene, ctx) {
   // 풀포기: 풀밭 여기저기
   const tuft = tuftGeometry(3), tuftM = [];
   tries = 0;
-  while (tuftM.length < 2600 && tries++ < 30000) {
+  while (tuftM.length < (MB ? 700 : 2600) && tries++ < 30000) {
     const x = (R() - 0.5) * 360, z = WALL.cz + (R() - 0.5) * 360;
     if (!inVillage(x, z) || !free(x, z, 0.5)) continue;
     tuftM.push(place(x, z, 0.8 + R() * 1.1));

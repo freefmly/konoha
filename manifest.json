@@ -1,0 +1,14 @@
+{
+  "name": "나뭇잎 마을",
+  "short_name": "나뭇잎 마을",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#12170f",
+  "theme_color": "#12170f",
+  "icons": [
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

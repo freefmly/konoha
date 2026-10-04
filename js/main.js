@@ -10,6 +10,9 @@ import { buildVillage, terrainH } from './village.js';
 const $ = s => document.querySelector(s);
 const tick = () => new Promise(r => setTimeout(r, 0));
 const Q = new URLSearchParams(location.search);
+// 터치 기기(스마트폰)인가. 확인용으로 ?touch=1 / ?touch=0 로 강제할 수 있다.
+const TOUCH = Q.get('touch') ? Q.get('touch') === '1' : matchMedia('(pointer: coarse)').matches;
+document.body.classList.toggle('touch', TOUCH);
 
 // 따로 짓는 건물들. 하나가 고장 나도 나머지는 뜨게 하나씩 불러온다.
 const BUILDINGS = [
@@ -21,7 +24,9 @@ async function init() {
   const say = async t => { $('#loadText').textContent = t; await tick(); await tick(); };
   const canvas = $('#view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  // 폰은 화면 점이 아주 촘촘해서 다 그리면 PC보다 점이 많아진다 → 낮춰 그리고, 느려지면 더 낮춘다
+  let pixelRatio = Math.min(devicePixelRatio, TOUCH ? 1.3 : 1.5);
+  renderer.setPixelRatio(pixelRatio);
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.autoUpdate = false;        // 필요할 때만 다시 그린다(weather.shadowDirty)
@@ -36,6 +41,7 @@ async function init() {
   createMaterials();
   const cover = new Cover(renderer, 0, -10, 500);
   const weather = new Weather(scene, renderer, camera, cover);
+  if (TOUCH) weather.sun.shadow.mapSize.set(2048, 2048);   // 폰은 그림자 지도를 작게
 
   const places = [], jumps = [], lights = [], glows = [], skip = [...weather.skip], ticks = [];
   const take = r => {
@@ -44,7 +50,7 @@ async function init() {
     glows.push(...(r.glows || [])); skip.push(...(r.skip || [])); if (r.tick) ticks.push(r.tick);
   };
   const only = Q.get('only');   // 확인용: ?only=hokage 처럼 주면 그 건물만 짓는다(마을 채움 건물·숲은 생략)
-  const ctx = { LOT, renderer, say, lite: !!only && only !== 'none', part: Q.get('part') };   // only=none: 필수 건물 없이 마을만
+  const ctx = { LOT, renderer, say, lite: !!only && only !== 'none', part: Q.get('part'), mobile: TOUCH };   // only=none: 필수 건물 없이 마을만
   for (const [name, msg] of BUILDINGS) {
     if (only && only !== name) continue;
     await say(msg);
@@ -71,6 +77,7 @@ async function init() {
   weather.shadowDirty = true;
 
   const player = new Player(camera, canvas, terrainH);
+  player.touchMode = TOUCH;
   const sound = new Sound();
   weather.onThunder = d => sound.thunder(d);
   const START = [0, 0, 150, 0];
@@ -83,12 +90,12 @@ async function init() {
   const setWeather = (type, instant) => {
     weatherType = type; weather.set(type, instant);
     document.querySelectorAll('[data-weather]').forEach(b => b.classList.toggle('on', b.dataset.weather === type));
-    $('#wxNow').textContent = WEATHERS.find(w => w[0] === type)[1];
+    $('#wxNow').textContent = $('#btnWeather').textContent = WEATHERS.find(w => w[0] === type)[1];
   };
   const setWind = lv => {
     windLevel = lv; weather.setWind(lv);
     document.querySelectorAll('[data-wind]').forEach(b => b.classList.toggle('on', +b.dataset.wind === lv));
-    $('#windNow').textContent = WIND[lv];
+    $('#windNow').textContent = WIND[lv]; $('#btnWind').textContent = '바람 ' + WIND[lv];
   };
   const WX_NAME = { clear: '맑은 날', cloudy: '구름 낀 날', rain: '비 오는 날', snow: '눈 오는 날' };
   $('#weatherBtns').innerHTML = WEATHERS.map(([k], i) => `<button data-weather="${k}"><i class="wx wx-${k}"></i><span>${WX_NAME[k]}</span><kbd>${i + 1}</kbd></button>`).join('');
@@ -115,8 +122,58 @@ async function init() {
     if (e.code === 'KeyM') setMute(!sound.muted);
     if (e.code === 'KeyB') setWind((windLevel + 1) % 3);
   });
-  const fit = () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); };
+  // 화면 크기 맞추기. 폰은 홈 화면에서 열거나 돌릴 때 처음 알려 주는 크기가 틀릴 때가 있어, 직접 재서 모든 겹에 똑같이 적용하고 매 장면마다 바뀌었는지 다시 본다.
+  let viewW = 0, viewH = 0;
+  const fit = () => {
+    viewW = innerWidth; viewH = innerHeight;
+    renderer.setSize(viewW, viewH); camera.aspect = viewW / viewH; camera.updateProjectionMatrix();
+    document.documentElement.style.setProperty('--W', viewW + 'px'); document.documentElement.style.setProperty('--H', viewH + 'px');
+    if (TOUCH) scrollTo(0, 0);
+  };
+  fit();
   addEventListener('resize', fit);
+  addEventListener('orientationchange', () => setTimeout(fit, 300));
+
+  /* ---------- 터치 조작: 왼쪽은 이동 조이스틱(닿은 자리에 나타남), 오른쪽은 끌어서 둘러보기 ---------- */
+  if (TOUCH) {
+    const pad = $('#touch'), stick = $('#stick'), knob = $('#knob'), RAD = 58;
+    let moveId = null, lookId = null, ox = 0, oy = 0, lx = 0, ly = 0;
+    const endMove = () => { moveId = null; player.touch.x = player.touch.z = 0; player.touch.run = false; stick.classList.remove('on', 'run'); };
+    pad.addEventListener('pointerdown', e => {
+      if (!player.locked) return;
+      e.preventDefault();
+      if (e.clientX < innerWidth * 0.45 && moveId === null) {
+        moveId = e.pointerId; ox = e.clientX; oy = e.clientY;
+        stick.style.left = ox + 'px'; stick.style.top = oy + 'px'; knob.style.transform = '';
+        stick.classList.add('on');
+      } else if (lookId === null) { lookId = e.pointerId; lx = e.clientX; ly = e.clientY; }
+    });
+    pad.addEventListener('pointermove', e => {
+      if (e.pointerId === moveId) {
+        let dx = e.clientX - ox, dy = e.clientY - oy;
+        const d = Math.hypot(dx, dy), run = d > RAD * 1.5;                 // 고리 밖까지 밀면 달린다
+        if (d > RAD) { dx *= RAD / d; dy *= RAD / d; }
+        const live = d < 8 ? 0 : 1;
+        player.touch.x = dx / RAD * live; player.touch.z = dy / RAD * live; player.touch.run = run;
+        knob.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
+        stick.classList.toggle('run', run);
+      } else if (e.pointerId === lookId) {
+        player.look(e.clientX - lx, e.clientY - ly, 0.0046);
+        lx = e.clientX; ly = e.clientY;
+      }
+    });
+    const up = e => { if (e.pointerId === moveId) endMove(); if (e.pointerId === lookId) lookId = null; };
+    pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up);
+    const tap = (sel, fn) => $(sel).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); });
+    tap('#btnJump', () => { player.jumpQueued = true; });
+    tap('#btnWeather', () => setWeather(WEATHERS[(WEATHERS.findIndex(w => w[0] === weatherType) + 1) % WEATHERS.length][0]));
+    tap('#btnWind', () => setWind((windLevel + 1) % 3));
+    tap('#btnMenu', () => { endMove(); lookId = null; player.unlock(); });
+    // 화면이 끌려 움직이거나 두 손가락으로 커지지 않게
+    for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault());
+    $('#hud').addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+    document.addEventListener('contextmenu', e => e.preventDefault());
+  }
   setWeather(Q.get('w') || 'clear', true);
   setWind(Q.get('wind') ? +Q.get('wind') : 1);
 
@@ -145,13 +202,25 @@ async function init() {
 
   /* ---------- 돌리기 ---------- */
   const clock = new THREE.Clock();
-  let hudT = 0, lampT = 0, lastPlace = undefined, orbit = 0, indoor = 0;
+  let hudT = 0, lampT = 0, lastPlace = undefined, orbit = 0, indoor = 0, fpsN = 0, fpsT = 0, lastDraw = 0;
   const area = q => (q.b[1] - q.b[0]) * (q.b[3] - q.b[2]);
   places.sort((a, b) => area(a) - area(b));     // 좁은 자리(방)가 넓은 자리(마을)보다 먼저
   function frame() {
     requestAnimationFrame(frame);
+    if (innerWidth !== viewW || innerHeight !== viewH) fit();
+    // 폰: 걷는 동안은 초당 60장까지만, 메뉴가 떠 있는 동안은 20장만 그린다(발열·배터리)
+    if (TOUCH) {
+      const now = performance.now(), gap = player.locked ? 1000 / 60 : 1000 / 20;
+      if (now - lastDraw < gap - 2) return;
+      lastDraw = now;
+    }
     if (weather.shadowDirty) { renderer.shadowMap.needsUpdate = true; weather.shadowDirty = false; }
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
+    // 폰이 버거워하면(초당 40장 밑) 그리는 해상도를 한 단계씩 낮춘다. 다시 올리지는 않는다.
+    if (TOUCH && started && player.locked) {
+      fpsN++; fpsT += raw;
+      if (fpsT > 4) { if (fpsN / fpsT < 40 && pixelRatio > 0.8) { pixelRatio = Math.max(0.75, pixelRatio * 0.84); renderer.setPixelRatio(pixelRatio); fit(); } fpsN = fpsT = 0; }
+    } else fpsN = fpsT = 0;
     if (started) { if (!Q.get('fly')) player.update(dt); }
     else { // 들어가기 전: 정문 위에서 호카게 바위 쪽을 천천히 훑는 화면
       orbit += dt * 0.04;
