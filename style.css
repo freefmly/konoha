@@ -1,0 +1,93 @@
+/* 나뭇잎 마을 — 먹과 종이. 메뉴는 펼친 두루마리, 걷는 동안의 표시는 종이 띠와 붉은 낙관. */
+:root {
+  --paper: #efe5cf; --paper-2: #e4d6b8; --ink: #1d1a16; --ink-2: #5b5246;
+  --red: #b3352a; --leaf: #3c6a30; --wood: #4a2f1f; --line: rgba(29, 26, 22, .18);
+  --serif: "Noto Serif KR", "Nanum Myeongjo", "Batang", "Yu Mincho", serif;
+  --sans: "Pretendard", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1410; color: var(--ink); font-family: var(--sans); }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hidden { display: none !important; }
+kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: rgba(255, 255, 255, .45); color: var(--ink); }
+
+.leafmark { width: 54px; height: 54px; color: var(--leaf); flex: none; }
+
+/* 짓는 동안 */
+#loading { position: fixed; inset: 0; display: grid; place-content: center; justify-items: center; gap: 18px; background: #12170f; color: #dfe6cf; z-index: 30; }
+#loading .leafmark { width: 84px; height: 84px; color: #8fbf6a; }
+#loading p { margin: 0; font: 500 15px var(--serif); letter-spacing: .04em; }
+.spin { animation: spin 2.6s linear infinite; }
+@keyframes spin { to { transform: rotate(-360deg); } }
+
+/* 두루마리 */
+#menu { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; padding-left: clamp(16px, 6vw, 96px);
+  background: linear-gradient(90deg, rgba(10, 14, 9, .62), rgba(10, 14, 9, .18) 55%, rgba(10, 14, 9, 0)); }
+.scroll { width: min(460px, calc(100vw - 32px)); max-height: calc(100vh - 32px); display: flex; flex-direction: column; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .45)); }
+.rod { height: 16px; margin: 0 -12px; border-radius: 8px; background: linear-gradient(#6b4630, var(--wood) 55%, #2c1b11); position: relative; flex: none; }
+.rod::before, .rod::after { content: ""; position: absolute; top: -3px; width: 12px; height: 22px; border-radius: 4px; background: linear-gradient(#b98a3c, #7a5622); }
+.rod::before { left: -4px; } .rod::after { right: -4px; }
+.sheet { overflow-y: auto; padding: 26px 28px 20px; background:
+    radial-gradient(120% 80% at 20% 0%, rgba(255, 255, 255, .5), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(120, 96, 60, .05) 0 2px, transparent 2px 5px), var(--paper);
+  border-left: 5px solid var(--paper-2); border-right: 5px solid var(--paper-2); }
+.sheet header { display: flex; align-items: center; gap: 14px; }
+.sheet .over { margin: 0 0 2px; font: 500 12px var(--serif); letter-spacing: .32em; color: var(--ink-2); }
+.sheet h1 { margin: 0; font: 900 38px/1.1 var(--serif); letter-spacing: -.01em; }
+.seal { margin-left: auto; width: 46px; height: 46px; display: grid; place-items: center; font: 900 27px var(--serif); color: var(--paper); background: var(--red);
+  border-radius: 7px; transform: rotate(-4deg); box-shadow: inset 0 0 0 2px var(--red), inset 0 0 0 3.5px rgba(239, 229, 207, .7); }
+.lede { margin: 16px 0 18px; font: 400 14px/1.7 var(--sans); color: var(--ink-2); }
+
+.sheet .enter { width: 100%; padding: 15px 18px; border: 0; cursor: pointer; font: 800 18px var(--serif); letter-spacing: .06em; color: var(--paper); background: var(--ink);
+  border-radius: 3px; position: relative; transition: transform .12s, background .12s; }
+.enter::after { content: "入"; position: absolute; right: 14px; top: 50%; translate: 0 -50%; width: 28px; height: 28px; display: grid; place-items: center; font-size: 16px; background: var(--red); border-radius: 4px; }
+.enter:hover { background: #2c2720; transform: translateY(-1px); }
+.enter:active { transform: translateY(1px); }
+
+.sheet section { margin-top: 20px; }
+.sheet section.two { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+.sheet h2 { margin: 0 0 8px; font: 700 12px var(--serif); letter-spacing: .22em; color: var(--ink-2); display: flex; align-items: center; gap: 8px; }
+.sheet h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+.sheet button { font-family: var(--sans); color: var(--ink); }
+.wxrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.wxrow button { position: relative; padding: 12px 4px 9px; display: grid; justify-items: center; gap: 7px; cursor: pointer; background: rgba(255, 255, 255, .35); border: 1px solid var(--line); border-radius: 4px; font-size: 12.5px; font-weight: 600; transition: background .12s, border-color .12s; }
+.wxrow button:hover { background: rgba(255, 255, 255, .7); }
+.wxrow button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.wxrow kbd { position: absolute; top: 4px; right: 4px; font-size: 9px; padding: 2px 4px; opacity: .7; }
+.wxrow button.on kbd { background: rgba(255, 255, 255, .15); color: var(--paper); border-color: rgba(255, 255, 255, .3); }
+/* 날씨 그림: 붓으로 찍은 듯한 작은 표식 */
+.wx { width: 30px; height: 30px; position: relative; display: block; }
+.wx-clear::before { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 4px rgba(179, 53, 42, .22); }
+.wx-cloudy::before, .wx-rain::before, .wx-snow::before { content: ""; position: absolute; left: 3px; right: 3px; top: 9px; height: 11px; border-radius: 9px; background: currentColor; opacity: .85; box-shadow: 6px -5px 0 -1px currentColor; }
+.wx-rain::before, .wx-snow::before { top: 4px; }
+.wx-rain::after { content: ""; position: absolute; left: 7px; top: 18px; width: 2px; height: 9px; background: currentColor; transform: skewX(-18deg); box-shadow: 7px 0 0 currentColor, 14px 0 0 currentColor; }
+.wx-snow::after { content: ""; position: absolute; left: 7px; top: 20px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; box-shadow: 8px 3px 0 currentColor, 15px -1px 0 currentColor; }
+
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+.seg button { padding: 9px 0; border: 0; background: rgba(255, 255, 255, .35); cursor: pointer; font-size: 13px; font-weight: 600; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--leaf); color: #f3f6ea; }
+.toggle { width: 100%; padding: 9px 0; border: 1px solid var(--line); border-radius: 4px; background: rgba(255, 255, 255, .35); cursor: pointer; font-size: 13px; font-weight: 600; }
+.toggle.on { background: var(--leaf); color: #f3f6ea; border-color: var(--leaf); }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, .4); cursor: pointer; font-size: 12.5px; transition: background .12s, color .12s; }
+.tags button:hover { background: var(--red); color: var(--paper); border-color: var(--red); }
+
+.sheet footer { margin-top: 20px; padding-top: 14px; border-top: 1px dashed var(--line); display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 12px; color: var(--ink-2); }
+.sheet footer span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 걷는 동안 */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+#placeCard { position: absolute; left: 22px; top: 22px; max-width: 360px; padding: 10px 16px 11px 18px; background: rgba(239, 229, 207, .9); border-left: 5px solid var(--red); box-shadow: 0 6px 18px rgba(0, 0, 0, .25); }
+#placeCard b { display: block; font: 900 20px/1.2 var(--serif); }
+#placeCard p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--ink-2); }
+#placeCard p:empty { display: none; }
+#placeCard.flash { animation: unroll .5s ease-out; }
+@keyframes unroll { from { clip-path: inset(0 100% 0 0); opacity: .4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
+.status { position: absolute; right: 22px; top: 22px; display: flex; gap: 6px; }
+.status span { display: flex; align-items: baseline; gap: 6px; padding: 6px 10px; background: rgba(29, 26, 22, .72); color: var(--paper); border-radius: 3px; font-size: 12px; }
+.status i { font-style: normal; opacity: .6; font-size: 11px; }
+.status b { font: 700 13px var(--serif); }
+.aim { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 1px rgba(0, 0, 0, .4); }
