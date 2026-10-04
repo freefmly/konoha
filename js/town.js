@@ -60,21 +60,22 @@ function fakeWindow(K, f, u, y, w, h, R, opts = {}) {
 }
 // 닫힌 널문
 function fakeDoor(K, f, u, w = 1.15, h = 2.15) {
-  f(K.door, u, h / 2 + 0.05, 0.03, w, h, 0.06);
-  f(K.wood, u, h + 0.1, 0.06, w + 0.24, 0.1, 0.14); f(K.wood, u - w / 2 - 0.06, h / 2 + 0.05, 0.06, 0.12, h + 0.1, 0.14); f(K.wood, u + w / 2 + 0.06, h / 2 + 0.05, 0.06, 0.12, h + 0.1, 0.14);
-  f(K.wood, u, h * 0.5, 0.065, w, 0.05, 0.02); f(K.wood, u, h * 0.82, 0.065, w, 0.05, 0.02);
-  f(M.iron, u + w / 2 - 0.14, 1.05, 0.09, 0.05, 0.16, 0.05);
+  // 문짝·문틀은 돌 기단(벽에서 0.06~0.1 나옴)보다 확실히 앞에 둔다 — 한 평면에 겹치면 문 아래쪽이 깜빡인다
+  f(K.door, u, h / 2 + 0.05, 0.065, w, h, 0.13);
+  f(K.wood, u, h + 0.1, 0.09, w + 0.24, 0.1, 0.18); f(K.wood, u - w / 2 - 0.06, h / 2 + 0.05, 0.09, 0.12, h + 0.1, 0.18); f(K.wood, u + w / 2 + 0.06, h / 2 + 0.05, 0.09, 0.12, h + 0.1, 0.18);
+  f(K.wood, u, h * 0.5, 0.14, w, 0.05, 0.03); f(K.wood, u, h * 0.82, 0.14, w, 0.05, 0.03);
+  f(M.iron, u + w / 2 - 0.14, 1.05, 0.16, 0.05, 0.16, 0.05);
   f(K.stone, u, 0.05, 0.35, w + 0.5, 0.1, 0.7);
 }
 // 가게 앞: 어두운 가게 안, 격자 미닫이, 포렴, 기와 차양, 간판, 등롱
 function shopFront(B, K, f, u, w, tile, name, R, glows) {
   const h = 2.5;
-  f(K.dark, u, h / 2 + 0.05, 0.02, w, h, 0.04);
-  f(K.wood, u, h + 0.12, 0.07, w + 0.3, 0.14, 0.16); f(K.wood, u - w / 2 - 0.08, h / 2, 0.07, 0.16, h + 0.1, 0.16); f(K.wood, u + w / 2 + 0.08, h / 2, 0.07, 0.16, h + 0.1, 0.16);
+  f(K.dark, u, h / 2 + 0.05, 0.06, w, h, 0.13);
+  f(K.wood, u, h + 0.12, 0.1, w + 0.3, 0.14, 0.2); f(K.wood, u - w / 2 - 0.08, h / 2, 0.1, 0.16, h + 0.1, 0.2); f(K.wood, u + w / 2 + 0.08, h / 2, 0.1, 0.16, h + 0.1, 0.2);
   // 한쪽은 격자 미닫이
   const lw = w * 0.36, lu = u - w / 2 + lw / 2;
-  for (let i = 0; i <= 8; i++) f(K.woodL, lu - lw / 2 + lw * i / 8, h / 2 + 0.05, 0.06, 0.035, h, 0.04);
-  for (const yy of [0.12, h * 0.4, h * 0.75, h]) f(K.woodL, lu, yy, 0.06, lw, 0.05, 0.045);
+  for (let i = 0; i <= 8; i++) f(K.woodL, lu - lw / 2 + lw * i / 8, h / 2 + 0.05, 0.15, 0.035, h, 0.04);
+  for (const yy of [0.12, h * 0.4, h * 0.75, h]) f(K.woodL, lu, yy, 0.15, lw, 0.05, 0.045);
   f(K.stone, u, 0.05, 0.4, w + 0.6, 0.1, 0.8);
   // 기와 차양과 까치발
   const d = 1.25, ya = 3.25, yb = 2.75, o = f.world(u - w / 2 - 0.5, yb, d), Vv = f.ndir.clone().multiplyScalar(-d).add(V(0, ya - yb, 0));
@@ -377,10 +378,10 @@ function buildProps(scene, K, R) {
   const barrelG = new THREE.LatheGeometry(prof, 16), hoopG = new THREE.TorusGeometry(0.31, 0.014, 5, 16); hoopG.rotateX(Math.PI / 2);
   const lidG = new THREE.CircleGeometry(0.28, 16); lidG.rotateX(-Math.PI / 2);
   const barrel = (x, z) => { B.geo(K.door, barrelG, mat4(x, 0, z)); B.geo(K.door, lidG, mat4(x, 0.82, z)); for (const y of [0.16, 0.42, 0.68]) B.geo(M.iron, hoopG, mat4(x, y, z, 0, 0, 0, y === 0.42 ? 1.1 : 1.0)); addCollider(x - 0.3, 0, z - 0.3, x + 0.3, 0.85, z + 0.3); };
-  const crate = (x, z, s) => { B.box(K.woodL, x - s / 2, 0, z - s / 2, x + s / 2, s, z + s / 2); for (const y of [0.06, s - 0.06]) B.box(K.wood, x - s / 2 - 0.015, y - 0.04, z - s / 2 - 0.015, x + s / 2 + 0.015, y + 0.04, z + s / 2 + 0.015, false); };
+  const crate = (x, z, s) => { B.box(K.woodL, x - s / 2, 0, z - s / 2, x + s / 2, s, z + s / 2); for (const y of [0.08, s - 0.06]) B.box(K.wood, x - s / 2 - 0.015, y - 0.04, z - s / 2 - 0.015, x + s / 2 + 0.015, y + 0.04, z + s / 2 + 0.015, false); };
   for (const r of RECTS) {
     if (R() > 0.3) continue;
-    const x = R() < 0.5 ? r[0] - 0.5 : r[2] + 0.5, z = r[1] + 1 + R() * (r[3] - r[1] - 2);
+    const x = R() < 0.5 ? r[0] - 0.57 : r[2] + 0.57, z = r[1] + 1 + R() * (r[3] - r[1] - 2);
     if (ROADS.some(d => x > d[0] - 0.4 && x < d[2] + 0.4 && z > d[1] - 0.4 && z < d[3] + 0.4)) continue;
     barrel(x, z); if (R() < 0.6) barrel(x, z + 0.68); if (R() < 0.5) crate(x, z - 0.8, 0.6);
   }

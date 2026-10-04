@@ -336,7 +336,9 @@ export function doorUnit(B, axis, f0, f1, u0, u1, y0, y1, opts = {}) {
   const { frame = M.beam, leaf = 'swing', leafMat = M.beamLight, inward = 1, t = 0.09, paper = false } = opts;
   const g0 = Math.min(f0, f1) - 0.03, g1 = Math.max(f0, f1) + 0.03;
   const bx = (m, a, b, ya, yb, p0, p1, col = false) => (axis === 'x' ? B.box(m, a, ya, p0, b, yb, p1, col) : B.box(m, p0, ya, a, p1, yb, b, col));
-  bx(frame, u0 - t, u0, y0, y1 + t, g0, g1); bx(frame, u1, u1 + t, y0, y1 + t, g0, g1); bx(frame, u0 - t, u1 + t, y1, y1 + t, g0, g1);
+  // 틀은 구멍 안쪽으로 조금 들어온다(벽 구멍의 옆면·윗면과 한 평면에 겹치면 깜빡인다)
+  const lap = 0.02;
+  bx(frame, u0 - t, u0 + lap, y0, y1 + t, g0, g1); bx(frame, u1 - lap, u1 + t, y0, y1 + t, g0, g1); bx(frame, u0 - t, u1 + t, y1 - lap, y1 + t, g0, g1);
   const w = u1 - u0, edge = inward > 0 ? Math.max(f0, f1) : Math.min(f0, f1);
   if (leaf === 'swing') {         // 문설주(u0)에 달려 벽과 직각으로 열려 있다
     const p0 = Math.min(edge, edge + inward * w), p1 = Math.max(edge, edge + inward * w);

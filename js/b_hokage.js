@@ -229,10 +229,10 @@ function ringWall(B, cx, cz, rIn, rOut, y0, y1, wins, wy0, wy1, extra = [], nx =
 }
 // 둥근 벽의 문틀
 function roundDoorFrame(B, cx, cz, rIn, rOut, a, half, y0, y1) {
-  const o = { collide: false }, t = 0.09 / rIn;
-  roundWall(B, M.beam, cx, cz, rIn - 0.03, rOut + 0.04, y0, y1 + 0.1, [], { ...o, a0: a - half - t, a1: a - half });
-  roundWall(B, M.beam, cx, cz, rIn - 0.03, rOut + 0.04, y0, y1 + 0.1, [], { ...o, a0: a + half, a1: a + half + t });
-  roundWall(B, M.beam, cx, cz, rIn - 0.03, rOut + 0.04, y1, y1 + 0.1, [], { ...o, a0: a - half, a1: a + half });
+  const o = { collide: false }, t = 0.09 / rIn, lap = 0.02 / rIn;   // 틀은 구멍 안쪽으로 조금 들어온다(구멍 옆면·윗면과 한 평면이면 깜빡인다)
+  roundWall(B, M.beam, cx, cz, rIn - 0.03, rOut + 0.04, y0, y1 + 0.1, [], { ...o, a0: a - half - t, a1: a - half + lap });
+  roundWall(B, M.beam, cx, cz, rIn - 0.03, rOut + 0.04, y0, y1 + 0.1, [], { ...o, a0: a + half - lap, a1: a + half + t });
+  roundWall(B, M.beam, cx, cz, rIn - 0.03, rOut + 0.04, y1 - 0.02, y1 + 0.1, [], { ...o, a0: a - half, a1: a + half });
 }
 // 벽을 따라 도는 기와 처마(벽에서 바깥으로 흘러내리는 고리 지붕)
 function skirt(B, cx, cz, rWall, rOut, yTop, drop, seg) {

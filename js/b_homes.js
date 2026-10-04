@@ -537,8 +537,8 @@ function buildSakura(B, R, out) {
 
   // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
   B.box(M.floor, X0 + T, 0, Z0 + T, 40, F1, Z1 - T); B.box(M.floor, 40, 0, Z0 + T, X1 - T, F1, 74.6);
-  B.box(M.pave, 40, 0, 74.6, X1 - T, 0.12, Z1 - T); B.box(M.beam, 40, 0.12, 74.57, X1 - T, F1 + 0.004, 74.6, false);
-  B.box(M.pave, 41.1, 0, Z1 - T, 43.1, 0.12, 77.2);
+  B.box(M.pave, 40, 0, 74.6, X1 - T, 0.12, Z1 - T); B.box(M.beam, 40, 0.12, 74.57, X1 - T, F1 + 0.025, 74.63, false);   // 마루 턱의 앞면이 마루 옆면과 한 평면에 겹치지 않게 내민다
+  B.box(M.pave, 41.1, 0, Z1 - T - 0.02, 43.1, 0.135, 77.2);
   B.box(M.floor, X0 + T, 3.2, Z0 + T, 44.4, F2, Z1 - T); B.box(M.floor, 44.4, 3.2, Z0 + T, X1 - T, F2, 69.4); B.box(M.floor, 44.4, 3.2, 73.9, X1 - T, F2, Z1 - T);
   B.box(M.beamLight, X0 + T, CE, Z0 + T, X1 - T, TOP, Z1 - T);
   // 1층 칸막이: 거실 | 부엌·복도, 부엌 | 복도. 계단은 동쪽 벽을 따라 북으로 오른다
@@ -686,7 +686,7 @@ function buildSakura(B, R, out) {
   for (const [a, b, c, d] of [[gx0, gz0, gx0 + 0.3, gz1], [gx1 - 0.3, gz0, gx1, gz1], [gx0, gz0, gx1, gz0 + 0.3], [gx0, gz1 - 0.3, 41.0, gz1], [43.2, gz1 - 0.3, gx1, gz1]]) {
     B.box(M.stone, a, 0, b, c, 0.85, d); B.box(M.concrete, a - 0.04, 0.85, b - 0.04, c + 0.04, 0.93, d + 0.04, false);
   }
-  for (const x of [40.89, 43.31]) { B.box(M.beam, x - 0.11, 0, gz1 - 0.36, x + 0.11, 1.75, gz1 + 0.06); B.prism(P.roofS, 'z', [[x - 0.2, 1.75], [x + 0.2, 1.75], [x, 1.9]], gz1 - 0.42, gz1 + 0.12); }
+  for (const x of [40.89, 43.31]) { B.box(M.beam, x - 0.14, 0, gz1 - 0.36, x + 0.14, 1.75, gz1 + 0.06); B.prism(P.roofS, 'z', [[x - 0.2, 1.75], [x + 0.2, 1.75], [x, 1.9]], gz1 - 0.42, gz1 + 0.12); }
   signBoard(B, '春野', 40.89, 1.25, gz1 + 0.085, 0, 0.13, 0.36, { vertical: true, both: false, depth: 0.03 });
   for (let i = 0; i < 6; i++) B.put(M.pave, G.stone, 42.1 + (i % 2 ? 0.14 : -0.12), 0, 81.7 - i * 0.82, i * 1.3, [1 + (i % 3) * 0.12, 1, 0.9 + (i % 2) * 0.2]);
   B.box(P.soil, 33, 0, 77.8, 39.6, 0.07, 78.6, false);
@@ -721,9 +721,9 @@ function buildIno(B, R, out) {
   side(B, wl, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, TOP, -1, [[42, 44, 4.1, 5.5], [46.5, 48.5, 2.9, 4.4], [51.5, 53.5, 1.2, 2.4], [51.5, 53.5, 4.1, 5.5]]);
   wall(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, 3.0, [{ u0: 43, u1: 53, ys: [[0, 2.7]] }]);
   side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 3.0, TOP, 1, [[43, 46, 4.1, 5.5], [50, 53, 4.1, 5.5]]);
-  B.box(M.beam, X1 - T - 0.03, 2.7, 42.9, X1 + 0.03, 2.95, 53.1, false);
-  for (const z of [46.33, 49.67]) B.box(M.beam, X1 - T, 0, z - 0.09, X1, 2.7, z + 0.09);
-  for (const [za, zb] of [[42.82, 43], [53, 53.18]]) B.box(M.beam, X1 - T - 0.02, 0, za, X1 + 0.02, 2.7, zb, false);
+  B.box(M.beam, X1 - T - 0.03, 2.64, 42.9, X1 + 0.03, 2.95, 53.1, false);   // 인방은 구멍 윗면(2.7)보다 내려온다
+  for (const z of [46.33, 49.67]) B.box(M.beam, X1 - T - 0.01, 0, z - 0.09, X1 + 0.01, 2.7, z + 0.09);
+  for (const [za, zb] of [[42.82, 43.03], [52.97, 53.18]]) B.box(M.beam, X1 - T - 0.02, 0, za, X1 + 0.02, 2.7, zb, false);   // 문설주는 구멍 옆면보다 안으로 들어온다
   trim(B, X0, Z0, X1, Z1, TOP, [2.96, TOP - 0.16]);
   for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z1, X1 + 0.05, Z1 + 0.05], [X0 - 0.05, Z0, X0, Z1]]) B.box(M.stone, a, 0, b, c, 0.4, d, false);
   gableRoof(B, P.roofI, X0, Z0, X1, Z1, TOP, 2.4, { ridge: 'z', gable: wl });
@@ -755,7 +755,7 @@ function buildIno(B, R, out) {
   beamBetween(B, M.beam, V3(-8.9, 2.43, 41.4), V3(-8.9, 2.43, 54.6), 0.08, 0.14);
   beamBetween(B, M.beam, V3(-9.05, 2.34, 41.5), V3(-9.05, 2.34, 54.5), 0.1, 0.12);
   for (const z of [41.6, 46.33, 49.67, 54.4]) B.box(M.beam, -9.12, 0, z - 0.07, -8.98, 2.3, z + 0.07);
-  for (let z = 41.6; z < 54.5; z += 1.066) beamBetween(B, M.beam, V3(-8.95, 2.4, z), V3(-11, 2.94, z), 0.06, 0.09);
+  for (let z = 41.6; z < 54.5; z += 1.066) beamBetween(B, M.beam, V3(-8.95, 2.36, z), V3(-11, 2.9, z), 0.06, 0.09);   // 서까래 윗면이 밑널과 겹치지 않게 조금 내린다
   signBoard(B, 'やまなか花', -10.95, 3.6, 48, PI / 2, 4.4, 0.74, { color: '#5a3a94', bg: '#f7f1e2', font: 'gothic', both: false });
   B.box(M.beam, X1, 4.92, 42.17, -10.0, 4.99, 42.23, false);
   for (const x of [-10.72, -10.28]) B.geo(M.iron, tube([V3(x, 4.92, 42.2), V3(x, 4.74, 42.2)], 0.006, 4, false));
