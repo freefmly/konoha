@@ -331,7 +331,7 @@ export async function build(scene, ctx) {
   // 바위 꼭대기의 숲(계단을 올라온 자리와 벼랑 끝은 비운다)
   sow(-(CLIFF.half + 30), CLIFF.z - 150, CLIFF.half + 30, CLIFF.z - 10, STEP * 1.4, (x, z) => terrainH(x, z) > CLIFF.top - 12 && !(x > STAIR.x0 - 12 && x < STAIR.x1 + 14 && z > CLIFF.z - 22), 0.8, 0.5);
   // 블록 안마당의 나무
-  if (!MB) for (const g of groups) for (const poly of g.polys) { const b = bb(poly); for (let i = 0; i < 7; i++) { const x = b[0] + R() * (b[2] - b[0]), z = b[1] + R() * (b[3] - b[1]); if (inPoly(x, z, poly) && (!g.ok || g.ok(x, z)) && [-3.5, 3.5].every(o => landAt(x + o, z) === g.land && landAt(x, z + o) === g.land)) plant(x, z, 0.75 + R() * 0.4, 9, true); } }
+  if (!MB) for (const g of groups) for (const poly of g.polys) { const b = bb(poly); for (let i = 0; i < 18; i++) { const x = b[0] + R() * (b[2] - b[0]), z = b[1] + R() * (b[3] - b[1]); if (inPoly(x, z, poly) && (!g.ok || g.ok(x, z)) && [-3.5, 3.5].every(o => landAt(x + o, z) === g.land && landAt(x, z + o) === g.land)) plant(x, z, 0.75 + R() * 0.4, 9, true); } }
 
   /* ----- 나무·덤불·풀: 칸으로 묶는다 ----- */
   const tcells = new Map();
