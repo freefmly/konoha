@@ -749,8 +749,8 @@ function hyuga(scene, out) {
       // 도장: 서쪽. 마루를 높이고 안마당 쪽을 튼 수련장. 바닥에 팔괘 진, 안벽에 "柔拳"
       const dx0 = -21, dx1 = -8.5, dz0 = -6, dz1 = 12, dh = 3.7, fy = 0.42;
       B.box(M.floor, dx0, 0, dz0, dx1, fy, dz1);
-      B.box(wm, dx0, fy, dz0, dx0 + 0.2, dh, dz1); B.box(wm, dx0, fy, dz0, dx1, dh, dz0 + 0.2);                                    // 서쪽·북쪽 벽
-      B.box(K.stone, dx0 - 0.06, 0, dz0 - 0.06, dx0 + 0.26, 0.9, dz1 + 0.06, false);
+      B.box(wm, dx0, fy, dz0, dx0 + 0.2, dh - 0.24, dz1); B.box(wm, dx0 + 0.2, fy, dz0, dx1, dh - 0.24, dz0 + 0.2);                                    // 서쪽·북쪽 벽
+      B.box(K.stone, dx0 - 0.06, 0, dz0 - 0.06, dx0 + 0.1, 0.9, dz1 + 0.06, false);
       for (let z = dz0; z <= dz1 + 0.01; z += 4.5) for (const x of [dx0 + 0.1, dx1 - 0.1]) B.box(M.beam, x - 0.11, 0, z - 0.11, x + 0.11, dh, z + 0.11, x > dx0 + 1);
       for (let x = dx0 + 0.1; x <= dx1; x += 4.1) B.box(M.beam, x - 0.11, 0, dz1 - 0.21, x + 0.11, dh, dz1 + 0.01);
       B.box(M.beam, dx0, dh - 0.24, dz0, dx1, dh, dz0 + 0.2, false); B.box(M.beam, dx0, dh - 0.24, dz1 - 0.2, dx1, dh, dz1, false); B.box(M.beam, dx1 - 0.2, dh - 0.24, dz0, dx1, dh, dz1, false); B.box(M.beam, dx0, dh - 0.24, dz0, dx0 + 0.2, dh, dz1, false);
