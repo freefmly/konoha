@@ -1,4 +1,4 @@
-// 사쿠라의 집(하루노 집안의 2층 살림집), 이노의 집(야마나카 꽃집), 쵸지의 집(아키미치 집안의 살림집) — 가구와 꾸밈 도구를 함께 쓴다.
+// 사쿠라의 집(하루노 집안의 2층 살림집), 야마나카 꽃집, 쵸지의 집(아키미치 집안의 살림집), 이노이치의 집(야마나카 본가) — 가구와 꾸밈 도구를 함께 쓴다.
 import * as THREE from '../vendor/three.module.js';
 import { Builder, wall, stairs, tube, mergeGeos, mat4, rng, addCollider } from './build.js';
 import { mat, M, textMat } from './materials.js';
@@ -893,7 +893,8 @@ function buildChoji(B, R, out) {
   out.lights.push([5, 2.6, 6.5, 16, 18], [12.6, 2.6, 4.5, 14, 15], [5, 5.5, 9.4, 14, 15], [4.6, 5.5, 3, 13, 15]);
 }
 
-/* ============================ 이노의 집 — 야마나카 꽃집 ============================ */
+/* ============================ 야마나카 꽃집 ============================
+   1층은 꽃가게와 작업실, 2층은 꽃 창고와 꽃 말리는 방. 이노네 식구는 야마나카 구역의 본가(buildInoichi)에 산다. */
 function buildIno(B, R, out) {
   const X0 = -25, X1 = -11, Z0 = 41, Z1 = 55, T = 0.2, F1 = 0.2, F2 = 3.2, CE = 5.9, TOP = 6.0, wl = M.white;
   const { glows } = out;
@@ -1021,53 +1022,55 @@ function buildIno(B, R, out) {
     B.put(P.brass, G.can, -19.0, F1, 49.5, 2.0, 1.1);
     lamp(B, -20.8, 3.0, 47.6, glows, 0.4);
   }
-  /* 2층 — 이노의 방 */
+  /* 2층 — 꽃 창고(남쪽 방): 벽마다 화분·꽃병 선반, 가운데에 궤짝과 물 올린 꽃 양동이 */
   {
-    bed(local(B, -12.3, F2, 54.15, 3), 1.1, 2.0, P.purple);
-    const nt = local(B, -13.75, F2, Z1 - T, 2);
-    tansu(nt, 0.5, 0.42, 0.5, 2);
-    photo(B, teamPhoto('    ', [[0.18, 0.36, '#3a3028', '#4a6a48', 'spiky'], [0.4, 0.5, '#f0d66a', '#8466b5', 'pony'], [0.6, 0.5, '#1c1c28', '#6b7a70', 'tail'], [0.83, 0.48, '#b5652a', '#c8283a', 'big']]), -13.75, F2 + 0.63, 54.55, PI, 0.32, 0.24, 0.22);
-    dresser(local(B, -14.8, F2, 48.2, 0), P.purple);
-    vaseOf(B, R, [F.lily], -15.22, F2 + 0.7, 48.5, 2, 0.75);
-    wardrobe(local(B, -21.4, F2, 49.6, 1), 1.4, 0.6, 2.0);
-    const D = local(B, -16.6, F2, 54.42, 2);
-    desk(D, 1.5, 0.65); chair(local(B, -16.6, F2, 53.65, 0), P.purple);
-    // 꽃꽂이(수반에 침봉을 놓고 꽂은 꽃), 꽃 도감, 꽃가위
-    D.put(P.black, lathe([[0, 0], [0.13, 0], [0.16, 0.04], [0.15, 0.045], [0.12, 0.015], [0, 0.015]], 16), -0.35, 0.74, -0.08);
-    D.flora((x, y, z) => { putF(B, F.lily, x, y + 0.015, z, 2.6, 0.75, 0.12); putF(B, F.roseP, x + 0.03, y + 0.015, z + 0.02, 0.5, 0.6, 0.5); putF(B, F.cosW, x - 0.04, y + 0.015, z, 4, 0.5, 0.75); putF(B, F.trail, x, y + 0.02, z - 0.02, 1, 0.25); }, -0.35, 0.74, -0.08);
-    D.box(P.books[2], 0.05, 0.74, -0.15, 0.27, 0.775, 0.15); D.box(P.paper, 0.06, 0.745, -0.14, 0.275, 0.77, 0.14); D.box(P.steel, 0.4, 0.74, 0, 0.56, 0.746, 0.02); D.box(P.purple, 0.5, 0.74, -0.03, 0.6, 0.752, 0.05);
-    D.put(P.purple, G.deskLamp, 0.62, 0.74, -0.2, 2.4); D.put(P.glow, G.ball, 0.52, 1.02, -0.13, 0, 0.022);
-    bookcase(local(B, -21.4, F2, 53.6, 1), 1.4, 0.32, 1.5, ['books', 'vases', 'books', 'pots'], R, M.beamLight);
-    B.put(P.purple, G.tableTop, -16.4, F2 + 0.004, 51.2, 0, [1.3, 0.3, 1.3]); B.put(P.white, G.tableTop, -16.4, F2 + 0.005, 51.2, 0, [1.05, 0.32, 1.05]); B.put(P.purple, G.tableTop, -16.4, F2 + 0.006, 51.2, 0, [0.95, 0.34, 0.95]);
-    { const Lt = local(B, -16.4, F2 + 0.006, 51.2, 0); lowTable(Lt, 0.5, 0.32);                                      // 깔개 위 낮은 상: 꽃병과 찻잔
-      Lt.flora((x, y, z) => vaseOf(B, R, [F.roseP, F.roseW, F.cosM], x, y, z, 4, 0.7, P.purple), -0.1, 0.32, -0.1); Lt.put(P.porcelain, G.cup, 0.2, 0.32, 0.1); Lt.put(P.porcelain, G.cup, 0.05, 0.32, 0.25); }
-    B.put(P.pink, G.zabuton, -17.3, F2 + 0.06, 51.5, 0.5); B.put(P.purple, G.zabuton, -15.5, F2 + 0.06, 50.8, 1.2);
-    B.put(P.porcelain, G.vase, -11.8, F2, 48.8, 0, 2.2); bunch(B, R, [F.sun, F.sun, F.lily], -11.8, F2 + 0.08, 48.8, 5, 0.12, 1.25, 0.01); addCollider(-12.05, F2, 48.55, -11.55, F2 + 0.8, 49.05);
-    potOf(B, F.broad, -18.2, F2, 48.75, 1.7); addCollider(-18.4, F2, 48.55, -18, F2 + 0.7, 48.95);
-    curtains(B, 'z', X1 - T - 0.16, 50, 53, 5.65, 1.75, P.purpleC, -1); curtains(B, 'x', Z1 - T - 0.16, -17, -14, 5.65, 1.75, P.purpleC, -1);
-    // 벽에 건 누름꽃 액자
-    for (let i = 0; i < 3; i++) {
-      const pm = textMat(' '.repeat(5 + i), { w: 128, h: 160, bg: '#f4eedd', color: '#f4eedd', draw: (g, w, h) => { const cs = ['#d6457a', '#e8a21e', '#7a55b0']; for (let k = 0; k < 6; k++) { g.fillStyle = cs[i]; g.beginPath(); g.ellipse(w / 2 + Math.cos(k * 1.047) * 22, h * 0.36 + Math.sin(k * 1.047) * 22, 16, 9, k * 1.047, 0, 7); g.fill(); } g.fillStyle = '#e8c63a'; g.beginPath(); g.arc(w / 2, h * 0.36, 9, 0, 7); g.fill(); g.strokeStyle = '#4f8f3e'; g.lineWidth = 5; g.beginPath(); g.moveTo(w / 2, h * 0.5); g.quadraticCurveTo(w / 2 + 14, h * 0.7, w / 2 - 4, h * 0.92); g.stroke(); } });
-      photo(B, pm, -19.8 + i * 0.55, F2 + 1.7, 48.212, 0, 0.3, 0.38);
-    }
+    bookcase(local(B, -16.3, F2, Z1 - T, 2), 3.2, 0.4, 2.0, ['pots', 'vases', 'pots', 'vases'], R, M.beamLight);
+    bookcase(local(B, -12.6, F2, Z1 - T, 2), 2.2, 0.4, 2.0, ['rolls', 'pots', 'rolls', 'vases'], R, M.beamLight);
+    bookcase(local(B, -15.2, F2, 48.2, 0), 2.6, 0.4, 2.0, ['vases', 'pots', 'vases', 'pots'], R, M.beamLight);
+    bookcase(local(B, -21.4, F2, 49.6, 1), 1.4, 0.36, 1.9, ['pots', 'rolls', 'pots', 'vases'], R, M.beamLight);
+    // 가운데 궤짝 단: 물 올리는 꽃 양동이
+    const C = local(B, -16.4, F2, 51.3, 0);
+    for (const u of [-0.8, 0.8]) crate(C, u, 0, 1.5, 0.9, 0.34);
+    C.col(-1.58, 0, -0.48, 1.58, 0.9, 0.48);
+    [[-1.2, [F.sun], 3], [-0.6, [F.lily, F.roseW], 4], [0, [F.roseR, F.roseP], 4], [0.6, [F.tulR, F.tulY, F.tulO], 5], [1.2, [F.cosP, F.cosW, F.cosM], 4]].forEach(([u, kinds, n], i) => C.flora(bk(kinds, n, 1.15), u, 0.34, i % 2 ? 0.18 : -0.18));
+    // 동쪽 창 아래: 쌓아 둔 빈 궤짝과 흙 자루, 포개 둔 양동이
+    const Cr = local(B, -11.75, F2, 52.6, 3);
+    crate(Cr, -0.5, 0.05, 0.9, 0.6, 0.4); crate(Cr, -0.5, 0.05, 0.9, 0.6, 0.4, 0.4); crate(Cr, 0.5, 0.05, 0.9, 0.6, 0.4);
+    for (let i = 0; i < 3; i++) Cr.flora(pt(null, 0.9), 0.25 + i * 0.25, 0.4, 0.3);
+    addCollider(-12.5, F2, 51.5, -11.2, F2 + 0.8, 53.7);
+    for (let i = 0; i < 3; i++) B.put(P.kraft, G.sack, -11.8, F2 + 0.1 + i * 0.17, 49.6 + (i % 2) * 0.06, i * 0.1);
+    B.put(P.kraft, G.sack, -11.9, F2 + 0.1, 50.4, 0.4); addCollider(-12.4, F2, 49.1, -11.3, F2 + 0.6, 50.8);
+    for (let i = 0; i < 6; i++) B.put(P.zinc, G.bucket, -19.4, F2 + i * 0.07, 54.2, i, 1.1);
+    for (let i = 0; i < 4; i++) B.put(P.zinc, G.bucket, -18.7, F2 + i * 0.07, 54.25, i * 2, 1.1);
+    addCollider(-19.7, F2, 53.9, -18.4, F2 + 0.7, 54.6);
+    B.put(P.green, G.can, -20.6, F2, 53.9, 0.7, 1.2); B.put(P.brass, G.can, -18.4, F2, 49.0, 2.4, 1.1);
     lamp(B, -16.4, CE, 51.2, glows);
   }
-  /* 2층 — 거실(다다미) */
+  /* 2층 — 말리는 방(북쪽 방): 천장 가로대에 거꾸로 매단 꽃, 창가에 쉬는 자리 */
   {
-    B.box(M.tatami, -21.4, F2, Z0 + T, X1 - T, F2 + 0.02, 48, false);
-    const T2 = local(B, -16.2, F2 + 0.02, 44.7, 0);
-    lowTable(T2, 0.65); teaSet(T2, -0.15, 0.34, 0.1, 3);
-    T2.flora((x, y, z) => vaseOf(B, R, [F.cosP, F.cosM, F.cosW], x, y, z, 4, 0.7, P.blue), 0.3, 0.34, -0.15);
-    [[0, -1.0, P.purple], [-1.0, 0.2, P.blue], [1.0, 0.2, P.green]].forEach(([u, v, m], i) => T2.put(m, G.zabuton, u, 0.04, v, i * 0.25));
-    tansu(local(B, -20.2, F2, Z0 + T, 0), 1.6, 0.45, 1.1, 4);
-    B.put(P.blue, G.vase, -20.2, F2 + 1.1, 41.45, 0, 1.3); bunch(B, R, [F.sun, F.lily, F.sun], -20.2, F2 + 1.14, 41.45, 3, 0.14, 0.8, 0.01);
-    // 도코노마: 한 단 높인 널, 족자, 꽃꽂이
-    B.box(M.beam, -13.2, F2, Z0 + T, -11.4, F2 + 0.12, 42.0, false); B.box(M.beam, -13.3, F2, Z0 + T, -13.2, CE, 41.32, false);
-    kakejiku(B, '花鳥風月', -12.3, F2 + 1.6, Z0 + T + 0.012, 0, 0.42, 1.2, P.purple);
-    B.put(P.black, G.bowl, -12.3, F2 + 0.12, 41.65, 0, 2); putF(B, F.lily, -12.3, F2 + 0.16, 41.65, 0.4, 0.8, 0.1); putF(B, F.roseR, -12.26, F2 + 0.16, 41.68, 2, 0.6, 0.55); putF(B, F.cosW, -12.34, F2 + 0.16, 41.66, 4.2, 0.55, 0.6);
-    bookcase(local(B, -14.2, F2, 48, 2), 1.8, 0.32, 0.9, ['books', 'scrolls'], R);
-    photo(B, teamPhoto('     ', [[0.25, 0.4, '#e9d27a', '#5a6a58', 'pony'], [0.52, 0.5, '#f0d66a', '#8466b5', 'pony'], [0.78, 0.42, '#c9a27a', '#b4a0c8', 'long']]), -14.6, F2 + 1.06, 47.8, PI, 0.3, 0.22, 0.2);
-    potOf(B, F.fern, -13.7, F2 + 0.93, 47.8, 0.9);
+    for (const z of [43.0, 44.4, 45.8]) {                                           // 가로대 셋에 꽃다발을 거꾸로 매달아 말린다
+      B.box(M.beam, -20.6, CE - 0.5, z - 0.025, -13.6, CE - 0.45, z + 0.025, false);
+      for (const x of [-20.6, -17.1, -13.6]) B.box(M.beam, x - 0.02, CE - 0.5, z - 0.02, x + 0.02, CE, z + 0.02, false);
+      const hang = [F.roseR, F.cosP, F.lily, F.roseP, F.cosM, F.sun, F.roseW, F.tulY];
+      for (let k = 0; k < 11; k++) {
+        const x = -20.3 + k * 0.64, f = hang[(k + Math.round(z * 2)) % hang.length];
+        for (let j = 0; j < 3; j++) putF(B, f, x + (j - 1) * 0.04, CE - 0.5, z + (j % 2) * 0.04 - 0.02, k + j * 2, 0.7, PI + (j - 1) * 0.12);
+        B.put(P.kraft, cyl(0.02, 0.02, 0.05, 6), x, CE - 0.55, z);
+      }
+    }
+    // 창가의 쉬는 자리: 다다미 두 장에 낮은 상과 방석 — 가게 보는 사이 차 한 잔
+    B.box(M.tatami, -15.6, F2, 45.0, X1 - T, F2 + 0.02, 48, false);
+    const T2 = local(B, -13.4, F2 + 0.02, 46.5, 0);
+    lowTable(T2, 0.55); teaSet(T2, -0.1, 0.34, 0.05, 2);
+    T2.put(P.purple, G.zabuton, -0.95, 0.04, 0, 0, 1.1); T2.put(P.blue, G.zabuton, 0.2, 0.04, 0.95, 0.3, 1.1);
+    // 말린 꽃을 담아 두는 선반과 종이 상자
+    bookcase(local(B, -17.6, F2, Z0 + T, 0), 3.0, 0.4, 2.0, ['vases', 'rolls', 'pots', 'vases'], R, M.beamLight);
+    const Cr = local(B, -12.3, F2, 41.9, 0);
+    crate(Cr, 0, 0, 1.5, 0.9, 0.4); crate(Cr, 0, 0, 1.5, 0.9, 0.4, 0.4);
+    Cr.col(-0.8, 0, -0.5, 0.8, 0.9, 0.5);
+    Cr.flora((x, y, z) => vaseOf(B, R, [F.cosW, F.cosP], x, y, z, 3, 0.8, P.terra), 0, 0.8, 0);
+    for (let i = 0; i < 4; i++) B.put(P.kraft, G.sack, -20.6 + (i % 2) * 0.5, F2 + 0.1 + (i >> 1) * 0.18, 47.4, PI / 2 + i * 0.1);
+    addCollider(-21.0, F2, 47.0, -19.8, F2 + 0.5, 47.9);
     lamp(B, -16.2, CE, 44.7, glows);
   }
   /* 2층 복도 */
@@ -1079,14 +1082,14 @@ function buildIno(B, R, out) {
   }
 
   out.places.push(
-    { n: '야마나카 꽃집', t: '이노의 집. 1층은 꽃가게, 2층은 살림집이다. 간판에는 "やまなか花".', b: [-28, -7, 38, 58] },
+    { n: '야마나카 꽃집', t: '야마나카 일족이 대대로 해 온 꽃집. 1층은 꽃가게, 2층은 꽃 창고다. 간판에는 "やまなか花".', b: [-28, -7, 38, 58] },
     { n: '꽃가게', t: '양동이마다 장미·백합·해바라기·코스모스·튤립. 계산대 옆에는 포장지 두루마리.', b: [-18, -9, 41.2, 54.8], y: [0, 3.0] },
     { n: '꽃집 작업실', t: '꽃을 다듬고 포장하는 뒷방. 빈 화분과 흙 자루가 쌓여 있다.', b: [-24.8, -18, 41.2, 54.8], y: [0, 3.0] },
-    { n: '이노의 방', t: '화장대와 꽃꽂이, 머리맡에는 이노·시카·쵸 10반 사진.', b: [-21.4, -11.2, 48.2, 54.8], y: [F2, TOP] },
-    { n: '야마나카네 거실', t: '다다미 거실. 도코노마에는 "花鳥風月" 족자와 꽃꽂이.', b: [-21.4, -11.2, 41.2, 48], y: [F2, TOP] },
-    { n: '야마나카네 2층 복도', t: '계단을 올라 왼쪽이 거실, 오른쪽 끝이 이노의 방.', b: [-24.8, -21.6, 41.2, 54.8], y: [F2, TOP] },
+    { n: '꽃 창고', t: '화분과 꽃병이 선반마다 그득하다. 가운데 양동이에는 물 올리는 꽃.', b: [-21.4, -11.2, 48.2, 54.8], y: [F2, TOP] },
+    { n: '꽃 말리는 방', t: '천장 가로대에 꽃다발을 거꾸로 매달아 말린다. 창가에는 차 한 잔 하는 자리.', b: [-21.4, -11.2, 41.2, 48], y: [F2, TOP] },
+    { n: '꽃집 2층 복도', t: '계단을 올라 왼쪽이 꽃 말리는 방, 오른쪽 끝이 꽃 창고.', b: [-24.8, -21.6, 41.2, 54.8], y: [F2, TOP] },
   );
-  out.jumps.push(['야마나카 꽃집 앞', -4.5, 0, 48, PI / 2, 42], ['이노의 방', -19.5, F2, 51.6, -PI / 2, 43]);
+  out.jumps.push(['야마나카 꽃집 앞', -4.5, 0, 48, PI / 2, 42], ['꽃집 2층 창고', -19.5, F2, 51.6, -PI / 2, 43]);
   out.lights.push([-14.6, 2.5, 48, 16, 17], [-21, 2.5, 48.5, 13, 14], [-16.4, 5.3, 51.3, 14, 15], [-17, 5.3, 44.6, 13, 15]);
 }
 
@@ -1203,7 +1206,7 @@ function buildInoichi(B, R, out) {
     photo(B, teamPhoto('       ', [[0.16, 0.5, '#2a2420', '#5a6b4a', 'tail'], [0.38, 0.52, '#9a5a32', '#b5303a', 'big'], [0.6, 0.5, '#e8c860', '#6a4a8a', 'pony'], [0.84, 0.36, '#2a2420', '#4a6a48', 'spiky']]), 3.0, F2 + 0.63, 6.2, 0, 0.32, 0.24, 0.22);
     dresser(local(B, 5.4, F2, 6.0, 0), P.purple);
     wardrobe(local(B, 9.8, F2, 7.0, 3), 1.5, 0.6, 2.0);
-    cheval(local(B, 9.5, F2, 9.0, 3));
+    cheval(local(B, 4.7, F2, Z1 - T, 2));
     const D = local(B, 0.62, F2, 9.9, 1);
     desk(D, 1.5, 0.65); chair(local(B, 1.4, F2, 9.9, 3), P.purple);
     vaseOf(B, R, [F.cosP, F.cosM], 0.55, F2 + 0.74, 9.5, 3, 0.7, P.porcelain);
@@ -1257,11 +1260,11 @@ function buildInoichi(B, R, out) {
     { n: '이노이치네 거실', t: '다다미 거실. 도코노마에는 "花鳥風月" 족자와 꽃꽂이.', b: [0.2, 9.8, 6.2, 12.8], y: [0, 3.2] },
     { n: '이노이치의 서재', t: '두루마리와 책이 빼곡한 서가. 이노이치는 정보부에서 사람의 마음을 읽는 일을 한다.', b: [0.2, 9.8, 0.2, 6.2], y: [0, 3.2] },
     { n: '이노이치네 부엌', t: '세 식구가 앉는 작은 식탁. 식탁에도 꽃병.', b: [10, 15.8, 0.2, 6.2], y: [0, 3.2] },
-    { n: '이노의 방(본가)', t: '화장대와 전신 거울, 머리맡에는 10반 사진. 방 곳곳에 꽃.', b: [0.2, 9.8, 6, 12.8], y: [F2, TOP] },
+    { n: '이노의 방', t: '화장대와 전신 거울, 머리맡에는 10반 사진. 방 곳곳에 꽃.', b: [0.2, 9.8, 6, 12.8], y: [F2, TOP] },
     { n: '이노이치네 다다미방', t: '이노의 부모가 쓰는 방. 벽에 "山中" 족자.', b: [0.2, 9.8, 0.2, 5.8], y: [F2, TOP] },
     { n: '이노이치네 2층 복도', t: '계단을 오르면 왼쪽 안쪽이 이노의 방이다.', b: [10, 15.8, 0.2, 12.8], y: [F2, TOP] },
   );
-  out.jumps.push(['이노이치의 집 앞', 12.1, 0, 18.4, 0, 58], ['이노의 방(본가)', 7.2, F2, 11.2, 0.9, 59]);
+  out.jumps.push(['이노이치의 집 앞', 12.1, 0, 18.4, 0, 58], ['이노의 방', 7.2, F2, 11.2, 0.9, 59]);
   out.lights.push([5, 2.6, 6.5, 16, 18], [12.6, 2.6, 4.5, 14, 15], [5, 5.5, 9.4, 14, 15], [4.6, 5.5, 3, 13, 15]);
 }
 
