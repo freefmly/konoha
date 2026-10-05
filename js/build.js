@@ -291,18 +291,24 @@ export class Builder {
 
 // 벽 한 줄에 문·창 구멍을 내며 쌓는다. axis 'x'면 x 방향으로 뻗은 벽(두께는 z: f0~f1).
 // openings: [{u0,u1, ys:[[y0,y1],...]}] — 같은 자리에 창이 여러 층이면 ys에 여러 개.
-export function wall(B, mat, axis, f0, f1, u0, u1, y0, y1, openings = [], collide = true) {
+// solidWindows: 창(바닥에서 떨어진 구멍)이 난 칸은 충돌 상자를 위아래 한 덩어리로 둔다 — 창턱이 따로 놀면 계단 옆에서 발 높이가
+// 창턱 높이를 지날 때 "딛고 오를 수 있는 턱"으로 여겨져 사람이 벽 속으로 파고든다. 창은 유리가 막고 있어 어차피 지나갈 수 없다.
+export function wall(B, mat, axis, f0, f1, u0, u1, y0, y1, openings = [], collide = true, solidWindows = false) {
+  let hard = collide;
   const put = (a, b, ya, yb) => {
     if (b - a < 1e-4 || yb - ya < 1e-4) return;
-    if (axis === 'x') B.box(mat, a, ya, f0, b, yb, f1, collide); else B.box(mat, f0, ya, a, f1, yb, b, collide);
+    if (axis === 'x') B.box(mat, a, ya, f0, b, yb, f1, hard); else B.box(mat, f0, ya, a, f1, yb, b, hard);
   };
   const ops = openings.slice().sort((p, q) => p.u0 - q.u0);
   let u = u0;
   for (const o of ops) {
     put(u, o.u0, y0, y1);
     let y = y0;
-    for (const [a, b] of o.ys.slice().sort((p, q) => p[0] - q[0])) { put(o.u0, o.u1, y, a); y = b; }
+    const ys = o.ys.slice().sort((p, q) => p[0] - q[0]), whole = collide && solidWindows && ys.length && ys[0][0] > y0 + 0.5;
+    if (whole) { hard = false; if (axis === 'x') addCollider(o.u0, y0, f0, o.u1, y1, f1); else addCollider(f0, y0, o.u0, f1, y1, o.u1); }
+    for (const [a, b] of ys) { put(o.u0, o.u1, y, a); y = b; }
     put(o.u0, o.u1, y, y1);
+    hard = collide;
     u = o.u1;
   }
   put(u, u1, y0, y1);

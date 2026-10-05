@@ -99,18 +99,24 @@ export class Player {
 
   // 그 자리가 막혔는가. 막혔으면 this.hit에 막은 건물의 자리(똑바로 놓인 것이면 null)를 적어 둔다.
   blocked(x, z, feet) {
-    this.hit = null;
+    this.hit = null; this.gap = Infinity;     // gap: 막은 것들 가운데 가장 깊이 파고든 것까지의 거리(제곱) — 끼었을 때 빠져나오는 쪽을 가리는 데 쓴다
     // 가파른 비탈(절벽)은 걸어 오를 수 없다
     const th = this.terrain(x, z);
-    if (th > feet + 0.02) { const d = Math.hypot(x - this.pos.x, z - this.pos.z); if (d > 1e-5 && (th - feet) / d > 1.5) return true; }
+    if (th > feet + 0.02) { const d = Math.hypot(x - this.pos.x, z - this.pos.z); if (d > 1e-5 && (th - feet) / d > 1.5) { this.gap = -1; return true; } }
     const N = nearAll(x, z, RAD, this.near);
     for (let i = 0; i < N.length; i += 4) {
       const c = N[i], lx = N[i + 1], lz = N[i + 2];
       if (c[4] <= feet + STEP || c[1] >= feet + HEIGHT) continue;       // 밟고 오를 수 있거나 머리 위로 지나간다
       const dx = lx - Math.max(c[0], Math.min(lx, c[3])), dz = lz - Math.max(c[2], Math.min(lz, c[5]));
-      if (dx * dx + dz * dz < RAD * RAD) { this.hit = N[i + 3]; return true; }
+      const d2 = dx * dx + dz * dz;
+      if (d2 < RAD * RAD && d2 < this.gap) { this.gap = d2; this.hit = N[i + 3]; }
     }
-    return false;
+    return this.gap < Infinity;
+  }
+  // 그 자리로 갈 수 있는가. 이미 벽에 끼어 있을 때(계단 옆 창턱처럼 발 높이가 바뀌며 벽이 다시 막아서는 자리)는 벽 속으로 더 들어가지 않는 쪽이면 보내 준다.
+  free(x, z, feet) {
+    if (!this.blocked(x, z, feet)) return true;
+    return this.stuck !== null && this.gap >= this.stuck - 1e-9;       // 더 깊이 파고들지만 않으면 된다(벽을 따라 미끄러져 나올 수 있게)
   }
 
   update(dt) {
@@ -141,12 +147,14 @@ export class Player {
     v.y -= GRAV * dt;
 
     // 가로 이동: 막히면 벽이 난 두 방향으로 나눠 따로 막아서 벽을 타고 미끄러진다(비스듬한 건물에서는 그 건물의 방향으로 나눈다)
-    if (!this.blocked(p.x + v.x * dt, p.z + v.z * dt, p.y)) { p.x += v.x * dt; p.z += v.z * dt; }
+    this.stuck = this.blocked(p.x, p.z, p.y) ? this.gap : null;             // 지금 선 자리가 이미 벽 속이면 얼마나 깊은지 적어 둔다
+    if (this.free(p.x + v.x * dt, p.z + v.z * dt, p.y)) { p.x += v.x * dt; p.z += v.z * dt; }
     else {
       const h = this.hit, hc = h ? h.cos : 1, hs = h ? h.sin : 0;
       let a = v.x * hc - v.z * hs, b = v.x * hs + v.z * hc;                 // 벽 방향으로 나눈 속도
-      if (!this.blocked(p.x + a * hc * dt, p.z - a * hs * dt, p.y)) { p.x += a * hc * dt; p.z -= a * hs * dt; } else a = 0;
-      if (!this.blocked(p.x + b * hs * dt, p.z + b * hc * dt, p.y)) { p.x += b * hs * dt; p.z += b * hc * dt; } else b = 0;
+      if (this.free(p.x + a * hc * dt, p.z - a * hs * dt, p.y)) { p.x += a * hc * dt; p.z -= a * hs * dt; } else a = 0;
+      if (this.stuck !== null) this.stuck = this.blocked(p.x, p.z, p.y) ? this.gap : null;
+      if (this.free(p.x + b * hs * dt, p.z + b * hc * dt, p.y)) { p.x += b * hs * dt; p.z += b * hc * dt; } else b = 0;
       v.x = a * hc + b * hs; v.z = -a * hs + b * hc;
     }
     // 담 밖으로는 숲 가장자리까지만 나갈 수 있다

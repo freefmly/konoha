@@ -461,7 +461,7 @@ function crate(L, u, v, w, d, h, y = 0) {
 // [u0, u1, y0, y1, 'd'(창을 끼우지 않는 문 구멍)] 목록 → wall()의 구멍 꼴(같은 자리의 위아래 창은 한데 묶는다)
 const holes = list => { const m = new Map(); for (const [u0, u1, y0, y1] of list) { const k = u0 + ',' + u1; if (!m.has(k)) m.set(k, { u0, u1, ys: [] }); m.get(k).ys.push([y0, y1]); } return [...m.values()]; };
 function side(B, m, axis, f0, f1, u0, u1, y0, y1, out, list) {
-  wall(B, m, axis, f0, f1, u0, u1, y0, y1, holes(list));
+  wall(B, m, axis, f0, f1, u0, u1, y0, y1, holes(list), true, true);
   for (const [a, b, ya, yb, kind] of list) if (!kind) windowUnit(B, axis, f0, f1, a, b, ya, yb, { out });
 }
 // 모서리 기둥과 층 사이 띠
