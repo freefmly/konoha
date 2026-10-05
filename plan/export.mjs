@@ -38,7 +38,6 @@ const data = {
     naka: { pts: TP(P.NAKA), w: 7 * U },                           // 나카 강(바위 쪽이 상류)
     stream: { pts: TP(P.NE_STREAM), w: 5 * U },                    // 이누즈카 구역 옆 냇물
     brook: { pts: TP(P.BROOK), w: 3 * U },                         // 제3 훈련장의 냇물
-    feed: { pts: TP(P.FEED), w: 4 * U },                           // 강에서 화둔 호수로 드는 물길
     lake: TP(ellPoly(P.LAKE)), isle: TP(ellPoly(P.ISLE)), isleLand: TP(ellPoly({ ...P.ISLE, rx: 9, ry: 5.5 })),
     ponds: P.PONDS.map(([x, y, rx, ry]) => TP(ellPoly({ x, y, rx, ry }, 24))),
     pier: TP(P.PIER),

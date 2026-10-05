@@ -47,10 +47,10 @@ function uchiha(scene, out) {
     if (t > 0.05 && t < 0.95) gates.push({ at: [a[0] + ex * t, a[1] + ez * t] });
   }
 
-  // 담: 변마다 문과 물길 자리를 비우고 토막토막 세운다
+  // 담: 변마다 문 자리만 비우고 끊김 없이 세운다(호수의 물은 땅 밑으로 강과 이어져 있어 담을 틔울 일이 없다)
   for (let i = 0; i < NW; i++) {
     const a = W[i], b = W[(i + 1) % NW], L = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L, ry = Math.atan2(ux, uz);
-    const open = s => { const x = a[0] + ux * s, z = a[1] + uz * s; return gates.some(g => Math.hypot(g.at[0] - x, g.at[1] - z) < 3.3) || [-1.5, 0, 1.5].some(o => terrainH(x + ux * o, z + uz * o) < -0.05); };
+    const open = s => { const x = a[0] + ux * s, z = a[1] + uz * s; return gates.some(g => Math.hypot(g.at[0] - x, g.at[1] - z) < 3.3); };
     let s0 = null;
     for (let s = 0; s <= L + 0.25; s += 0.25) {
       const stop = s > L || open(s);

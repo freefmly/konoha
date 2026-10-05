@@ -38,7 +38,7 @@ const segDist = (x, z, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1
 export const inPoly = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
 const ringDist = (x, z, poly) => segDist(x, z, [...poly, poly[0]]) * (inPoly(x, z, poly) ? -1 : 1);   // 다각형 가장자리까지(안쪽은 음수)
 const WT = PLAN.water;
-const RIVERS = [WT.naka, WT.stream, WT.brook, WT.feed].map(r => { const pts = smooth(r.pts); return { pts, w: r.w, box: bbox(pts, r.w / 2 + 6) }; });
+const RIVERS = [WT.naka, WT.stream, WT.brook].map(r => { const pts = smooth(r.pts); return { pts, w: r.w, box: bbox(pts, r.w / 2 + 6) }; });
 const POOLS = [WT.lake, WT.isle, ...WT.ponds].map(poly => ({ poly, box: bbox(poly, 6) }));
 const ISLAND = { poly: WT.isleLand, box: bbox(WT.isleLand, 4) };
 const inBox = (x, z, b) => x > b[0] && x < b[2] && z > b[1] && z < b[3];

@@ -76,9 +76,8 @@ export const ZONES = [
 // 물길: 왼쪽(바위 쪽)이 상류. 섬 있는 못 → 담 안쪽을 따라 → 우치하 구역 끝의 호수 → 정문 아래쪽 못에서 끝난다(담 밖으로 빠지지 않는다)
 export const ISLE = { x: pol(60, 205)[0], y: pol(60, 205)[1], rx: 22, ry: 13, rot: -30 };   // 섬 있는 못(제2 훈련장)
 export const NAKA = [[60, 205], [54, 236], [47, 273], [41, 301], [35, 327], [29, 350], [24, 362], [19, 372], [15, 380], [11, 388]].map(p => pol(...p)).concat([[463, 322]]);
-export const LAKE = { x: pol(29, 312)[0], y: pol(29, 312)[1], rx: 20, ry: 13, rot: -61 };   // 우치하 구역 안의 호수(약 100m × 65m). 강에서 물길(FEED)로 물을 끌어들인다
-export const FEED = [pol(31.5, 322), pol(32, 339)];
-export const PIER = [pol(29, 295), pol(29, 308)];                                            // 부두: 구역 쪽 물가에서 호수 가운데로
+export const LAKE = { x: pol(29, 309)[0], y: pol(29, 309)[1], rx: 20, ry: 13, rot: -61 };   // 우치하 구역 안의 호수(약 100m × 65m). 물은 땅 밑으로 강과 이어져 있다(땅 위 물길은 없다)
+export const PIER = [pol(29, 292), pol(29, 305)];                                            // 부두: 구역 쪽 물가에서 호수 가운데로
 export const NE_STREAM = [[452, 60], [450, 100], [456, 150], [470, 186], [471, 214], [460, 234]];
 // 훈련장(과녁 표시)
 export const TRAIN = [
@@ -242,7 +241,7 @@ for (const z of ZONES) {
 }
 // 물
 s += line(NAKA, 7, '#9ccbe6') + line(NE_STREAM, 5, '#9ccbe6') + line(BROOK, 3, '#9ccbe6');
-s += ell(LAKE, 'fill="#8cc3e6" stroke="#5b9cc4" stroke-width="1"') + line(FEED, 4, '#9ccbe6') + line(PIER, 2.2, '#6b4a2a');
+s += ell(LAKE, 'fill="#8cc3e6" stroke="#5b9cc4" stroke-width="1"') + line(PIER, 2.2, '#6b4a2a');
 s += ell(ISLE, 'fill="#8cc3e6" stroke="#5b9cc4" stroke-width="1"') + ell({ ...ISLE, rx: 9, ry: 5.5 }, 'fill="#6fb040" stroke="#3b7a2a" stroke-width="0.8"');
 for (const [x, y, rx, ry] of PONDS) s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#8cc3e6"/>`;
 // 큰 바큇살 길(담까지) · 큰길 · 세로 큰길 · 둘레길 · 다리
