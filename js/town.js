@@ -109,7 +109,7 @@ function waterTank(B, K, x, y, z, s = 1) {
 /* ---------- 네모 집 ---------- */
 export function boxHouse(B, K, s, R, glows) {
   const { x0, z0, x1, z1, front } = s, floors = s.floors, H = floors * 3.0 + 0.3;
-  const wm = mat('plaster', WALLS[s.wall]), tile = mat('tile', ROOFS[s.roof]);
+  const wm = mat('plaster', WALLS[s.wall]), tile = mat('tile', s.roofHex ?? ROOFS[s.roof]);
   B.box(wm, x0, 0, z0, x1, H, z1);
   B.box(K.stone, x0 - 0.06, 0, z0 - 0.06, x1 + 0.06, 0.45, z1 + 0.06, false);
   // 모서리 기둥과 층 사이 띠(나무 뼈대가 드러난 벽)
@@ -179,7 +179,7 @@ export function boxHouse(B, K, s, R, glows) {
 /* ---------- 둥근 탑집 ---------- */
 export function towerHouse(B, K, s, R, glows) {
   const cx = (s.x0 + s.x1) / 2, cz = (s.z0 + s.z1) / 2, r = Math.min(s.x1 - s.x0, s.z1 - s.z0) / 2 - 0.3, floors = s.floors, H = floors * 3.0 + 0.3;
-  const wm = mat('plaster', WALLS[s.wall]), tile = mat('tile', ROOFS[s.roof]);
+  const wm = mat('plaster', WALLS[s.wall]), tile = mat('tile', s.roofHex ?? ROOFS[s.roof]);
   const SEG = 30;
   B.geo(wm, new THREE.CylinderGeometry(r, r, H, SEG, 1, true), mat4(cx, H / 2, cz), [r * Math.PI * 2, H]);
   B.geo(K.stone, new THREE.CylinderGeometry(r + 0.07, r + 0.1, 0.5, SEG, 1, true), mat4(cx, 0.25, cz), [r * 6.28, 0.5]);

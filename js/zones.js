@@ -98,7 +98,7 @@ function uchiha(scene, out) {
       for (const s of [-1, 1]) { B.box(M.beam, s * 3.2 - 0.07, 0, 8.3, s * 3.2 + 0.07, 2.6, 8.44, false); out.glows.push(lantern(B, s * 3.2, 2.2, 8.37, { text: '警', color: 0xf0e2c0, r: 0.2, h: 0.5 })); }
       return {
         places: [{ n: '경무부대 본부', t: '마을의 치안을 맡은 나뭇잎 경무부대의 본부. 우치하 일족이 대대로 이끌었다.', b: [-21, 21, -8, 12], y: [0, 14] }],
-        jumps: [['경무부대 본부', 0, 0, 15, Math.PI, 46]],
+        jumps: [['경무부대 본부', 0, 0, 15, 0, 46]],
       };
     });
     out.places.push(...res.places); out.jumps.push(...res.jumps);
@@ -112,7 +112,7 @@ function uchiha(scene, out) {
     const res = put(scene, at, B => {
       boxHouse(B, K, { x0: -5.5, z0: -4.5, x1: 5.5, z1: 4.5, front: 's', floors: 2, wall: 5, roof: 3, roofKind: 'gable', rise: 1.9, shop: 'うちは煎餅', near: true }, rngOf(3601), out.glows);
       U.crestPlaque(B, -4.3, 5.4, 4.53, 0, 0.42);
-      return { places: [{ n: '우치하 센베이', t: '테야키와 우루치 부부가 하는 센베이 가게. 일족 사람들의 사랑방이었다.', b: [-7, 7, -6, 8], y: [0, 9] }], jumps: [['우치하 센베이', 0, 0, 9, Math.PI, 47]] };
+      return { places: [{ n: '우치하 센베이', t: '테야키와 우루치 부부가 하는 센베이 가게. 일족 사람들의 사랑방이었다.', b: [-7, 7, -6, 8], y: [0, 9] }], jumps: [['우치하 센베이', 0, 0, 9, 0, 47]] };
     });
     out.places.push(...res.places); out.jumps.push(...res.jumps);
   }
@@ -322,7 +322,7 @@ function akimichi(scene, out) {
       // 볏섬 무지와 술통
       for (let k = 0; k < 3; k++) { bale(B, K, -11.5 + k * 0.66, 0, -3.6); if (k < 2) bale(B, K, -11.17 + k * 0.66, 0.52, -3.6); }
       addCollider(-12, 0, -4.1, -9.8, 1.1, -3.1);
-      return { places: [{ n: '아키미치 회관', t: '일족이 모여 한솥밥을 먹는 큰 집과 잔치 마당. 많이 먹는 것이 곧 이 일족의 힘이다.', b: [-17, 17, -18, 11], y: [0, 12] }], jumps: [['아키미치 회관', 0, 0, 14, Math.PI, 53]] };
+      return { places: [{ n: '아키미치 회관', t: '일족이 모여 한솥밥을 먹는 큰 집과 잔치 마당. 많이 먹는 것이 곧 이 일족의 힘이다.', b: [-17, 17, -18, 11], y: [0, 12] }], jumps: [['아키미치 회관', 0, 0, 14, 0, 53]] };
     });
     out.places.push(...res.places); out.jumps.push(...res.jumps);
   }
@@ -343,7 +343,7 @@ function akimichi(scene, out) {
       B.box(M.beam, -7.6, 0, -1.6, -7.5, 1.3, -1.5, false); B.box(M.beam, -7.6, 0, 1.5, -7.5, 1.3, 1.6, false); B.box(M.beam, -7.62, 1.2, -1.6, -7.48, 1.3, 1.6, false);
       for (let k = 0; k < 6; k++) B.geo(M.beamLight, new THREE.CylinderGeometry(0.025, 0.025, 2.1, 8), mat4(-7.42, 1.02, -1.25 + k * 0.5, 0, 0, 0.12));
       addCollider(-7.7, 0, -1.6, -7.3, 1.3, 1.6);
-      return { places: [{ n: '아키미치 씨름판', t: '몸집을 키워 맞붙는 일족의 단련장. 흙단 위에 새끼줄을 둥글게 둘렀다.', b: [-8, 6, -6, 6], y: [0, 8] }], jumps: [['아키미치 씨름판', 0, 0, 8.5, Math.PI, 54]] };
+      return { places: [{ n: '아키미치 씨름판', t: '몸집을 키워 맞붙는 일족의 단련장. 흙단 위에 새끼줄을 둥글게 둘렀다.', b: [-8, 6, -6, 6], y: [0, 8] }], jumps: [['아키미치 씨름판', 0, 0, 8.5, 0, 54]] };
     });
     out.places.push(...res.places); out.jumps.push(...res.jumps);
   }
@@ -621,7 +621,7 @@ function yamanaka(scene, out) {
       for (const s of [-1, 1]) glasshouse(B, K, Y, s * gx, gz, ghw, ghd, R);
       return {
         places: [{ n: '야마나카 온실과 작업장', t: '철을 타는 꽃을 기르는 유리 온실과, 밭에서 벤 꽃을 다듬어 꽃집으로 내는 작업장.', b: [-31, 31, -hd, hd], y: [0, 9] }],
-        jumps: [['야마나카 온실', gx, 0, gz + ghd + 4, Math.PI, 57]],
+        jumps: [['야마나카 온실', gx, 0, gz + ghd + 4, 0, 57]],
       };
     });
     out.places.push(...res.places); out.jumps.push(...res.jumps);
@@ -641,6 +641,164 @@ function yamanaka(scene, out) {
   out.places.push({ n: '야마나카 구역', t: '마음을 다루는 술법으로 이름난 야마나카 일족의 구역. 대대로 마을에서 꽃집을 해 왔고, 일족의 꽃은 싸리다.', poly: Z.poly, b: zb });
   out.jumps.push(['야마나카 구역', gate[0], 0, gate[1] - 9, yawTo(0, 1), 55]);
 }
+const HYUGA_FLAME = 'm 44.017838,18.131938 c 1.016788,2.170082 1.778932,4.640617 1.974502,5.486559 0.664808,2.923974 0.859802,4.430824 0.859802,6.343442 0,1.820569 -0.05858,2.298767 -0.48887,3.347034 -0.782168,1.986075 -1.661369,3.181903 -4.007973,5.499082 -2.815841,2.795196 -3.636708,3.788881 -4.55581,5.499082 -1.486129,2.795288 -2.151963,5.590631 -2.132387,8.992805 0.258246,3.353495 1.234778,6.23992 3.813947,9.048262 2.151034,1.930936 3.989331,2.849293 7.118099,3.584958 2.248817,0.533248 5.514227,0.606388 7.548,0.146689 2.757211,-0.588467 5.358629,-2.095869 6.962116,-4.026816 2.617432,-3.294598 3.99436,-8.462297 2.775336,-12.137694 -0.293349,-0.809212 -0.781491,-1.820309 -1.074753,-2.243281 -0.801744,-1.084996 -2.6007,-2.537887 -3.774001,-3.016087 l -0.99676,-0.42218 -0.02092,-3.677982 C 57.929778,38.243977 57.821739,36.634708 57.392335,34.652438 56.590588,31.83874 54.421296,27.645548 52.524557,25.27323 50.62772,22.900913 47.669824,20.127673 45.56244,18.983454 44.560555,18.439473 44.017834,18.131938 44.017834,18.131938 Z m 6.239353,9.255701 c 0.161163,0.03376 0.569616,0.565567 1.131819,1.508044 1.52528,2.537825 2.386443,4.911094 2.836207,7.77993 0.254199,1.526377 0.312058,6.72926 0.09701,7.078682 0,0 -0.134886,0.05575 -0.644851,0.184257 -1.350943,0.34042 -2.951624,0.680715 -4.300914,1.434698 -1.505802,0.845942 -3.129225,2.354859 -3.754977,3.513403 -1.036462,1.912526 -0.899597,4.284631 0.351909,6.050062 1.407921,2.004485 3.051824,3.034474 6.100413,2.758486 1.671614,-0.345634 2.839896,-0.956169 3.540026,-2.096592 0.516186,-0.980745 0.640979,-1.825508 0.507893,-2.740597 -0.245594,-1.688688 -0.62583,-1.838989 -0.62583,-1.838989 -0.03174,0.207481 -0.390436,0.882225 -0.722843,1.525932 -0.762687,1.471146 -1.604853,2.060814 -2.954144,2.060814 -1.681693,0 -2.775388,-0.810155 -3.264206,-2.391761 -0.410708,-1.34246 1.193066,-3.493526 3.3441,-4.486563 1.310138,-0.588477 3.441117,-0.918838 4.41885,-0.679783 1.838207,0.478109 3.442081,1.949166 4.106889,3.751325 1.251507,3.383765 -0.822162,8.918771 -4.087865,10.978486 -2.600797,1.636735 -5.767836,1.985357 -9.248583,1.010729 -3.324333,-0.919489 -5.475965,-2.500469 -6.825157,-5.075113 -1.564433,-2.960794 -1.525504,-6.491561 0.078,-10.445392 0.997213,-2.445866 1.937055,-3.696227 4.987615,-6.638612 0.977735,-0.956309 2.052978,-2.078342 2.385381,-2.482995 0.919103,-1.140134 1.994006,-3.273743 2.326413,-4.652931 0.332502,-1.324142 0.530018,-5.09438 0.275822,-5.921911 -0.03104,-0.108939 -0.05892,-0.183609 -0.05892,-0.183609 z';
+const HYUGA_FRAME = 'm 0.82115669,13.773749 c -0.4219,-1.528053 0.68125501,-2.678524 2.31748501,-2.416879 0.87226,0.139478 0.725169,-0.05865 6.509275,8.767806 1.9423843,2.964059 3.6010913,5.463109 3.6860313,5.553448 0.085,0.09034 0.86334,-0.428751 1.72983,-1.153541 8.51375,-7.121541 18.2371,-11.08356 29.3525,-11.960424 15.10428,-1.191529 29.13783,3.43685 39.8088,13.129256 l 1.59183,1.445894 0.38685,-0.623621 c 0.21278,-0.342995 1.92438,-2.963674 3.80358,-5.823724 1.87921,-2.860056 3.78888,-5.795753 4.24382,-6.523763 0.45493,-0.728016 1.02229,-1.634571 1.2608,-2.014564 1.05004,-1.672825 3.76826,-0.785747 3.75721,1.226144 -0.005,0.648066 -0.20875,1.091374 -1.15284,2.490267 -48.09601,72.854722 0,0 -48.09601,72.854722 -49.19916131,-74.951021 0,0 -49.19916131,-74.951021 z M 83.603688,30.469081 82.456618,29.402114 c -10.08495,-9.38056 -25.1513,-14.475195 -38.30415,-12.952415 -9.88524,1.144469 -19.21417,5.08835 -26.80462,11.331869 l -1.74958,1.439107 0.72049,1.077562 c 33.73204,51.238515 0,0 33.73204,51.238515 33.55289,-51.067671 0,0 33.55289,-51.067671 z';
+/* ============================ 휴가 구역 ============================
+   백안을 물려받는 마을에서 가장 오래된 일족의 구역. 담을 두르고, 관저 쪽 안담 한가운데에 큰 대문, 바큇살 길 두 쪽과 바깥담에 작은 문.
+   대문에서 곧장 들어간 블록이 종가(宗家)의 저택 — 따로 담을 두른 안채와 별채, 유권(柔拳)을 닦는 도장. 나머지 블록은 분가(分家)의 집들.
+   종가·분가와 유권은 원작의 것이고, 저택의 짜임새(본채·별채·도장의 자리)는 지어낸 것이다. */
+// 휴가 일족의 문장: 불꽃과 그것을 감싼 테(나루토 위키의 문장 그림을 따랐다)
+function drawHyuga(g, cx, cy, r) {
+  g.save(); g.translate(cx - r, cy - r); g.scale(r / 50, r / 50);
+  g.fillStyle = '#1a1410';
+  g.fill(new Path2D(HYUGA_FLAME), 'evenodd'); g.fill(new Path2D(HYUGA_FRAME), 'evenodd');
+  g.restore();
+}
+// 팔괘 그림: 도장 바닥에 그린 둥근 진 — 가운데 태극, 둘레에 여덟 괘
+function drawBagua(g, w, h) {
+  const cx = w / 2, cy = h / 2, R = w * 0.47, ink = '#2a221c';
+  g.strokeStyle = ink; g.fillStyle = ink; g.lineWidth = w * 0.012;
+  for (const k of [1, 0.74, 0.3]) { g.beginPath(); g.arc(cx, cy, R * k, 0, Math.PI * 2); g.stroke(); }
+  for (let i = 0; i < 8; i++) { const a = (i + 0.5) / 8 * Math.PI * 2; g.beginPath(); g.moveTo(cx + Math.cos(a) * R * 0.3, cy + Math.sin(a) * R * 0.3); g.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); g.stroke(); }
+  const tri = [[1, 1, 1], [0, 1, 1], [1, 0, 1], [0, 0, 1], [1, 1, 0], [0, 1, 0], [1, 0, 0], [0, 0, 0]];      // 괘마다 이어진 줄(1)·끊긴 줄(0) 셋
+  for (let i = 0; i < 8; i++) {
+    g.save(); g.translate(cx, cy); g.rotate(i / 8 * Math.PI * 2);
+    for (let k = 0; k < 3; k++) {
+      const y = -R * (0.82 + k * 0.055), bw = R * 0.16, bh = R * 0.03;
+      if (tri[i][k]) g.fillRect(-bw, y, bw * 2, bh); else { g.fillRect(-bw, y, bw * 0.8, bh); g.fillRect(bw * 0.2, y, bw * 0.8, bh); }
+    }
+    g.restore();
+  }
+  // 태극
+  const r = R * 0.3;
+  g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2, Math.PI / 2); g.arc(cx, cy + r / 2, r / 2, Math.PI / 2, -Math.PI / 2, true); g.arc(cx, cy - r / 2, r / 2, Math.PI / 2, -Math.PI / 2); g.fill();
+  g.beginPath(); g.arc(cx, cy - r / 2, r * 0.12, 0, 7); g.fill();
+  g.fillStyle = '#e9dcc0'; g.beginPath(); g.arc(cx, cy + r / 2, r * 0.12, 0, 7); g.fill();
+}
+// 지붕 얹은 문: 담은 z를 따라 서고, 문 앞(-x)이 바깥이다. half = 문 기둥 사이 반 폭. 담에 낸 틈(±3.3)의 나머지는 담으로 메운다.
+function hyugaGate(B, U, K, tile, main, glows) {
+  const half = main ? 2.5 : 1.4, H = main ? 4.2 : 3.4;
+  for (const s of [-1, 1]) {
+    B.box(M.beam, -0.24, 0, s * half - 0.24, 0.24, H, s * half + 0.24); B.box(M.stone, -0.32, 0, s * half - 0.32, 0.32, 0.45, s * half + 0.32, false);
+    U.capWall(B, 'z', 0, s > 0 ? half + 0.24 : -3.3, s > 0 ? 3.3 : -half - 0.24, 3.0, 0.5, tile);
+    for (const x of [-1.1, 1.1]) { B.box(M.beam, x - 0.12, 0, s * half - 0.12, x + 0.12, H - 0.9, s * half + 0.12); beamBetween(B, M.beam, V(x, H - 0.9, s * half), V(0, H - 0.25, s * half), 0.1, 0.12); }   // 버팀 기둥
+    B.box(K.door, 0.3, 0.12, s * (half - 0.2) - 0.045, 0.3 + half - 0.3, H - 1.05, s * (half - 0.2) + 0.045, false);              // 안으로 활짝 연 문짝
+    for (const y of [0.6, 1.6, 2.6]) if (y < H - 1.2) B.box(M.iron, 0.3, y, s * (half - 0.2) - 0.06, 0.3 + half - 0.3, y + 0.07, s * (half - 0.2) + 0.06, false);
+  }
+  B.box(M.beam, -0.2, H - 0.95, -half, 0.2, H - 0.62, half, false); B.box(M.beam, -0.26, H - 0.3, -half - 0.6, 0.26, H, half + 0.6, false);
+  gableRoof(B, tile, -1.5, -half - 0.8, 1.5, half + 0.8, H, main ? 1.0 : 0.8, { ridge: 'z', over: 0.5, overGable: 0.4 });
+  crestDisc(B, drawHyuga, 'hyuga', -0.22, H - 0.46 - 0.32, 0, -Math.PI / 2, main ? 0.42 : 0.3); crestDisc(B, drawHyuga, 'hyuga', 0.22, H - 0.46 - 0.32, 0, Math.PI / 2, main ? 0.42 : 0.3);
+  if (main) for (const s of [-1, 1]) glows.push(lantern(B, -0.75, 2.5, s * (half - 0.75), { text: '日向', color: 0xf0e2c0, r: 0.2, h: 0.52 }));
+}
+// 돌 등롱
+function stoneLantern(B, x, z) {
+  B.geo(M.stone, new THREE.CylinderGeometry(0.34, 0.4, 0.22, 6), mat4(x, 0.11, z)); B.geo(M.stone, new THREE.CylinderGeometry(0.12, 0.15, 0.95, 8), mat4(x, 0.69, z));
+  B.geo(M.stone, new THREE.CylinderGeometry(0.3, 0.16, 0.16, 6), mat4(x, 1.24, z)); B.geo(mat('glow', 0xffe2b0, { power: 0.7 }), new THREE.BoxGeometry(0.26, 0.3, 0.26), mat4(x, 1.47, z));
+  for (const [a, c] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B.box(M.stone, x + a * 0.15 - 0.03, 1.32, z + c * 0.15 - 0.03, x + a * 0.15 + 0.03, 1.62, z + c * 0.15 + 0.03, false);
+  B.geo(M.stone, new THREE.ConeGeometry(0.46, 0.3, 6), mat4(x, 1.77, z)); B.geo(M.stone, new THREE.SphereGeometry(0.08, 8, 6), mat4(x, 1.96, z));
+  addCollider(x - 0.3, 0, z - 0.3, x + 0.3, 1.9, z + 0.3);
+}
+function hyuga(scene, out) {
+  const U = uchihaKit(), K = makeKit(), Z = zone(32), F = PLAN.fan, P0 = Z.poly, NP = P0.length, n2 = NP / 2, c0 = cen(P0);
+  const tileHex = 0x5a4638, tile = mat('tile', tileHex), MAIN = 3;                       // 블록 번호: 종가 저택
+  K.rope = mat('plain', 0x9a8046, { rough: 0.95 });
+  // 담이 서는 줄: 구역 테두리의 두 옆변은 바큇살 길 한가운데라서 길 폭만큼 안으로 들인다
+  const inward = (i, j) => { const a = P0[i], b = P0[j], L = Math.hypot(b[0] - a[0], b[1] - a[1]); let p = [(b[1] - a[1]) / L, -(b[0] - a[0]) / L]; if ((c0[0] - a[0]) * p[0] + (c0[1] - a[1]) * p[1] < 0) p = [-p[0], -p[1]]; return p; };
+  const pA = inward(n2 - 1, n2), pB = inward(NP - 1, 0);
+  const W = P0.map((q, i) => (i === n2 - 1 || i === n2 ? [q[0] + pA[0] * 8.5, q[1] + pA[1] * 8.5] : i === NP - 1 || i === 0 ? [q[0] + pB[0] * 8.5, q[1] + pB[1] * 8.5] : q));
+  const onWall = pt => { let best = null, bd = 1e9; for (let i = 0; i < NP; i++) { const a = W[i], b = W[(i + 1) % NP], dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0.08, Math.min(0.92, ((pt[0] - a[0]) * dx + (pt[1] - a[1]) * dz) / (dx * dx + dz * dz))), q = [a[0] + dx * t, a[1] + dz * t], d = Math.hypot(q[0] - pt[0], q[1] - pt[1]); if (d < bd) { bd = d; best = q; } } return best; };
+  const bc = i => cen(Z.blocks[i]), rOf = q => Math.hypot(q[0] - F[0], q[1] - F[1]), at = (q, r) => { const l = rOf(q); return [F[0] + (q[0] - F[0]) / l * r, F[1] + (q[1] - F[1]) / l * r]; };
+  const rIn = Math.min(...P0.map(rOf)), rOut = Math.max(...P0.map(rOf)), rMid = (rOf(bc(3)) + rOf(bc(6))) / 2;
+  // 문: 안담 한가운데(큰 대문), 바깥담 한가운데, 두 옆담의 가운데 고리 골목 어귀
+  const gates = [{ at: onWall(at(mid(bc(0), bc(1)), rIn)), main: true }, { at: onWall(at(mid(bc(9), bc(10)), rOut)) },
+    { at: onWall(at(mid(P0[n2 - 1], P0[n2]), rMid)) }, { at: onWall(at(mid(P0[NP - 1], P0[0]), rMid)) }];
+
+  for (let i = 0; i < NP; i++) {
+    const a = W[i], b = W[(i + 1) % NP], L = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L, ry = Math.atan2(ux, uz);
+    const open = s => { const x = a[0] + ux * s, z = a[1] + uz * s; return gates.some(g => Math.hypot(g.at[0] - x, g.at[1] - z) < 3.3); };
+    let s0 = null;
+    for (let s = 0; s <= L + 0.25; s += 0.25) {
+      const stop = s > L || open(s);
+      if (!stop && s0 === null) s0 = s;
+      if (stop && s0 !== null) { const len = s - 0.25 - s0, st = s0; if (len > 0.6) put(scene, { x: a[0] + ux * st, z: a[1] + uz * st, ry }, B => { U.capWall(B, 'z', 0, 0, len, 3.0, 0.5, tile); }); s0 = null; }
+    }
+    for (const g of gates) {
+      if (segDist(g.at[0], g.at[1], a, b) > 0.3) continue;
+      const outward = (c0[0] - g.at[0]) * -uz + (c0[1] - g.at[1]) * ux < 0;
+      g.ry = outward ? ry : ry + Math.PI; g.out = outward ? [-uz, ux] : [uz, -ux];
+      put(scene, { x: g.at[0], z: g.at[1], ry: g.ry }, B => { hyugaGate(B, U, K, tile, !!g.main, out.glows); });
+    }
+  }
+  const G = gates[0];
+
+  // 종가의 저택: 담을 두른 터에 본채, 별채, 도장, 안마당
+  {
+    const c = bc(MAIN), A = Math.atan2(c[0] - F[0], c[1] - F[1]), u = [Math.sin(A), Math.cos(A)], back = Math.atan2(-u[0], -u[1]);   // 저택의 앞(+z)이 관저 쪽 = 대문 골목 쪽
+    const HW = 23, HD = 24;
+    LOTS.push({ x: c[0], z: c[1], ry: back, w: HW * 2 + 2, d: HD * 2 + 2 });
+    put(scene, { x: c[0] - u[0] * HD, z: c[1] - u[1] * HD, ry: Math.atan2(-u[1], u[0]) }, B => { hyugaGate(B, U, K, tile, true, out.glows); signBoard(B, '日向', -0.3, 1.5, -2.5 - 0.5, -Math.PI / 2, 0.2, 0.55, { vertical: true, both: false, depth: 0.04 }); });
+    const res = put(scene, { x: c[0], z: c[1], ry: back }, B => {
+      const wm = mat('plaster', 0xf1eadb), base = { front: 's', wall: 5, roof: 3, roofHex: tileHex, shop: null, near: true };
+      // 터의 담(앞쪽 한가운데는 문 자리)
+      U.capWall(B, 'x', -HD, -HW, HW, 2.8, 0.5, tile); U.capWall(B, 'z', -HW, -HD, HD, 2.8, 0.5, tile); U.capWall(B, 'z', HW, -HD, HD, 2.8, 0.5, tile);
+      U.capWall(B, 'x', HD, -HW, -3.3, 2.8, 0.5, tile); U.capWall(B, 'x', HD, 3.3, HW, 2.8, 0.5, tile);
+      // 본채: 너른 단층에 우진각지붕, 앞으로 툇마루
+      boxHouse(B, K, { ...base, x0: -11, z0: -21, x1: 13, z1: -10.5, floors: 1, roofKind: 'hip', rise: 3.6 }, rngOf(3201), out.glows);
+      B.box(M.floor, -11.4, 0, -10.5, 13.4, 0.42, -8.7); for (let x = -11.2; x <= 13.3; x += 4.07) B.box(M.beam, x - 0.09, 0.42, -8.95, x + 0.09, 2.9, -8.77, false);
+      B.box(M.beam, -11.4, 2.84, -9.0, 13.4, 3.0, -8.72, false); B.box(M.stone, -0.9, 0, -8.7, 2.9, 0.2, -8.0, false);
+      for (const x of [-7.5, 9.5]) crestDisc(B, drawHyuga, 'hyuga', x, 2.25, -10.46, 0, 0.5);
+      // 별채: 동쪽의 2층채
+      boxHouse(B, K, { ...base, front: 'w', x0: 13.5, z0: -5, x1: 21, z1: 9, floors: 2, roofKind: 'gable', rise: 2.2 }, rngOf(3202), out.glows);
+      // 도장: 서쪽. 마루를 높이고 안마당 쪽을 튼 수련장. 바닥에 팔괘 진, 안벽에 "柔拳"
+      const dx0 = -21, dx1 = -8.5, dz0 = -6, dz1 = 12, dh = 3.7, fy = 0.42;
+      B.box(M.floor, dx0, 0, dz0, dx1, fy, dz1);
+      B.box(wm, dx0, fy, dz0, dx0 + 0.2, dh, dz1); B.box(wm, dx0, fy, dz0, dx1, dh, dz0 + 0.2);                                    // 서쪽·북쪽 벽
+      B.box(K.stone, dx0 - 0.06, 0, dz0 - 0.06, dx0 + 0.26, 0.9, dz1 + 0.06, false);
+      for (let z = dz0; z <= dz1 + 0.01; z += 4.5) for (const x of [dx0 + 0.1, dx1 - 0.1]) B.box(M.beam, x - 0.11, 0, z - 0.11, x + 0.11, dh, z + 0.11, x > dx0 + 1);
+      for (let x = dx0 + 0.1; x <= dx1; x += 4.1) B.box(M.beam, x - 0.11, 0, dz1 - 0.21, x + 0.11, dh, dz1 + 0.01);
+      B.box(M.beam, dx0, dh - 0.24, dz0, dx1, dh, dz0 + 0.2, false); B.box(M.beam, dx0, dh - 0.24, dz1 - 0.2, dx1, dh, dz1, false); B.box(M.beam, dx1 - 0.2, dh - 0.24, dz0, dx1, dh, dz1, false); B.box(M.beam, dx0, dh - 0.24, dz0, dx0 + 0.2, dh, dz1, false);
+      hipRoof(B, tile, dx0 - 0.2, dz0 - 0.2, dx1 + 0.2, dz1 + 0.2, dh, 2.4, { over: 1.0 });
+      B.box(M.beamLight, dx0 + 0.2, dh - 0.06, dz0 + 0.2, dx1, dh - 0.02, dz1, false);                                              // 천장 널
+      const bagua = textMat(' ', { w: 512, h: 512, bg: '#c9a878', color: '#c9a878', key: 'bagua', draw: drawBagua });
+      B.geo(bagua, new THREE.PlaneGeometry(7.6, 7.6).rotateX(-Math.PI / 2), mat4((dx0 + dx1) / 2 + 0.1, fy + 0.012, (dz0 + dz1) / 2));
+      signBoard(B, '柔拳', dx0 + 0.24, 2.55, (dz0 + dz1) / 2, Math.PI / 2, 2.6, 1.0, { both: false });
+      for (const s of [-1, 1]) crestDisc(B, drawHyuga, 'hyuga', dx0 + 0.24, 2.55, (dz0 + dz1) / 2 + s * 2.6, Math.PI / 2, 0.45);
+      B.box(M.stone, dx1, 0, 1.5, dx1 + 0.7, 0.2, 4.5, false);                                                                        // 오르는 디딤돌
+      // 목인(木人) 둘: 도장 북쪽 벽 앞
+      for (const x of [-18, -12]) {
+        B.geo(M.beam, new THREE.CylinderGeometry(0.16, 0.17, 1.7, 12), mat4(x, fy + 0.85, dz0 + 1.2));
+        for (const [y, a] of [[1.35, 0.5], [1.35, -0.5], [0.95, 0]]) B.geo(M.beamLight, new THREE.CylinderGeometry(0.04, 0.04, 0.6, 8).rotateX(Math.PI / 2), mat4(x + Math.sin(a) * 0.1, fy + y, dz0 + 1.2 + 0.4, 0, a, 0));
+        addCollider(x - 0.2, fy, dz0 + 1.0, x + 0.2, fy + 1.7, dz0 + 1.7);
+      }
+      // 안마당: 문에서 본채로 가는 판석 길, 돌 등롱, 수련 말뚝, 담 밑 떨기나무
+      B.box(M.pave, -0.2, 0, -8.0, 2.2, 0.03, HD, false); B.box(M.pave, dx1 + 0.7, 0, 2.2, -0.2, 0.03, 3.8, false);
+      for (const s of [-1, 1]) stoneLantern(B, 1 + s * 2.6, 14);
+      for (const [x, z] of [[6, 15], [8.5, 17.5], [5.5, 19.5]]) {
+        B.geo(M.beam, new THREE.CylinderGeometry(0.15, 0.17, 1.9, 12), mat4(x, 0.95, z));
+        for (const y of [0.9, 1.2, 1.5]) B.geo(K.rope, new THREE.TorusGeometry(0.165, 0.03, 5, 14).rotateX(Math.PI / 2), mat4(x, y, z));
+        addCollider(x - 0.2, 0, z - 0.2, x + 0.2, 1.9, z + 0.2);
+      }
+      for (let k = 0; k < 9; k++) { const x = -20 + k * 5.1; if (Math.abs(x - 1) < 4.5) continue; B.geo(K.leaf, K.bush.leaves, mat4(x, 0, HD - 1.4, 0, k * 1.7, 0, [1.5, 1.2, 1.5])); }
+      for (let k = 0; k < 4; k++) B.geo(K.leaf, K.bush.leaves, mat4(HW - 1.5, 0, 12 + k * 3.2, 0, k * 2.3, 0, [1.4, 1.3, 1.4]));
+      return {
+        places: [{ n: '휴가 종가', t: '일족을 이끄는 종가(宗家)의 저택. 히아시와 두 딸 히나타·하나비가 산다. 분가는 이 집을 지키는 쪽이다.', b: [-HW, HW, -HD, HD], y: [0, 12] },
+          { n: '휴가 도장', t: '유권(柔拳)을 닦는 수련장. 바닥의 팔괘 진 위에서 상대의 점혈을 짚는 법을 익힌다.', b: [dx0, dx1, dz0, dz1], y: [0, 7] }],
+        jumps: [['휴가 종가', 1, 0, HD + 7, 0, 61], ['휴가 도장', -2, 0, 3, Math.PI / 2, 62]],
+      };
+    });
+    out.places.push(...res.places); out.jumps.push(...res.jumps);
+  }
+
+  // 분가의 집: 흰 벽·짙은 밤빛 기와, 벽마다 문장
+  GROUPS.push({
+    polys: Z.blocks.filter((_, i) => i !== MAIN), land: 3,
+    ok: (x, z) => { if (!inPoly(x, z, W)) return false; for (let i = 0; i < NP; i++) if (segDist(x, z, W[i], W[(i + 1) % NP]) < 2.4) return false; return true; },
+    style: Rr => ({ round: false, floors: 1 + (Rr() < 0.35 ? 1 : 0), wall: 5, roof: 3, roofHex: tileHex, roofKind: Rr() < 0.55 ? 'hip' : 'gable', shop: null }),
+    deco: (B, h) => crestDisc(B, drawHyuga, 'hyuga', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36),
+  });
+  out.places.push({ n: '휴가 구역', t: '백안을 물려받는, 마을에서 가장 오래된 일족의 구역. 일족을 이끄는 종가와 그를 지키는 분가로 나뉜다.', poly: W, b: bound(W) });
+  out.jumps.push(['휴가 구역 대문', G.at[0] + G.out[0] * 9, 0, G.at[1] + G.out[1] * 9, yawTo(-G.out[0], -G.out[1]), 60]);
+}
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
 export async function build(scene, ctx) {
@@ -653,6 +811,8 @@ export async function build(scene, ctx) {
   akimichi(scene, out);
   await ctx.say('야마나카 일족의 꽃밭에 물을 주는 중…');
   yamanaka(scene, out);
+  await ctx.say('휴가 일족의 구역에 담을 두르는 중…');
+  hyuga(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }

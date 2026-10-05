@@ -166,7 +166,7 @@ const hashf = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453
 function lightHouse(acc, h) {
   const c = Math.cos(h.ry), s = Math.sin(h.ry), H = h.H;
   const P = (lx, y, lz) => [h.x + lx * c + lz * s, y, h.z - lx * s + lz * c], D = (lx, ly, lz) => [lx * c + lz * s, ly, -lx * s + lz * c];
-  const wc = colOf(WALLS[h.wall]), rc = colOf(ROOFS[h.roof]), dk = colOf(0xffffff), door = colOf(0x6b4a30);
+  const wc = colOf(WALLS[h.wall]), rc = colOf(h.roofHex ?? ROOFS[h.roof]), dk = colOf(0xffffff), door = colOf(0x6b4a30);
   if (h.round) {
     const r = h.r, N = 12, ang = i => i / N * Math.PI * 2, nw = Math.max(5, Math.round(r * 1.5));
     for (let i = 0; i < N; i++) {
@@ -284,7 +284,7 @@ export async function build(scene, ctx) {
     const from = marks();
     if (h.round) addCollider(-h.r * 0.75, 0, -h.r * 0.75, h.r * 0.75, h.H, h.r * 0.75); else addCollider(-h.w / 2, 0, -h.d / 2, h.w / 2, h.H, h.d / 2);
     h.site = makeSite(from, { x: h.x, z: h.z, ry: h.ry, pad: 2.5 });
-    h.spec = { x0: -h.w / 2, z0: -h.d / 2, x1: h.w / 2, z1: h.d / 2, front: 's', floors: h.floors, wall: h.wall, roof: h.roof, roofKind: h.roofKind, shop: h.shop, near: false, rise: h.rise };
+    h.spec = { x0: -h.w / 2, z0: -h.d / 2, x1: h.w / 2, z1: h.d / 2, front: 's', floors: h.floors, wall: h.wall, roof: h.roof, roofHex: h.roofHex, roofKind: h.roofKind, shop: h.shop, near: false, rise: h.rise };
     h.mat = mat4(h.x, 0, h.z, 0, h.ry, 0);
   }
   for (const c of hcells.values()) {

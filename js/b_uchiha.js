@@ -59,7 +59,7 @@ const kunaiGeo = () => mergeGeos([[new THREE.ConeGeometry(0.03, 0.15, 4), mat4(0
 
 /* ---------- 기와를 얹은 담 ----------
    axis 'x' = x 방향으로 뻗은 담(가운데선 z = c). 양쪽으로 흘러내리는 기와 두 면과 용마루. */
-function capWall(B, axis, c, a0, a1, h, t = 0.5) {
+function capWall(B, axis, c, a0, a1, h, t = 0.5, tile = C.tile) {   // tile: 담 위에 얹는 기와(다른 구역은 제 빛깔을 준다)
   if (axis === 'x') { B.box(C.wall, a0, 0, c - t / 2, a1, h, c + t / 2); B.box(M.stone, a0, 0, c - t / 2 - 0.05, a1, 0.5, c + t / 2 + 0.05, false); }
   else { B.box(C.wall, c - t / 2, 0, a0, c + t / 2, h, a1); B.box(M.stone, c - t / 2 - 0.05, 0, a0, c + t / 2 + 0.05, 0.5, a1, false); }
   const ov = t / 2 + 0.24, rise = 0.3, len = Math.hypot(ov, rise), w = a1 - a0;
@@ -67,11 +67,11 @@ function capWall(B, axis, c, a0, a1, h, t = 0.5) {
     const Vv = (axis === 'x' ? V3(0, rise, -s * ov) : V3(-s * ov, rise, 0)).normalize();
     let U = axis === 'x' ? V3(1, 0, 0) : V3(0, 0, 1), o = axis === 'x' ? V3(a0, h + 0.03, c + s * ov) : V3(c + s * ov, h + 0.03, a0);
     if (new THREE.Vector3().crossVectors(U, Vv).y < 0) { U = U.negate(); o = axis === 'x' ? V3(a1, h + 0.03, c + s * ov) : V3(c + s * ov, h + 0.03, a1); }
-    tilePanel(B, C.tile, o, U, Vv, w, len, null, 2, false);
+    tilePanel(B, tile, o, U, Vv, w, len, null, 2, false);
   }
   // 처마 밑널(밑에서 올려다볼 때 기와 뒷면이 비지 않게)과 용마루
-  if (axis === 'x') { B.box(M.beam, a0, h - 0.03, c - ov, a1, h + 0.02, c + ov, false); B.box(C.tile, a0, h + rise - 0.02, c - 0.09, a1, h + rise + 0.12, c + 0.09, false); }
-  else { B.box(M.beam, c - ov, h - 0.03, a0, c + ov, h + 0.02, a1, false); B.box(C.tile, c - 0.09, h + rise - 0.02, a0, c + 0.09, h + rise + 0.12, a1, false); }
+  if (axis === 'x') { B.box(M.beam, a0, h - 0.03, c - ov, a1, h + 0.02, c + ov, false); B.box(tile, a0, h + rise - 0.02, c - 0.09, a1, h + rise + 0.12, c + 0.09, false); }
+  else { B.box(M.beam, c - ov, h - 0.03, a0, c + ov, h + 0.02, a1, false); B.box(tile, c - 0.09, h + rise - 0.02, a0, c + 0.09, h + rise + 0.12, a1, false); }
 }
 
 /* ---------- 장지문 한 짝 ----------
