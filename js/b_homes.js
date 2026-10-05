@@ -912,8 +912,8 @@ export function build(scene, ctx) {
   P = palette(); G = makeGeos(); F = makeFlowers();
   const out = { places: [], jumps: [], lights: [], glows: [], skip: [] };
   const B = new Builder();
-  buildSakura(B, rng(4101), out);
-  buildIno(B, rng(4102), out);
+  if (!ctx.which || ctx.which === 'sakura') buildSakura(B, rng(4101), out);
+  if (!ctx.which || ctx.which === 'ino') buildIno(B, rng(4102), out);
   B.finish(scene);
   return out;
 }

@@ -9,7 +9,7 @@ import { mat } from './materials.js';
 import { makeKit, boxHouse, towerHouse, WALLS, ROOFS, SHOPS } from './town.js';
 import { treeGeometry, bushGeometry, tuftGeometry } from './flora.js';
 import { PLAN } from './plan-data.js';
-import { WALL, CLIFF, STAIR } from './layout.js';
+import { WALL, CLIFF, STAIR, SITE } from './layout.js';
 import { terrainH, inPoly } from './village.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -125,8 +125,9 @@ function planHouses(R, mobile) {
       add(h, mine);
     }
   }
-  // 집이 선 자리를 쓰임새 그림에 적어 둔다(나무·풀이 피한다)
-  for (const h of houses) {
+  // 집이 선 자리를 쓰임새 그림에 적어 둔다(나무·풀이 피한다). 들어갈 수 있는 건물의 터도 같이 적는다.
+  const lots = Object.values(SITE).filter(s => s.w).map(s => ({ x: s.x, z: s.z, w: s.w, d: s.d, box: boxOf(s) }));
+  for (const h of [...houses, ...lots]) {
     const o = h.box, r = Math.hypot(o.hw, o.hd) + 1;
     for (let iz = Math.floor((h.z - r - LZ0) / LU); iz <= Math.floor((h.z + r - LZ0) / LU); iz++) for (let ix = Math.floor((h.x - r - LX0) / LU); ix <= Math.floor((h.x + r - LX0) / LU); ix++) {
       const dx = LX0 + (ix + 0.5) * LU - h.x, dz = LZ0 + (iz + 0.5) * LU - h.z;

@@ -93,7 +93,7 @@ function buildGround(scene, tintOn) {
   // 구역 빛깔: 빈 터가 어느 구역인지 알아보게 블록에 배치도의 색을 엷게 입힌다(집이 서면 끈다. 확인용 ?tint=0)
   const tc = document.createElement('canvas'); tc.width = tc.height = S;
   const tg = tc.getContext('2d');
-  if (tintOn) for (const z of PLAN.zones) { tg.fillStyle = z.fill; for (const b of z.blocks || [z.poly]) fillPoly(tg, b); }
+  if (tintOn) for (const z of PLAN.zones) { if (BUILT.has(z.n)) continue; tg.fillStyle = z.fill; for (const b of z.blocks || [z.poly]) fillPoly(tg, b); }
   const tint = new THREE.CanvasTexture(tc);
   tint.flipY = false; tint.colorSpace = THREE.SRGBColorSpace;
 
@@ -198,6 +198,7 @@ function buildCrossings(scene) {
 }
 
 /* ---------- 구역 팻말(빈 마을 확인용): 구역 번호 자리에 이름을 적은 팻말을 세운다 ---------- */
+const BUILT = new Set(Object.values(SITE).map(s => s.zone).filter(Boolean));   // 건물이 이미 선 구역(팻말·빈 터 안내를 뺀다)
 function buildSigns(scene) {
   const B = new Builder();
   const post = (name, x, z) => {
@@ -206,8 +207,7 @@ function buildSigns(scene) {
     signBoard(B, name, x, y + 3.0, z, ry, w, 0.9, { font: 'gothic' });
     addCollider(x - 0.3, y, z - 0.3, x + 0.3, y + 3.6, z + 0.3);
   };
-  const built = new Set(Object.values(SITE).map(s => s.zone));   // 건물이 이미 선 구역
-  for (const z of PLAN.zones) if (!built.has(z.n)) post(z.name, z.at[0], z.at[1]);
+  for (const z of PLAN.zones) if (!BUILT.has(z.n)) post(z.name, z.at[0], z.at[1]);
   for (const t of PLAN.train) if (t.id !== '0') post(t.name.split(' — ')[0], t.at[0] + 4, t.at[1] + 4);
   B.finish(scene);
 }
@@ -223,14 +223,14 @@ export async function buildVillage(scene, ctx) {
     { n: '정문', t: '마을의 남쪽 대문. 왼쪽 문짝에 あ, 오른쪽 문짝에 ん이 적혀 있다.', b: [-16, 16, WALL.gateZ - 16, WALL.gateZ + 6] },
     { n: '화둔 호수', t: '우치하 구역 안의 호수. 나카 강에서 물을 끌어들였다. 부두 끝에서 호화구를 익힌다.', poly: WT.lake, b: bounds(WT.lake) },
     { n: '섬 있는 못', t: '나카 강이 시작되는 못. 제2 훈련장.', poly: WT.isle, b: bounds(WT.isle) },
-    ...PLAN.zones.map(z => ({ n: z.name, t: '새 배치의 자리. 아직 빈 터다.', poly: z.poly, b: bounds(z.poly) })),
+    ...PLAN.zones.filter(z => !BUILT.has(z.n)).map(z => ({ n: z.name, t: '새 배치의 자리. 아직 빈 터다.', poly: z.poly, b: bounds(z.poly) })),
     ...PLAN.train.map(t => ({ n: t.name.split(' — ')[0], t: t.name.split(' — ')[1] || '', b: [t.at[0] - 18, t.at[0] + 18, t.at[1] - 18, t.at[1] + 18] })),
   ];
   // 바로 가기: 구역마다 번호 자리 앞에 선다(관저 쪽을 등지고 구역을 본다)
   const face = (x, z) => Math.atan2(PLAN.fan[0] - x, PLAN.fan[1] - z) + Math.PI;
   const jumps = [['정문', 0, 0, WALL.gateZ - 15, 0, 0], ['큰길 한가운데', 0, 0, WALL.cz, 0, 1],
     ['화둔 호수 부두', WT.pier[0][0], 0.3, WT.pier[0][1], Math.atan2(WT.pier[0][0] - WT.pier[1][0], WT.pier[0][1] - WT.pier[1][1]), 20],
-    ...PLAN.zones.filter(z => z.blocks || [3, 26, 30, 31, 20].includes(z.n)).map((z, i) => [z.name, z.at[0] + 6, 0, z.at[1] + 6, face(z.at[0], z.at[1]), 21 + i])];
+    ...PLAN.zones.filter(z => !BUILT.has(z.n) && (z.blocks || [3, 26, 30, 31, 20].includes(z.n))).map((z, i) => [z.name, z.at[0] + 6, 0, z.at[1] + 6, face(z.at[0], z.at[1]), 21 + i])];
   const out = { places, jumps, skip: [], lights: [], glows: [], ticks: [] };
   const take = r => { for (const k of ['places', 'jumps', 'skip', 'lights', 'glows']) out[k].push(...(r[k] || [])); if (r.tick) out.ticks.push(r.tick); };
   if (!ctx.lite) {

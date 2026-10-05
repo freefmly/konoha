@@ -19,8 +19,10 @@ document.body.classList.toggle('touch', TOUCH);
 // 따로 짓는 건물들. 하나가 고장 나도 나머지는 뜨게 하나씩 불러온다.
 // 새 배치로 옮기는 중: 지금은 제자리가 그대로인 호카게 관저만 세운다. 나머지(academy·naruto·homes·ichiraku·uchiha)는 새 자리로 옮긴 뒤 다시 넣는다.
 const BUILDINGS = [
-  ['hokage', '호카게 관저를 올리는 중…'],
-  ['naruto', '나루토의 집을 짓는 중…'],
+  // [이름(SITE의 이름), 알림, 짓는 파일(이름과 다를 때)]
+  ['hokage', '호카게 관저를 올리는 중…'], ['academy', '닌자 아카데미를 짓는 중…'], ['swing', '아카데미 마당에 그네를 다는 중…'],
+  ['naruto', '나루토의 집을 짓는 중…'], ['sakura', '사쿠라의 집을 짓는 중…', 'homes'], ['ino', '야마나카 꽃집을 여는 중…', 'homes'],
+  ['ichiraku', '이치라쿠 라멘의 국물을 끓이는 중…'], ['sasuke', '사스케의 집을 짓는 중…', 'uchiha'], ['shrine', '남가 신사를 세우는 중…', 'uchiha'],
 ];
 
 async function init() {
@@ -55,11 +57,12 @@ async function init() {
   const only = Q.get('only');   // 확인용: ?only=hokage 처럼 주면 그 건물만 짓는다(마을 채움 건물·숲은 생략)
   const sq = (Q.get('shot') || '').split(',').map(Number);
   const ctx = { LOT, renderer, say, camera, weather, shotAt: sq.length >= 3 && !Q.get('sky') ? { x: sq[0], y: 0, z: sq[2] } : null, lite: !!only && only !== 'none', part: Q.get('part'), mobile: TOUCH, tint: Q.get('tint') !== '0' };   // only=none: 필수 건물 없이 마을만
-  for (const [name, msg] of BUILDINGS) {
+  for (const [name, msg, file = name] of BUILDINGS) {
     if (only && only !== name) continue;
     await say(msg);
     try {
-      const mod = await import(`./b_${name}.js`), at = SITE[name];
+      const mod = await import(`./b_${file}.js`), at = SITE[name];
+      ctx.which = name;                                    // 한 파일이 여러 채를 지을 때 어느 것을 지을지
       if (!at) take(await mod.build(scene, ctx));
       else {   // 새 자리로 옮긴 건물: 제 좌표로 지은 뒤 통째로 돌려 놓는다(확인용 ?spin=도 — 더 돌려 본다)
         const holder = new THREE.Group(), from = marks();

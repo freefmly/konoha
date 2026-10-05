@@ -394,10 +394,13 @@ function pond(B, out) {
 }
 
 /* ============================ 나무와 덤불 ============================ */
-function garden(scene, R) {
-  const trees = [[151.4, 9.2, 0.62], [166, -21.5, 0.5], [151, -39, 0.75], [168, 14.5, 0.7], [147.5, 26, 0.8], [126, -30, 0.9], [126, 22, 0.85], [150.2, -24, 0.55]];
+// only: [x0, z0, x1, z1] — 그 터 안의 나무·덤불만 심는다(집을 한 채씩 따로 지을 때)
+function garden(scene, R, only) {
+  const inn = (x, z) => !only || (x >= only[0] && x <= only[2] && z >= only[1] && z <= only[3]);
+  const trees = [[151.4, 9.2, 0.62], [166, -21.5, 0.5], [151, -39, 0.75], [168, 14.5, 0.7], [147.5, 26, 0.8], [126, -30, 0.9], [126, 22, 0.85], [150.2, -24, 0.55]].filter(t => inn(t[0], t[1]));
   const geos = [treeGeometry(301, { height: 11, depth: 4, sprays: 5, leaves: 6, leafLen: 0.5 }), treeGeometry(307, { height: 12, depth: 4, sprays: 5, leaves: 6, leafLen: 0.5 })];
   const mk = (geo, material, list, shadow = true) => {
+    if (!list.length) return;
     const im = new THREE.InstancedMesh(geo, material, list.length);
     list.forEach((m, i) => im.setMatrixAt(i, m)); im.instanceMatrix.needsUpdate = true; im.castShadow = shadow; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im);
   };
@@ -406,7 +409,7 @@ function garden(scene, R) {
     mk(geos[k].wood, C.bark, list); mk(geos[k].leaves, C.green[k], list);
   }
   const bush = bushGeometry(13, 1.1), bl = [];
-  for (const [x, z] of [[150, 6.5], [152.4, 10.6], [166.3, 6], [166.2, 10.5], [158, 10.8], [150, -18.5], [166.3, -18.6], [149.5, 16.5], [167, 20], [147.6, -40.5], [152.6, -26.5], [152.6, -39.6], [121.5, -22], [121.5, 14]]) bl.push(mat4(x, 0, z, 0, R() * 6.28, 0, 0.8 + R() * 0.6));
+  for (const [x, z] of [[150, 6.5], [152.4, 10.6], [166.3, 6], [166.2, 10.5], [158, 10.8], [150, -18.5], [166.3, -18.6], [149.5, 16.5], [167, 20], [147.6, -40.5], [152.6, -26.5], [152.6, -39.6], [121.5, -22], [121.5, 14]]) if (inn(x, z)) bl.push(mat4(x, 0, z, 0, R() * 6.28, 0, 0.8 + R() * 0.6));
   mk(bush.wood, C.bark, bl, false); mk(bush.leaves, C.green[1], bl);
 }
 
@@ -414,6 +417,13 @@ export async function build(scene, ctx) {
   C = palette();
   const out = { places: [], jumps: [], lights: [], glows: [], skip: [] };
   const K = makeKit(), R = rng(9001);
+  // 새 배치: 사스케의 집과 남가 신사를 따로따로 제자리에 짓는다(구역의 담·거리·호수는 마을 쪽에서 새로 만든다)
+  if (ctx.which === 'sasuke' || ctx.which === 'shrine') {
+    const B = new Builder();
+    if (ctx.which === 'sasuke') { sasukeHouse(B, out); B.finish(scene); garden(scene, R, [148, -21, 168.5, 13]); }
+    else { shrine(B, out); B.finish(scene); garden(scene, R, [146.5, -42, 168.5, -22]); }
+    return out;
+  }
   for (const part of [B => district(B, K, R, out), B => sasukeHouse(B, out), B => { shrine(B, out); pond(B, out); }]) { const B = new Builder(); part(B); B.finish(scene); }
   garden(scene, R);
   const { x0, x1, z0, z1, gateZ } = UCHIHA;
