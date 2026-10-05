@@ -742,13 +742,10 @@ function hyuga(scene, out) {
       // 터의 담(앞쪽 한가운데는 문 자리)
       U.capWall(B, 'x', -HD, -HW, HW, 2.8, 0.5, tile); U.capWall(B, 'z', -HW, -HD, HD, 2.8, 0.5, tile); U.capWall(B, 'z', HW, -HD, HD, 2.8, 0.5, tile);
       U.capWall(B, 'x', HD, -HW, -3.3, 2.8, 0.5, tile); U.capWall(B, 'x', HD, 3.3, HW, 2.8, 0.5, tile);
-      // 본채: 너른 단층에 우진각지붕, 앞으로 툇마루
-      boxHouse(B, K, { ...base, x0: -11, z0: -21, x1: 13, z1: -10.5, floors: 1, roofKind: 'hip', rise: 3.6 }, rngOf(3201), out.glows);
-      B.box(M.floor, -11.4, 0, -10.5, 13.4, 0.42, -8.7); for (let x = -11.2; x <= 13.3; x += 4.07) B.box(M.beam, x - 0.09, 0.42, -8.95, x + 0.09, 2.9, -8.77, false);
+      // 본채 앞의 툇마루(본채와 별채는 건물 파일 b_homes.js가 짓는다)
+      B.box(M.floor, -11.4, 0, -10.5, 13.4, 0.42, -8.7); for (const x of [-11.2, -7.2, -3.2, -1.0, 3.0, 7.0, 10.2, 13.2]) B.box(M.beam, x - 0.09, 0.42, -8.95, x + 0.09, 2.9, -8.77, false);
       B.box(M.beam, -11.4, 2.84, -9.0, 13.4, 3.0, -8.72, false); B.box(M.stone, -0.9, 0, -8.7, 2.9, 0.2, -8.0, false);
-      for (const x of [-7.5, 9.5]) crestDisc(B, drawHyuga, 'hyuga', x, 2.25, -10.46, 0, 0.5);
-      // 별채: 동쪽의 2층채
-      boxHouse(B, K, { ...base, front: 'w', x0: 13.5, z0: -5, x1: 21, z1: 9, floors: 2, roofKind: 'gable', rise: 2.2 }, rngOf(3202), out.glows);
+      for (const x of [-4.3, 5.9]) crestDisc(B, drawHyuga, 'hyuga', x, 2.2, -10.46, 0, 0.42);
       // 도장: 서쪽. 마루를 높이고 안마당 쪽을 튼 수련장. 바닥에 팔괘 진, 안벽에 "柔拳"
       const dx0 = -21, dx1 = -8.5, dz0 = -6, dz1 = 12, dh = 3.7, fy = 0.42;
       B.box(M.floor, dx0, 0, dz0, dx1, fy, dz1);
