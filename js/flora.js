@@ -94,7 +94,7 @@ export function bushGeometry(seed, size = 1) {
 }
 
 // 풀포기: 길쭉한 풀잎 아홉 장이 한 뿌리에서 휘어 오른다
-function tuftGeometry(seed) {
+export function tuftGeometry(seed) {
   const R = rng(seed), lp = [], lu = [];
   for (let b = 0; b < 9; b++) {
     const a = R() * Math.PI * 2, lean = 0.15 + R() * 0.5, h = 0.28 + R() * 0.3, w = 0.022 + R() * 0.012;

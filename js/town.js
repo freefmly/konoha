@@ -9,9 +9,9 @@ import { LOT, ROADS, CLIFF, WALL, UCHIHA } from './layout.js';
 export const RECTS = [];   // 지은 집의 자리(나무 심을 때 피한다)
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
-const WALLS = [0xe8dcc0, 0xd9b97a, 0xb9c9a0, 0xd9a58a, 0xbcc6c4, 0xf1eadb, 0xc98a5e];
-const ROOFS = [0x3f6f78, 0xa4502f, 0x6f7a45, 0x4a5560, 0xc8742e];
-const SHOPS = ['茶', '酒', '米', '薬', '書', '湯', '魚', '団子', '忍具', '甘栗甘', '本', '焼肉', '宿', '呉服', '菓子', '八百屋', '豆腐', '金物', '質', '餅'];
+export const WALLS = [0xe8dcc0, 0xd9b97a, 0xb9c9a0, 0xd9a58a, 0xbcc6c4, 0xf1eadb, 0xc98a5e];
+export const ROOFS = [0x3f6f78, 0xa4502f, 0x6f7a45, 0x4a5560, 0xc8742e];
+export const SHOPS = ['茶', '酒', '米', '薬', '書', '湯', '魚', '団子', '忍具', '甘栗甘', '本', '焼肉', '宿', '呉服', '菓子', '八百屋', '豆腐', '金物', '質', '餅'];
 
 /* 벽면 하나에 붙일 좌표계: 가로 u(왼→오), 높이 y, 바깥으로 d. bx로 그 면 위에 상자를 놓는다. */
 function face(B, ox, oy, oz, ry) {
@@ -152,8 +152,8 @@ export function boxHouse(B, K, s, R, glows) {
   }
   // 지붕
   const kind = s.roofKind;
-  if (kind === 'gable') gableRoof(B, tile, x0, z0, x1, z1, H, 1.5 + R() * 0.9, { ridge: front === 'n' || front === 's' ? 'x' : 'z', gable: wm, detail: s.near ? 4 : 2, lip: false, rafters: s.near, over: 0.75 });
-  else if (kind === 'hip') hipRoof(B, tile, x0, z0, x1, z1, H, 1.6 + R() * 0.8, { detail: s.near ? 4 : 2, lip: false, rafters: s.near, over: 0.75 });
+  if (kind === 'gable') gableRoof(B, tile, x0, z0, x1, z1, H, s.rise ?? 1.5 + R() * 0.9, { ridge: front === 'n' || front === 's' ? 'x' : 'z', gable: wm, detail: s.near ? 4 : 2, lip: false, rafters: s.near, over: 0.75 });
+  else if (kind === 'hip') hipRoof(B, tile, x0, z0, x1, z1, H, s.rise ?? 1.6 + R() * 0.8, { detail: s.near ? 4 : 2, lip: false, rafters: s.near, over: 0.75 });
   else {   // 평지붕: 난간벽 위에 기와 띠, 물탱크와 관
     B.box(wm, x0, H, z0, x1, H + 0.7, z0 + 0.25, false); B.box(wm, x0, H, z1 - 0.25, x1, H + 0.7, z1, false);
     B.box(wm, x0, H, z0, x0 + 0.25, H + 0.7, z1, false); B.box(wm, x1 - 0.25, H, z0, x1, H + 0.7, z1, false);
@@ -177,7 +177,7 @@ export function boxHouse(B, K, s, R, glows) {
 }
 
 /* ---------- 둥근 탑집 ---------- */
-function towerHouse(B, K, s, R, glows) {
+export function towerHouse(B, K, s, R, glows) {
   const cx = (s.x0 + s.x1) / 2, cz = (s.z0 + s.z1) / 2, r = Math.min(s.x1 - s.x0, s.z1 - s.z0) / 2 - 0.3, floors = s.floors, H = floors * 3.0 + 0.3;
   const wm = mat('plaster', WALLS[s.wall]), tile = mat('tile', ROOFS[s.roof]);
   const SEG = 30;
@@ -215,7 +215,7 @@ function towerHouse(B, K, s, R, glows) {
     B.geo(wm, new THREE.CylinderGeometry(r2, r2, H2, 24, 1, true), mat4(cx, H + 0.9 + H2 / 2, cz), [r2 * 6.28, H2]);
     for (let i = 0; i < 5; i++) { const a = fa + i / 5 * Math.PI * 2, f = face(B, cx + Math.cos(a) * r2, H + 0.9, cz + Math.sin(a) * r2, Math.PI / 2 - a); f.B = B; fakeWindow(K, f, 0, 0.9, 0.7, 0.9, R); }
     coneRoof(B, tile, cx, cz, r2 + 0.7, H + 0.9 + H2, r2 * 0.75, { seg: 20, detail: s.near ? 4 : 2, lip: false });
-  } else coneRoof(B, tile, cx, cz, r + 0.9, H, r * (0.5 + R() * 0.25), { seg: 24, detail: s.near ? 4 : 2, lip: false });
+  } else coneRoof(B, tile, cx, cz, r + 0.9, H, s.rise ?? r * (0.5 + R() * 0.25), { seg: 24, detail: s.near ? 4 : 2, lip: false });
   if (R() < 0.5) { const a = fa + 2.2, p0 = V(cx + Math.cos(a) * (r + 0.08), H - 0.2, cz + Math.sin(a) * (r + 0.08)); B.geo(K.pipe, tube([p0, p0.clone().setY(0.3)], 0.05, 6, false)); }
 }
 

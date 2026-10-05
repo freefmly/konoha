@@ -53,27 +53,45 @@ export function collidersNear(x0, z0, x1, z1, out) {
 /* ---------- 자리: 비스듬히 놓인 건물 ----------
    건물은 제 좌표(벽이 축에 나란한 좌표)로 짓고, 통째로 돌려서 마을에 놓는다. 충돌 상자와 지붕면도 건물 좌표 그대로 "자리"에 따로 담아 두고,
    걷는 사람의 위치를 그 건물 좌표로 바꿔서 잰다. 사람은 둥근 기둥이라 돌려도 모양이 같으므로 판정은 똑바로 놓인 건물과 똑같다. */
-const sites = [];
+const sites = [], SCELL = 48;
+let siteGrid = null;
+// (x, z)가 든 칸에 걸친 자리들(자리가 많아도 가까운 것만 본다)
+function sitesAt(x, z) {
+  if (!siteGrid) {
+    siteGrid = new Map();
+    for (const s of sites) { const r = s.rad + 1; for (let gx = Math.floor((s.x - r) / SCELL); gx <= Math.floor((s.x + r) / SCELL); gx++) for (let gz = Math.floor((s.z - r) / SCELL); gz <= Math.floor((s.z + r) / SCELL); gz++) { const k = gx * 4096 + gz; let a = siteGrid.get(k); if (!a) siteGrid.set(k, a = []); a.push(s); } }
+  }
+  return siteGrid.get(Math.floor(x / SCELL) * 4096 + Math.floor(z / SCELL)) || NONE;
+}
+const NONE = [];
 // from(marks()) 뒤에 등록된 충돌 상자·지붕면을 떼어 새 자리에 담는다. 건물 좌표의 (ox, oz)가 마을의 (x, z)에 오고, ry만큼 돌아간다.
-export function makeSite(from, { x, z, ry = 0, ox = 0, oz = 0 }) {
+export function makeSite(from, { x, z, ry = 0, ox = 0, oz = 0, pad = 0 }) {
   const cs = colliders.splice(from[0]), rs = roofs.splice(from[1]);
   grid = null; roofGrid = null;
   let rad = 0;
   for (const c of cs) for (const cx of [c[0], c[3]]) for (const cz of [c[2], c[5]]) rad = Math.max(rad, Math.hypot(cx - ox, cz - oz));
   for (const r of rs) for (const cx of [r[0], r[2]]) for (const cz of [r[1], r[3]]) rad = Math.max(rad, Math.hypot(cx - ox, cz - oz));
-  const s = { x, z, ox, oz, ry, cos: Math.cos(ry), sin: Math.sin(ry), rad, G: mkGrid(cs), rs };
+  const s = { x, z, ox, oz, ry, cos: Math.cos(ry), sin: Math.sin(ry), rad: rad + pad, G: mkGrid(cs), rs };   // pad: 나중에 처마 따위가 더 담길 여유
   s.toLocal = (wx, wz) => { const dx = wx - x, dz = wz - z; return [ox + dx * s.cos - dz * s.sin, oz + dx * s.sin + dz * s.cos]; };
   s.toWorld = (lx, lz) => { const dx = lx - ox, dz = lz - oz; return [x + dx * s.cos + dz * s.sin, z - dx * s.sin + dz * s.cos]; };
-  sites.push(s);
+  sites.push(s); siteGrid = null;
   return s;
 }
+// 자리에 담긴 것을 from 뒤에 등록된 충돌 상자·지붕면으로 바꿔 담는다(가볍게 막아 두었던 집을 곱게 지었을 때).
+export function refillSite(s, from) {
+  const cs = colliders.splice(from[0]), rs = roofs.splice(from[1]);
+  grid = null; roofGrid = null;
+  s.G = mkGrid(cs); s.rs = rs;
+}
+// from 뒤에 등록된 충돌 상자·지붕면을 버린다(이미 자리에 담아 둔 집을 다시 지을 때).
+export function dropSince(from) { colliders.length = from[0]; roofs.length = from[1]; grid = null; roofGrid = null; }
 
 // (x, z) 둘레 r 안에 걸치는 모든 충돌 상자를 out에 (상자, px, pz, 자리) 네 개씩 담는다. px, pz는 그 상자의 좌표로 바꾼 (x, z), 자리는 비스듬한 건물이면 그 자리(아니면 null)다.
 export function nearAll(x, z, r, out) {
   if (!grid) grid = mkGrid(colliders);
   out.length = 0;
   scan(grid, x - r, z - r, x + r, z + r, out, x, z, null);
-  for (const s of sites) {
+  for (const s of sitesAt(x, z)) {
     const dx = x - s.x, dz = z - s.z, lim = s.rad + r;
     if (dx * dx + dz * dz > lim * lim) continue;
     const lx = s.ox + dx * s.cos - dz * s.sin, lz = s.oz + dx * s.sin + dz * s.cos;
@@ -99,7 +117,7 @@ export function roofAt(x, z, limit) {
   const a = roofGrid.get(Math.floor(x / CELL) * 4096 + Math.floor(z / CELL));
   let best = -Infinity;
   if (a) for (const r of a) { if (x < r[0] || x > r[2] || z < r[1] || z > r[3]) continue; const h = r[4](x, z); if (h <= limit && h > best) best = h; }
-  for (const s of sites) {   // 비스듬한 건물의 지붕
+  for (const s of sitesAt(x, z)) {   // 비스듬한 건물의 지붕
     if (!s.rs.length) continue;
     const dx = x - s.x, dz = z - s.z;
     if (dx * dx + dz * dz > s.rad * s.rad) continue;
@@ -229,6 +247,20 @@ export class Builder {
         if (uv) b.u.push(uv.getX(i) * (uvScale ? uvScale[0] : 1), uv.getY(i) * (uvScale ? uvScale[1] : 1));
         else b.u.push(0, 0);
       }
+    }
+  }
+
+  // 다른 조립기에 모인 것을 행렬 m(돌리고 옮기기만 하는 것)으로 옮겨서 가져온다.
+  absorb(other, m) {
+    const e = m.elements;
+    for (const [mat, b] of other.parts) {
+      const d = this.buf(mat), p = b.p, n = b.n, u = b.u;
+      for (let i = 0; i < p.length; i += 3) {
+        const x = p[i], y = p[i + 1], z = p[i + 2], nx = n[i], ny = n[i + 1], nz = n[i + 2];
+        d.p.push(e[0] * x + e[4] * y + e[8] * z + e[12], e[1] * x + e[5] * y + e[9] * z + e[13], e[2] * x + e[6] * y + e[10] * z + e[14]);
+        d.n.push(e[0] * nx + e[4] * ny + e[8] * nz, e[1] * nx + e[5] * ny + e[9] * nz, e[2] * nx + e[6] * ny + e[10] * nz);
+      }
+      for (let i = 0; i < u.length; i++) d.u.push(u[i]);
     }
   }
 

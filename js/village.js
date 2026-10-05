@@ -81,6 +81,7 @@ function buildGround(scene, tintOn) {
   stroke(R.main.a, R.main.b, R.main.w);
   g.lineWidth = R.ring.w * k; g.beginPath(); g.arc(px(WALL.cx), pz(WALL.cz), R.ring.r * k, 0, Math.PI * 2); g.stroke();
   fillPoly(g, R.plaza);
+  { const rs = PLAN.roadside; g.fillStyle = '#000'; for (const s of [-1, 1]) g.fillRect(px(Math.min(s * rs.off, s * (rs.off + rs.w))), pz(rs.z0), rs.w * k, (rs.z1 - rs.z0) * k); g.fillStyle = '#fff'; }   // 큰길 양쪽 가로수 띠는 풀밭
   g.beginPath(); g.arc(px(PLAN.fan[0]), pz(PLAN.fan[1]), PLAN.forecourt * k, 0, Math.PI * 2); g.fill();   // 관저 앞마당
   g.beginPath(); g.arc(px(0), pz(WALL.gateZ + 7), 26 * k, 0, Math.PI * 2); g.fill();                        // 정문 앞마당
   g.fillRect(px(-7), pz(WALL.gateZ + 5), 14 * k, 90 * k);                                                    // 정문 밖 길
@@ -240,6 +241,7 @@ export async function buildVillage(scene, ctx) {
       try { const town = await import('./town.js'); town.buildWall(scene, town.makeKit(), out.glows); } catch (e) { console.error('짓기 실패: wall', e); }
     }
     if (!ctx.part) { await ctx.say('구역 팻말을 세우는 중…'); buildSigns(scene); }
+    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./streets.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: streets', e); } }
   }
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;

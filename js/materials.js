@@ -416,6 +416,7 @@ export function mat(kind, color = 0xffffff, opts = {}) {
     } else { o.map = t.map; o.normalMap = t.normalMap; }
   }
   if ((opts.side ?? K.side) === 'double') o.side = THREE.DoubleSide;
+  if (opts.vc) o.vertexColors = true;                       // 빛깔을 꼭짓점마다 따로 준다(여러 빛깔의 집·나무를 한 덩어리로 그릴 때)
   if (kind === 'paper') { o.emissive = new THREE.Color(color); o.emissiveIntensity = 0.22; }
   if (kind === 'glow') { o.emissive = new THREE.Color(opts.emissive ?? color); o.emissiveIntensity = opts.power ?? 1.6; }
   if (opts.emissive !== undefined && kind !== 'glow') { o.emissive = new THREE.Color(opts.emissive); o.emissiveIntensity = opts.power ?? 1; }
