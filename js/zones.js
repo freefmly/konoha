@@ -4,7 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { Builder, marks, settle, addCollider, mat4, rng as rngOf } from './build.js';
 import { M, mat, textMat } from './materials.js';
 import { boxHouse, makeKit, ROOFS } from './town.js';
-import { lantern, signBoard, beamBetween, gableRoof } from './arch.js';
+import { lantern, signBoard, beamBetween, gableRoof, hipRoof } from './arch.js';
 import { tuftGeometry } from './flora.js';
 import { Herd } from './deer.js';
 import { uchihaKit, uchihaGate } from './b_uchiha.js';
@@ -250,6 +250,137 @@ function nara(scene, out) {
   out.places.push({ n: '나라 구역', t: '사슴을 돌보고 약을 짓는 나라 일족의 구역. 그림자를 다루는 술법으로 이름났다.', poly: Z.poly, b: bound(Z.poly) });
   out.jumps.push(['나라 구역', gate[0] - u[0] * 9, 0, gate[1] - u[1] * 9, yawTo(u[0], u[1]), 50]);
 }
+/* ============================ 아키미치 구역 ============================
+   많이 먹고 몸을 불려 싸우는 일족의 구역. 들머리에 나무 문, 가운데 길 끝에 일족이 모여 먹는 회관과 잔치 마당,
+   그 뒤에 곳간과 밭, 옆 블록 한가운데에 씨름판. 집은 여느 집보다 큼직하고 붉은 기와를 얹었다. 회관·씨름판·곳간은 원작에 없는, 일족의 특징에서 지어낸 것이다. */
+// 아키미치 일족의 문장: 둥근 테 안에 세로줄 셋과 엇갈린 빗금 둘(나루토 위키의 문장 그림을 따랐다)
+function drawAkimichi(g, cx, cy, r) {
+  g.save(); g.translate(cx - r, cy - r); g.scale(r / 50, r / 50);
+  g.strokeStyle = '#1a1410'; g.lineJoin = 'round'; g.lineWidth = 10;
+  g.beginPath(); g.arc(50, 50, 45, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.arc(50, 50, 45, 0, Math.PI * 2); g.clip();
+  const L = 21.875, Rr = 78.125, T = 14.87, Bt = 85.13;
+  for (const [x0, y0, x1, y1] of [[50, 5, 50, 95], [L, T, L, Bt], [Rr, T, Rr, Bt], [L, T, Rr, Bt], [Rr, T, L, Bt]]) { g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
+  g.restore();
+}
+// 볏섬: 짚으로 엮은 쌀섬(x축으로 누운 통에 새끼줄 세 가닥)
+function bale(B, K, x, y, z, ry = 0) {
+  B.geo(K.straw, new THREE.CylinderGeometry(0.3, 0.3, 0.86, 12).rotateZ(Math.PI / 2), mat4(x, y + 0.3, z, 0, ry, 0));
+  for (const o of [-0.28, 0, 0.28]) B.geo(K.rope, new THREE.TorusGeometry(0.305, 0.022, 5, 12).rotateY(Math.PI / 2), mat4(x + Math.cos(ry) * o, y + 0.3, z - Math.sin(ry) * o, 0, ry, 0));
+}
+// 곳간: 두꺼운 흰 벽에 돌 허리, 널문 하나와 높이 난 작은 창, 앞뒤로 박공이 선 맞배지붕. 가운데가 (x, 0), 앞은 +z.
+function kura(B, K, x, hw, hd, H, tile) {
+  const wm = mat('plaster', 0xf1eadb);
+  B.box(wm, x - hw, 0, -hd, x + hw, H, hd);
+  B.box(K.stone, x - hw - 0.08, 0, -hd - 0.08, x + hw + 0.08, 1.5, hd + 0.08, false);
+  for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B.box(K.wood, x + a * hw - 0.1, 1.5, b * hd - 0.1, x + a * hw + 0.1, H, b * hd + 0.1, false);
+  B.box(K.door, x - 0.95, 0.12, hd, x + 0.95, 2.5, hd + 0.14, false);                                             // 두꺼운 널문과 문틀, 쇠 띠
+  B.box(K.wood, x - 1.15, 2.5, hd, x + 1.15, 2.68, hd + 0.2, false); for (const s of [-1, 1]) B.box(K.wood, x + s * 1.05 - 0.1, 0.12, hd, x + s * 1.05 + 0.1, 2.5, hd + 0.2, false);
+  for (const y of [0.7, 1.5, 2.1]) B.box(M.iron, x - 0.95, y, hd + 0.14, x + 0.95, y + 0.07, hd + 0.17, false);
+  B.box(K.stone, x - 1.4, 0, hd, x + 1.4, 0.12, hd + 0.9, false);
+  B.box(K.dark, x - 0.38, H - 1.5, hd, x + 0.38, H - 0.75, hd + 0.05, false);                                      // 높이 난 작은 창과 덧문
+  for (const s of [-1, 1]) B.box(wm, x + s * 0.6 - 0.2, H - 1.56, hd, x + s * 0.6 + 0.2, H - 0.69, hd + 0.1, false);
+  B.box(K.wood, x - 0.86, H - 1.66, hd, x + 0.86, H - 1.56, hd + 0.14, false);
+  gableRoof(B, tile, x - hw, -hd, x + hw, hd, H, 2.0, { ridge: 'z', gable: wm, over: 0.7, overGable: 0.6, detail: 3 });
+}
+function akimichi(scene, out) {
+  const K = makeKit(), Z = zone(9), F = PLAN.fan, R = rngOf(909);
+  K.straw = mat('plain', 0xcdb06a, { rough: 0.95 }); K.rope = mat('plain', 0x9a8046, { rough: 0.95 });
+  const HALL = 5, STORE = 7, RING = 6;                              // 블록 번호: 회관, 곳간과 밭, 씨름판
+  const hc = cen(Z.blocks[HALL]), A = Math.atan2(hc[0] - F[0], hc[1] - F[1]), u = [Math.sin(A), Math.cos(A)], v = [u[1], -u[0]];
+  const r0 = Math.min(...Z.poly.map(q => Math.hypot(q[0] - F[0], q[1] - F[1]))), back = Math.atan2(-u[0], -u[1]);   // back: 관저 쪽을 보는 방향
+  const tile = mat('tile', ROOFS[1]), red = '#b3261a';
+
+  // 들머리의 나무 문
+  const gate = [F[0] + u[0] * (r0 + 5), F[1] + u[1] * (r0 + 5)];
+  put(scene, { x: gate[0], z: gate[1], ry: A }, B => {
+    for (const s of [-1, 1]) { B.box(M.beam, s * 3.3 - 0.24, 0, -0.24, s * 3.3 + 0.24, 4.5, 0.24); B.box(M.stone, s * 3.3 - 0.34, 0, -0.34, s * 3.3 + 0.34, 0.4, 0.34, false); }
+    B.box(M.beam, -4.2, 3.5, -0.13, 4.2, 3.76, 0.13, false); B.box(M.beam, -4.7, 4.34, -0.18, 4.7, 4.6, 0.18, false);
+    gableRoof(B, tile, -4.5, -0.8, 4.5, 0.8, 4.6, 0.8, { ridge: 'x', over: 0.5, overGable: 0.5 });
+    crestDisc(B, drawAkimichi, 'akimichi', 0, 4.04, 0.15, 0, 0.4); crestDisc(B, drawAkimichi, 'akimichi', 0, 4.04, -0.15, Math.PI, 0.4);
+  });
+
+  // 회관과 잔치 마당: 큰 2층 집 앞에 긴 상과 걸상, 큰 솥을 건 부뚜막
+  {
+    const res = put(scene, { x: hc[0], z: hc[1], ry: back }, B => {
+      boxHouse(B, K, { x0: -13, z0: -17, x1: 13, z1: -5, front: 's', floors: 2, wall: 0, roof: 1, roofKind: 'hip', rise: 3.2, shop: '食', near: true }, rngOf(951), out.glows);
+      signBoard(B, '食', 0, 5.4, -4.86, 0, 2.3, 2.3, { round: true, both: false, color: red, bg: '#f1e9d4', depth: 0.12, pad: 0.16 });
+      for (const s of [-1, 1]) crestDisc(B, drawAkimichi, 'akimichi', s * 9.5, 5.3, -4.96, 0, 0.6);
+      // 긴 상 셋과 걸상
+      for (const x of [-7.5, 0, 7.5]) {
+        B.box(M.beamLight, x - 1.0, 0.66, 2, x + 1.0, 0.74, 9.5); for (const z of [2.3, 9.2]) for (const s of [-1, 1]) B.box(M.beam, x + s * 0.85 - 0.05, 0, z - 0.05, x + s * 0.85 + 0.05, 0.66, z + 0.05, false);
+        for (const s of [-1, 1]) { B.box(M.beamLight, x + s * 1.55 - 0.2, 0.4, 2.2, x + s * 1.55 + 0.2, 0.46, 9.3); for (const z of [2.6, 8.9]) B.box(M.beam, x + s * 1.55 - 0.16, 0, z - 0.05, x + s * 1.55 + 0.16, 0.4, z + 0.05, false); }
+        for (let k = 0; k < 5; k++) { B.geo(K.pot, new THREE.CylinderGeometry(0.2, 0.13, 0.12, 12), mat4(x + (k % 2 ? 0.35 : -0.35), 0.8, 3 + k * 1.4)); B.geo(M.white, new THREE.CylinderGeometry(0.17, 0.17, 0.02, 12), mat4(x + (k % 2 ? -0.3 : 0.3), 0.75, 3.4 + k * 1.3)); }
+      }
+      // 부뚜막: 흙으로 쌓은 화덕에 큰 솥과 나무 뚜껑
+      for (const s of [-1, 1]) {
+        const x = s * 14.5;
+        B.box(K.stone, x - 1.1, 0, 3, x + 1.1, 0.8, 7.4);
+        for (const z of [4.1, 6.3]) { B.geo(M.iron, new THREE.CylinderGeometry(0.62, 0.5, 0.36, 16), mat4(x, 0.96, z)); B.geo(M.beam, new THREE.CylinderGeometry(0.6, 0.6, 0.06, 16), mat4(x, 1.17, z)); B.box(M.beam, x - 0.5, 1.2, z - 0.05, x + 0.5, 1.26, z + 0.05, false); }
+        B.box(M.beam, x - 0.07, 0, 9.4, x + 0.07, 2.7, 9.54, false); out.glows.push(lantern(B, x, 2.3, 9.47, { text: '食', color: 0xd8452e, r: 0.2, h: 0.5 }));
+      }
+      // 볏섬 무지와 술통
+      for (let k = 0; k < 3; k++) { bale(B, K, -11.5 + k * 0.66, 0, -3.6); if (k < 2) bale(B, K, -11.17 + k * 0.66, 0.52, -3.6); }
+      addCollider(-12, 0, -4.1, -9.8, 1.1, -3.1);
+      return { places: [{ n: '아키미치 회관', t: '일족이 모여 한솥밥을 먹는 큰 집과 잔치 마당. 많이 먹는 것이 곧 이 일족의 힘이다.', b: [-17, 17, -18, 11], y: [0, 12] }], jumps: [['아키미치 회관', 0, 0, 14, Math.PI, 53]] };
+    });
+    out.places.push(...res.places); out.jumps.push(...res.jumps);
+  }
+
+  // 씨름판: 흙으로 다진 단 위에 새끼줄을 둥글게 두르고, 네 기둥에 지붕을 올렸다
+  {
+    const rc = cen(Z.blocks[RING]), at = { x: rc[0], z: rc[1], ry: back, w: 17, d: 17 };
+    LOTS.push(at);
+    const clay = mat('plain', 0xb89468, { rough: 1 });
+    const res = put(scene, at, B => {
+      B.box(clay, -4.2, 0, -4.2, 4.2, 0.28, 4.2); B.box(clay, -3.5, 0.28, -3.5, 3.5, 0.56, 3.5);
+      B.geo(K.rope, new THREE.TorusGeometry(2.3, 0.07, 6, 40).rotateX(Math.PI / 2), mat4(0, 0.6, 0));
+      for (const s of [-1, 1]) B.box(M.white, s * 0.45 - 0.04, 0.56, -0.4, s * 0.45 + 0.04, 0.575, 0.4, false);                        // 맞서는 금
+      for (const [a, b] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B.box(M.beam, a * 4.6 - 0.14, 0, b * 4.6 - 0.14, a * 4.6 + 0.14, 4.4, b * 4.6 + 0.14);
+      B.box(M.beam, -4.8, 4.2, -4.8, 4.8, 4.4, -4.6, false); B.box(M.beam, -4.8, 4.2, 4.6, 4.8, 4.4, 4.8, false); B.box(M.beam, -4.8, 4.2, -4.8, -4.6, 4.4, 4.8, false); B.box(M.beam, 4.6, 4.2, -4.8, 4.8, 4.4, 4.8, false);
+      hipRoof(B, tile, -4.8, -4.8, 4.8, 4.8, 4.4, 1.7, { over: 0.9 });
+      // 봉(棒) 걸이: 일족이 즐겨 쓰는 긴 막대
+      B.box(M.beam, -7.6, 0, -1.6, -7.5, 1.3, -1.5, false); B.box(M.beam, -7.6, 0, 1.5, -7.5, 1.3, 1.6, false); B.box(M.beam, -7.62, 1.2, -1.6, -7.48, 1.3, 1.6, false);
+      for (let k = 0; k < 6; k++) B.geo(M.beamLight, new THREE.CylinderGeometry(0.025, 0.025, 2.1, 8), mat4(-7.42, 1.02, -1.25 + k * 0.5, 0, 0, 0.12));
+      addCollider(-7.7, 0, -1.6, -7.3, 1.3, 1.6);
+      return { places: [{ n: '아키미치 씨름판', t: '몸집을 키워 맞붙는 일족의 단련장. 흙단 위에 새끼줄을 둥글게 둘렀다.', b: [-8, 6, -6, 6], y: [0, 8] }], jumps: [['아키미치 씨름판', 0, 0, 8.5, Math.PI, 54]] };
+    });
+    out.places.push(...res.places); out.jumps.push(...res.jumps);
+  }
+
+  // 곳간과 밭: 흰 곳간 셋에 볏섬 무지, 뒤로는 푸성귀 밭
+  {
+    const blk = Z.blocks[STORE], P = shrink(blk, 3.5), c = cen(blk), row = [c[0] - u[0] * 14, c[1] - u[1] * 14], kuraTile = mat('tile', ROOFS[3]);
+    put(scene, { x: row[0], z: row[1], ry: back }, B => {
+      for (const k of [-1, 0, 1]) {
+        kura(B, K, k * 11, 3.6, 4.4, 5.6, kuraTile);
+        crestDisc(B, drawAkimichi, 'akimichi', k * 11, 6.35, 4.43, 0, 0.42);
+        for (let i = 0; i < 4; i++) { bale(B, K, k * 11 + 4.6, 0, 1.2 + i * 0.66, Math.PI / 2); if (i < 3) bale(B, K, k * 11 + 4.6, 0.52, 1.53 + i * 0.66, Math.PI / 2); }
+        addCollider(k * 11 + 4.1, 0, 0.8, k * 11 + 5.1, 1.1, 3.6);
+      }
+    });
+    const soil = mat('plain', 0x4f3d2c, { rough: 1 }), B = new Builder(), ry = Math.atan2(-v[1], v[0]), rows = [[], []];
+    for (let tv = -45; tv <= 45; tv += 2.0) for (let tu = -4; tu <= 45; tu += 1.0) {
+      const x = c[0] + v[0] * tv + u[0] * tu, z = c[1] + v[1] * tv + u[1] * tu;
+      if (!inPoly(x, z, P)) continue;
+      B.geo(soil, new THREE.BoxGeometry(1.3, 0.16, 1.02), mat4(x, 0.06, z, 0, ry, 0));
+      const k = ((Math.round(tv / 2.0) % 2) + 2) % 2;
+      rows[k].push(mat4(x + (R() - 0.5) * 0.2, 0.13, z + (R() - 0.5) * 0.2, 0, R() * 6.283, 0, k ? [1.0, 1.5 + R() * 0.4, 1.0] : [1.9, 0.55, 1.9]));   // 파처럼 솟은 줄, 배추처럼 퍼진 줄
+    }
+    B.finish(scene);
+    const leafG = tuftGeometry(12);
+    [0x7fb04a, 0x3f8a3a].forEach((col, k) => instanced(scene, leafG, mat('leaf', col), rows[k], false));
+    out.places.push({ n: '아키미치 곳간과 밭', t: '일족이 먹을 쌀을 쌓아 두는 곳간과 푸성귀 밭.', poly: blk, b: bound(blk) });
+  }
+
+  GROUPS.push({
+    polys: Z.blocks.filter((_, i) => ![HALL, STORE].includes(i)), land: 3, size: [9.5, 4.5, 8.5, 3.5],
+    style: Rr => ({ round: false, floors: 1 + (Rr() < 0.5 ? 1 : 0), wall: Rr() < 0.55 ? 3 : 0, roof: 1, roofKind: Rr() < 0.55 ? 'hip' : 'gable', shop: Rr() < 0.1 ? ['米', '団子', '焼肉', '菓子', '餅'][Math.floor(Rr() * 5)] : null }),
+    deco: (B, h) => crestDisc(B, drawAkimichi, 'akimichi', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36),
+  });
+  out.places.push({ n: '아키미치 구역', t: '많이 먹고 몸을 불려 싸우는 아키미치 일족의 구역. 옷에 먹을 식(食) 자를 새긴다.', poly: Z.poly, b: bound(Z.poly) });
+  out.jumps.push(['아키미치 구역', gate[0] - u[0] * 9, 0, gate[1] - u[1] * 9, yawTo(u[0], u[1]), 52]);
+}
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
 export async function build(scene, ctx) {
@@ -258,6 +389,8 @@ export async function build(scene, ctx) {
   uchiha(scene, out);
   await ctx.say('나라 일족의 사슴을 풀어놓는 중…');
   nara(scene, out);
+  await ctx.say('아키미치 일족의 솥에 불을 지피는 중…');
+  akimichi(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
