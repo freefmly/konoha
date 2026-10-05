@@ -7,6 +7,11 @@ export const CLIFF = { z: -150, k: 1.8, top: 108, half: 234, fall: 100 };   // �
 export const STAIR = { x0: 146, x1: 170 };   // 바위 꼭대기로 오르는 계단이 붙는 자리(x 범위)
 export const WALL = { cx: PLAN.wall.cx, cz: PLAN.wall.cz, r: PLAN.wall.r, gateZ: PLAN.wall.cz + PLAN.wall.r };   // 마을을 두른 담과 남쪽 정문
 
+// 새 배치로 옮긴 건물의 자리. 건물은 옛 집터 좌표 그대로 짓고, 그 가운데(ox, oz)를 새 자리(x, z)에 놓아 ry만큼 돌린다. zone은 배치도의 구역 번호.
+export const SITE = {
+  naruto: { zone: 11, x: 35.5, z: 298, ry: -1.527, ox: -51, oz: -18.5 },   // 나루토의 집 — 큰길 동쪽 블록, 큰길(서쪽)을 보고 블록 결을 따라 살짝 비스듬히
+};
+
 // ── 아래는 옛 배치(담 반지름 185m 시절)의 집터·길. 새 배치로 옮길 때까지 건물 파일들이 읽으므로 남겨 둔다.
 export const LOT = {
   hokage:   { x0: -38, x1: 38, z0: -128, z1: -60, cx: 0, cz: -104, front: 's' },   // 호카게 관저(둥근 본채 중심 cx,cz) — 새 배치에서도 이 자리

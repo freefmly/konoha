@@ -1,7 +1,7 @@
 // 날씨(솔로몬 성전 앱의 것을 가져와 바람·날리는 나뭇잎을 더함) — 하늘·구름·해·안개, 비와 눈, 번개, 바람, 그리고 "어디가 하늘 아래인가"를 아는 지붕 지도.
 import * as THREE from '../vendor/three.module.js';
 import { W } from './materials.js';
-import { collidersNear } from './build.js';
+import { nearAll } from './build.js';
 
 /* ---------- 지붕 지도: 위에서 내려다본 높이. 비·눈이 지붕을 뚫지 않게 하고, 눈·웅덩이가 하늘 아래에만 생기게 한다 ---------- */
 export class Cover {
@@ -52,7 +52,8 @@ export class Cover {
   heightAt(x, z) {
     if (this.data && !this.valid) {
       let h = -500;
-      for (const c of collidersNear(x - 0.05, z - 0.05, x + 0.05, z + 0.05, this.tmp || (this.tmp = []))) if (c[4] > h) h = c[4];
+      const N = nearAll(x, z, 0.05, this.tmp || (this.tmp = []));
+      for (let i = 0; i < N.length; i += 4) if (N[i][4] > h) h = N[i][4];
       return h;
     }
     if (!this.data) return -500;

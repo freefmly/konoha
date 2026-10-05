@@ -4,7 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, mat4 } from './build.js';
 import { mat, M, weatherize } from './materials.js';
 import { signBoard } from './arch.js';
-import { CLIFF, STAIR, WALL } from './layout.js';
+import { CLIFF, STAIR, WALL, SITE } from './layout.js';
 import { PLAN } from './plan-data.js';
 
 /* ---------- 땅 높이 ---------- */
@@ -205,7 +205,8 @@ function buildSigns(scene) {
     signBoard(B, name, x, y + 3.0, z, ry, w, 0.9, { font: 'gothic' });
     addCollider(x - 0.3, y, z - 0.3, x + 0.3, y + 3.6, z + 0.3);
   };
-  for (const z of PLAN.zones) post(z.name, z.at[0], z.at[1]);
+  const built = new Set(Object.values(SITE).map(s => s.zone));   // 건물이 이미 선 구역
+  for (const z of PLAN.zones) if (!built.has(z.n)) post(z.name, z.at[0], z.at[1]);
   for (const t of PLAN.train) if (t.id !== '0') post(t.name.split(' — ')[0], t.at[0] + 4, t.at[1] + 4);
   B.finish(scene);
 }

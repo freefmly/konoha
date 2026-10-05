@@ -5,7 +5,8 @@ import { Cover, Weather, WEATHERS } from './weather.js';
 import { Sound } from './audio.js';
 import { Toon } from './toon.js';
 import { Player } from './player.js';
-import { LOT, WALL } from './layout.js';
+import { LOT, WALL, SITE } from './layout.js';
+import { marks, settle } from './build.js';
 import { buildVillage, terrainH, inPoly } from './village.js';
 
 const $ = s => document.querySelector(s);
@@ -19,6 +20,7 @@ document.body.classList.toggle('touch', TOUCH);
 // 새 배치로 옮기는 중: 지금은 제자리가 그대로인 호카게 관저만 세운다. 나머지(academy·naruto·homes·ichiraku·uchiha)는 새 자리로 옮긴 뒤 다시 넣는다.
 const BUILDINGS = [
   ['hokage', '호카게 관저를 올리는 중…'],
+  ['naruto', '나루토의 집을 짓는 중…'],
 ];
 
 async function init() {
@@ -55,7 +57,14 @@ async function init() {
   for (const [name, msg] of BUILDINGS) {
     if (only && only !== name) continue;
     await say(msg);
-    try { const mod = await import(`./b_${name}.js`); take(await mod.build(scene, ctx)); }
+    try {
+      const mod = await import(`./b_${name}.js`), at = SITE[name];
+      if (!at) take(await mod.build(scene, ctx));
+      else {   // 새 자리로 옮긴 건물: 제 좌표로 지은 뒤 통째로 돌려 놓는다(확인용 ?spin=도 — 더 돌려 본다)
+        const holder = new THREE.Group(), from = marks();
+        take(settle(scene, holder, from, { ...at, ry: at.ry + (+Q.get('spin') || 0) * Math.PI / 180 }, await mod.build(holder, ctx)));
+      }
+    }
     catch (e) { console.error('건물 짓기 실패: ' + name, e); }
   }
   take(await buildVillage(scene, ctx));

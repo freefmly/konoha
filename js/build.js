@@ -2,46 +2,83 @@
 import * as THREE from '../vendor/three.module.js';
 
 /* ---------- 충돌 상자 ---------- */
-export const colliders = []; // [x0,y0,z0,x1,y1,z1]
+export const colliders = []; // [x0,y0,z0,x1,y1,z1] — 마을 좌표에 똑바로 놓인 것들
 const CELL = 6;
-let grid = null, stamp = null, stampNo = 0;
+let grid = null;
 
 export function addCollider(x0, y0, z0, x1, y1, z1) {
   colliders.push([Math.min(x0, x1), Math.min(y0, y1), Math.min(z0, z1), Math.max(x0, x1), Math.max(y0, y1), Math.max(z0, z1)]);
   grid = null;
 }
 
-function buildGrid() {
-  grid = new Map();
-  colliders.forEach((c, i) => {
+// 상자 목록을 칸으로 나눠 담아 둔다(가까운 것만 빨리 찾으려고)
+function mkGrid(list) {
+  const g = new Map();
+  list.forEach((c, i) => {
     for (let gx = Math.floor(c[0] / CELL); gx <= Math.floor(c[3] / CELL); gx++)
       for (let gz = Math.floor(c[2] / CELL); gz <= Math.floor(c[5] / CELL); gz++) {
         const key = gx * 4096 + gz;
-        let a = grid.get(key);
-        if (!a) grid.set(key, a = []);
+        let a = g.get(key);
+        if (!a) g.set(key, a = []);
         a.push(i);
       }
   });
-  stamp = new Uint32Array(colliders.length);
+  return { g, list, stamp: new Uint32Array(list.length), no: 0 };
 }
-
-// 주어진 평면 범위에 걸치는 충돌 상자를 out에 담는다.
-export function collidersNear(x0, z0, x1, z1, out) {
-  if (!grid) buildGrid();
-  out.length = 0;
-  stampNo++;
+// 칸 묶음 G에서 주어진 평면 범위에 걸치는 상자를 out에 덧붙인다. px를 주면 (상자, px, pz, 자리) 네 개씩 덧붙인다.
+function scan(G, x0, z0, x1, z1, out, px, pz, site) {
+  const no = ++G.no, { g, list, stamp } = G;
   for (let gx = Math.floor(x0 / CELL); gx <= Math.floor(x1 / CELL); gx++)
     for (let gz = Math.floor(z0 / CELL); gz <= Math.floor(z1 / CELL); gz++) {
-      const a = grid.get(gx * 4096 + gz);
+      const a = g.get(gx * 4096 + gz);
       if (!a) continue;
       for (let n = 0; n < a.length; n++) {
         const i = a[n];
-        if (stamp[i] === stampNo) continue;
-        stamp[i] = stampNo;
-        const c = colliders[i];
-        if (c[0] < x1 && c[3] > x0 && c[2] < z1 && c[5] > z0) out.push(c);
+        if (stamp[i] === no) continue;
+        stamp[i] = no;
+        const c = list[i];
+        if (c[0] < x1 && c[3] > x0 && c[2] < z1 && c[5] > z0) { if (px === undefined) out.push(c); else out.push(c, px, pz, site); }
       }
     }
+}
+
+// 주어진 평면 범위에 걸치는, 똑바로 놓인 충돌 상자를 out에 담는다(비스듬한 건물의 것은 nearAll로 찾는다).
+export function collidersNear(x0, z0, x1, z1, out) {
+  if (!grid) grid = mkGrid(colliders);
+  out.length = 0;
+  scan(grid, x0, z0, x1, z1, out);
+  return out;
+}
+
+/* ---------- 자리: 비스듬히 놓인 건물 ----------
+   건물은 제 좌표(벽이 축에 나란한 좌표)로 짓고, 통째로 돌려서 마을에 놓는다. 충돌 상자와 지붕면도 건물 좌표 그대로 "자리"에 따로 담아 두고,
+   걷는 사람의 위치를 그 건물 좌표로 바꿔서 잰다. 사람은 둥근 기둥이라 돌려도 모양이 같으므로 판정은 똑바로 놓인 건물과 똑같다. */
+const sites = [];
+// from(marks()) 뒤에 등록된 충돌 상자·지붕면을 떼어 새 자리에 담는다. 건물 좌표의 (ox, oz)가 마을의 (x, z)에 오고, ry만큼 돌아간다.
+export function makeSite(from, { x, z, ry = 0, ox = 0, oz = 0 }) {
+  const cs = colliders.splice(from[0]), rs = roofs.splice(from[1]);
+  grid = null; roofGrid = null;
+  let rad = 0;
+  for (const c of cs) for (const cx of [c[0], c[3]]) for (const cz of [c[2], c[5]]) rad = Math.max(rad, Math.hypot(cx - ox, cz - oz));
+  for (const r of rs) for (const cx of [r[0], r[2]]) for (const cz of [r[1], r[3]]) rad = Math.max(rad, Math.hypot(cx - ox, cz - oz));
+  const s = { x, z, ox, oz, ry, cos: Math.cos(ry), sin: Math.sin(ry), rad, G: mkGrid(cs), rs };
+  s.toLocal = (wx, wz) => { const dx = wx - x, dz = wz - z; return [ox + dx * s.cos - dz * s.sin, oz + dx * s.sin + dz * s.cos]; };
+  s.toWorld = (lx, lz) => { const dx = lx - ox, dz = lz - oz; return [x + dx * s.cos + dz * s.sin, z - dx * s.sin + dz * s.cos]; };
+  sites.push(s);
+  return s;
+}
+
+// (x, z) 둘레 r 안에 걸치는 모든 충돌 상자를 out에 (상자, px, pz, 자리) 네 개씩 담는다. px, pz는 그 상자의 좌표로 바꾼 (x, z), 자리는 비스듬한 건물이면 그 자리(아니면 null)다.
+export function nearAll(x, z, r, out) {
+  if (!grid) grid = mkGrid(colliders);
+  out.length = 0;
+  scan(grid, x - r, z - r, x + r, z + r, out, x, z, null);
+  for (const s of sites) {
+    const dx = x - s.x, dz = z - s.z, lim = s.rad + r;
+    if (dx * dx + dz * dz > lim * lim) continue;
+    const lx = s.ox + dx * s.cos - dz * s.sin, lz = s.oz + dx * s.sin + dz * s.cos;
+    scan(s.G, lx - r, lz - r, lx + r, lz + r, out, lx, lz, s);
+  }
   return out;
 }
 
@@ -62,7 +99,32 @@ export function roofAt(x, z, limit) {
   const a = roofGrid.get(Math.floor(x / CELL) * 4096 + Math.floor(z / CELL));
   let best = -Infinity;
   if (a) for (const r of a) { if (x < r[0] || x > r[2] || z < r[1] || z > r[3]) continue; const h = r[4](x, z); if (h <= limit && h > best) best = h; }
+  for (const s of sites) {   // 비스듬한 건물의 지붕
+    if (!s.rs.length) continue;
+    const dx = x - s.x, dz = z - s.z;
+    if (dx * dx + dz * dz > s.rad * s.rad) continue;
+    const lx = s.ox + dx * s.cos - dz * s.sin, lz = s.oz + dx * s.sin + dz * s.cos;
+    for (const r of s.rs) { if (lx < r[0] || lx > r[2] || lz < r[1] || lz > r[3]) continue; const h = r[4](lx, lz); if (h <= limit && h > best) best = h; }
+  }
   return best;
+}
+
+// 제 좌표로 지은 건물(holder에 담긴 것)을 마을의 제자리에 돌려 놓는다. 충돌 상자·지붕면은 자리에 담고, 건물이 돌려준 자리 이름·바로 가기·등불도 마을 좌표로 바꾼다.
+export function settle(scene, holder, from, at, res) {
+  const s = makeSite(from, at), outer = new THREE.Group();
+  holder.position.set(-s.ox, 0, -s.oz);
+  outer.position.set(s.x, 0, s.z); outer.rotation.y = s.ry;
+  outer.add(holder); scene.add(outer);
+  if (!res) return res;
+  const P = (x, z) => s.toWorld(x, z);
+  for (const p of res.places || []) {
+    const poly = (p.poly || [[p.b[0], p.b[2]], [p.b[1], p.b[2]], [p.b[1], p.b[3]], [p.b[0], p.b[3]]]).map(q => P(q[0], q[1]));
+    p.poly = poly;
+    p.b = [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
+  }
+  if (res.jumps) res.jumps = res.jumps.map(([n, x, y, z, yaw = 0, k]) => { const w = P(x, z); return [n, w[0], y, w[1], yaw + s.ry, k]; });
+  for (const key of ['lights', 'glows']) if (res[key]) res[key] = res[key].map(l => { const w = P(l[0], l[2]); return [w[0], l[1], w[1], ...l.slice(3)]; });
+  return res;
 }
 
 // 지금까지 등록된 충돌 상자·지붕면의 개수(이 뒤에 등록되는 것만 골라 키울 때 쓴다)

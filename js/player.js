@@ -1,7 +1,7 @@
 // 걷는 사람 — 1인칭 시점. WASD로 걷고, Shift로 달리고, Space로 뛴다(길게 누르면 힘을 모아 지붕 높이까지). 벽에 막히고 계단을 오르고 지붕을 밟는다.
 // 하늘에서 보기(sky): 몸은 그 자리에 두고 눈만 하늘로 올라가 마을을 내려다보며 날아다닌다. 끝내면 내려다보던 자리에 내려선다.
 import * as THREE from '../vendor/three.module.js';
-import { collidersNear, roofAt } from './build.js';
+import { nearAll, roofAt } from './build.js';
 import { WALL } from './layout.js';
 
 const RAD = 0.34, HEIGHT = 1.75, EYE = 1.62, STEP = 0.5, WALK = 4.6, RUN = 9.5, JUMP = 6.4, GRAV = 20;
@@ -92,19 +92,24 @@ export class Player {
   groundAt(x, z, feet) {
     let g = this.terrain(x, z);
     const r = RAD * 0.8;
-    for (const c of collidersNear(x - r, z - r, x + r, z + r, this.near)) if (c[4] <= feet + STEP + 0.01 && c[4] > g) g = c[4];
+    const N = nearAll(x, z, r, this.near);   // (상자, 그 상자의 좌표로 본 내 자리 x, z, 자리) 네 개씩
+    for (let i = 0; i < N.length; i += 4) { const c = N[i]; if (c[4] <= feet + STEP + 0.01 && c[4] > g) g = c[4]; }
     const rh = roofAt(x, z, feet + STEP + 0.01);   // 기와지붕
     return rh > g ? rh : g;
   }
 
+  // 그 자리가 막혔는가. 막혔으면 this.hit에 막은 건물의 자리(똑바로 놓인 것이면 null)를 적어 둔다.
   blocked(x, z, feet) {
+    this.hit = null;
     // 가파른 비탈(절벽)은 걸어 오를 수 없다
     const th = this.terrain(x, z);
     if (th > feet + 0.02) { const d = Math.hypot(x - this.pos.x, z - this.pos.z); if (d > 1e-5 && (th - feet) / d > 1.5) return true; }
-    for (const c of collidersNear(x - RAD, z - RAD, x + RAD, z + RAD, this.near)) {
+    const N = nearAll(x, z, RAD, this.near);
+    for (let i = 0; i < N.length; i += 4) {
+      const c = N[i], lx = N[i + 1], lz = N[i + 2];
       if (c[4] <= feet + STEP || c[1] >= feet + HEIGHT) continue;       // 밟고 오를 수 있거나 머리 위로 지나간다
-      const dx = x - Math.max(c[0], Math.min(x, c[3])), dz = z - Math.max(c[2], Math.min(z, c[5]));
-      if (dx * dx + dz * dz < RAD * RAD) return true;
+      const dx = lx - Math.max(c[0], Math.min(lx, c[3])), dz = lz - Math.max(c[2], Math.min(lz, c[5]));
+      if (dx * dx + dz * dz < RAD * RAD) { this.hit = N[i + 3]; return true; }
     }
     return false;
   }
@@ -136,11 +141,15 @@ export class Player {
     this.jumpQueued = false;
     v.y -= GRAV * dt;
 
-    // 가로 이동: 축마다 따로 막아서 벽을 타고 미끄러진다
-    const nx = p.x + v.x * dt;
-    if (!this.blocked(nx, p.z, p.y)) p.x = nx; else v.x = 0;
-    const nz = p.z + v.z * dt;
-    if (!this.blocked(p.x, nz, p.y)) p.z = nz; else v.z = 0;
+    // 가로 이동: 막히면 벽이 난 두 방향으로 나눠 따로 막아서 벽을 타고 미끄러진다(비스듬한 건물에서는 그 건물의 방향으로 나눈다)
+    if (!this.blocked(p.x + v.x * dt, p.z + v.z * dt, p.y)) { p.x += v.x * dt; p.z += v.z * dt; }
+    else {
+      const h = this.hit, hc = h ? h.cos : 1, hs = h ? h.sin : 0;
+      let a = v.x * hc - v.z * hs, b = v.x * hs + v.z * hc;                 // 벽 방향으로 나눈 속도
+      if (!this.blocked(p.x + a * hc * dt, p.z - a * hs * dt, p.y)) { p.x += a * hc * dt; p.z -= a * hs * dt; } else a = 0;
+      if (!this.blocked(p.x + b * hs * dt, p.z + b * hc * dt, p.y)) { p.x += b * hs * dt; p.z += b * hc * dt; } else b = 0;
+      v.x = a * hc + b * hs; v.z = -a * hs + b * hc;
+    }
     // 담 밖으로는 숲 가장자리까지만 나갈 수 있다
     const lim = WALL.r + 77, ox = p.x - WALL.cx, oz = p.z - WALL.cz, d = Math.hypot(ox, oz);
     if (d > lim) { p.x = WALL.cx + ox * lim / d; p.z = WALL.cz + oz * lim / d; }
@@ -149,8 +158,8 @@ export class Player {
     const g = this.groundAt(p.x, p.z, p.y);
     let ny = p.y + v.y * dt;
     if (v.y > 0) { // 뛰어오르다 천장에 닿으면 멈춘다
-      for (const cc of collidersNear(p.x - RAD * 0.8, p.z - RAD * 0.8, p.x + RAD * 0.8, p.z + RAD * 0.8, this.near))
-        if (cc[1] >= p.y + HEIGHT - 0.05 && cc[1] < ny + HEIGHT) { ny = cc[1] - HEIGHT; v.y = 0; }
+      const N = nearAll(p.x, p.z, RAD * 0.8, this.near);
+      for (let i = 0; i < N.length; i += 4) { const cc = N[i]; if (cc[1] >= p.y + HEIGHT - 0.05 && cc[1] < ny + HEIGHT) { ny = cc[1] - HEIGHT; v.y = 0; } }
     }
     if (ny <= g || (this.grounded && v.y <= 0 && p.y - g <= STEP && p.y >= g)) {
       if (!this.grounded && v.y < -9) this.dip = Math.min(0.42, -v.y * 0.02);   // 높은 데서 내려서면 무릎을 굽혀 받아 낸다(다치지 않는다)
