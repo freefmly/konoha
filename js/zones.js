@@ -6,7 +6,7 @@ import { M, mat, textMat } from './materials.js';
 import { boxHouse, makeKit, ROOFS } from './town.js';
 import { lantern, signBoard, beamBetween, gableRoof } from './arch.js';
 import { tuftGeometry } from './flora.js';
-import { deerGeometry } from './deer.js';
+import { Herd } from './deer.js';
 import { uchihaKit, uchihaGate } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
 import { terrainH, inPoly } from './village.js';
@@ -207,17 +207,9 @@ function nara(scene, out) {
       }
     }
     B.finish(scene);
-    // 사슴: 수사슴 몇에 암사슴, 절반쯤은 풀을 뜯는다
-    const inner = shrink(Z.blocks[PADDOCK], 8), bb = bound(inner), spots = [], lists = { stag: [], doe: [], graze: [] };
-    for (let t = 0; t < 400 && spots.length < 13; t++) {
-      const x = bb[0] + R() * (bb[1] - bb[0]), z = bb[2] + R() * (bb[3] - bb[2]);
-      if (!inPoly(x, z, inner) || spots.some(q => Math.hypot(q[0] - x, q[1] - z) < 4)) continue;
-      const kind = spots.length % 4 === 0 ? 'stag' : R() < 0.5 ? 'graze' : 'doe', s = kind === 'stag' ? 1.12 + R() * 0.08 : 0.9 + R() * 0.15;
-      spots.push([x, z]); lists[kind].push(mat4(x, 0, z, 0, R() * Math.PI * 2, 0, s));
-      addCollider(x - 0.4, 0, z - 0.4, x + 0.4, 1.3, z + 0.4);
-    }
-    const fur = mat('plain', 0xa97b4a, { rough: 0.92 }), dark = mat('plain', 0x2a211b, { rough: 0.6 }), bone = mat('plain', 0xd8c9a8, { rough: 0.7 });
-    for (const kind of ['stag', 'doe', 'graze']) { const g = deerGeometry(kind); instanced(scene, g.body, fur, lists[kind]); instanced(scene, g.dark, dark, lists[kind], false); instanced(scene, g.horn, bone, lists[kind]); }
+    // 사슴 떼: 울타리 안을 거닐다 서서 둘레를 살피고 풀을 뜯는다
+    const herd = new Herd(scene, shrink(Z.blocks[PADDOCK], 7), 13, R);
+    out.ticks.push((t, dt) => herd.tick(t, dt, out.eye && out.eye.position));
     out.places.push({ n: '나라 일족의 사슴 목장', t: '일족이 대대로 돌보는 사슴들. 떨어진 뿔은 약재로 쓴다.', poly: Z.blocks[PADDOCK], b: bound(Z.blocks[PADDOCK]) });
     out.jumps.push(['사슴 목장', gm[0] - u[0] * 5, 0, gm[1] - u[1] * 5, yawTo(u[0], u[1]), 51]);
   }
@@ -261,10 +253,11 @@ function nara(scene, out) {
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
 export async function build(scene, ctx) {
-  const out = { places: [], jumps: [], glows: [] };
+  const out = { places: [], jumps: [], glows: [], ticks: [], eye: ctx.camera };
   await ctx.say('우치하 일족의 구역에 담을 두르는 중…');
   uchiha(scene, out);
   await ctx.say('나라 일족의 사슴을 풀어놓는 중…');
   nara(scene, out);
+  if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
