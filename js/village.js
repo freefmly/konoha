@@ -1,8 +1,11 @@
-// 마을 — 땅과 길, 호카게 바위, 담과 정문, 거리의 집들, 나무.
+// 마을 — 땅과 길, 물길, 호카게 바위, 담과 정문. 자리는 모두 배치도에서 뽑은 PLAN(plan-data.js)을 따른다.
+// 지금은 "빈 마을" 단계: 블록은 풀밭 빈 터로만 두고, 구역마다 빛깔과 팻말로 어디인지 알린다(집은 다음 단계에서 세운다).
 import * as THREE from '../vendor/three.module.js';
-import { Builder, addCollider, mat4, rng, tube, wall, stairs } from './build.js';
+import { Builder, addCollider, mat4 } from './build.js';
 import { mat, M, weatherize } from './materials.js';
-import { LOT, ROADS, CLIFF, WALL, UCHIHA } from './layout.js';
+import { signBoard } from './arch.js';
+import { CLIFF, WALL } from './layout.js';
+import { PLAN } from './plan-data.js';
 
 /* ---------- 땅 높이 ---------- */
 const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -20,36 +23,84 @@ export function mountainH(x, z) {
 // 담 밖은 낮은 언덕이 굽이친다(정문 앞길만 평평하다)
 function lowH(x, z) {
   const r = Math.hypot(x - WALL.cx, z - WALL.cz);
-  const k = sstep(WALL.r + 6, WALL.r + 70, r) * (z > 0 ? sstep(7, 30, Math.abs(x)) : 1);
+  const k = sstep(WALL.r + 6, WALL.r + 70, r) * (z > WALL.cz ? sstep(7, 30, Math.abs(x)) : 1);
   return k * (2 + 7 * vnoise(x * 0.021 + 3.1, z * 0.021 + 7.7) + 2 * vnoise(x * 0.07, z * 0.07));
 }
-export function terrainH(x, z) { return Math.max(lowH(x, z), mountainH(x, z)); }
+
+/* ---------- 물길: 강과 냇물은 굽은 줄, 호수와 못은 다각형. 땅을 그만큼 파 놓고 그 위에 물을 덮는다 ---------- */
+const WATER_Y = -0.45, BED = 1.5;      // 물 높이, 바닥 깊이
+const smooth = (pts, step = 6) => {    // 꺾인 줄을 부드럽게 다시 찍는다
+  const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], 0, p[1])), false, 'centripetal');
+  return c.getSpacedPoints(Math.max(2, Math.round(c.getLength() / step))).map(v => [v.x, v.z]);
+};
+const bbox = (pts, pad) => { let x0 = 1e9, z0 = 1e9, x1 = -1e9, z1 = -1e9; for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } return [x0 - pad, z0 - pad, x1 + pad, z1 + pad]; };
+const segDist = (x, z, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], vx = b[0] - a[0], vz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * vx + (z - a[1]) * vz) / (vx * vx + vz * vz || 1))); d = Math.min(d, Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t)); } return d; };
+export const inPoly = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+const ringDist = (x, z, poly) => segDist(x, z, [...poly, poly[0]]) * (inPoly(x, z, poly) ? -1 : 1);   // 다각형 가장자리까지(안쪽은 음수)
+const WT = PLAN.water;
+const RIVERS = [WT.naka, WT.stream, WT.brook, WT.feed].map(r => { const pts = smooth(r.pts); return { pts, w: r.w, box: bbox(pts, r.w / 2 + 6) }; });
+const POOLS = [WT.lake, WT.isle, ...WT.ponds].map(poly => ({ poly, box: bbox(poly, 6) }));
+const ISLAND = { poly: WT.isleLand, box: bbox(WT.isleLand, 4) };
+const inBox = (x, z, b) => x > b[0] && x < b[2] && z > b[1] && z < b[3];
+// 물길이 땅을 파내는 깊이(0 = 그대로, 1 = 바닥까지)
+function carve(x, z) {
+  let k = 0;
+  for (const r of RIVERS) if (inBox(x, z, r.box)) k = Math.max(k, 1 - sstep(-2.5, 1.5, segDist(x, z, r.pts) - r.w / 2));
+  for (const p of POOLS) if (inBox(x, z, p.box)) k = Math.max(k, 1 - sstep(-3, 1.5, ringDist(x, z, p.poly)));
+  if (k > 0 && inBox(x, z, ISLAND.box)) k *= sstep(-2.5, 1, ringDist(x, z, ISLAND.poly));   // 못 가운데 섬은 파지 않는다
+  return k;
+}
+export function terrainH(x, z) {
+  const h = Math.max(lowH(x, z), mountainH(x, z));
+  return h > 0.01 ? h : -BED * carve(x, z);
+}
 
 /* ---------- 땅 ---------- */
-function buildGround(scene) {
-  // 길 그림: 위에서 본 마을에 흙길·마당을 칠한다(흰 곳 = 흙, 검은 곳 = 풀)
-  const S = 1024, size = 500, c = document.createElement('canvas'); c.width = c.height = S;
-  const g = c.getContext('2d');
+const MAP = { cx: 0, cz: 400, size: 1500, S: 2048 };      // 길 그림이 덮는 범위(m)와 그림 크기
+function buildGround(scene, tintOn) {
+  // 길 그림: 위에서 본 마을에 흙길을 칠한다(흰 곳 = 흙, 검은 곳 = 풀). 블록은 풀밭 빈 터, 블록 사이가 길이다.
+  const { S, size } = MAP, c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d'), k = S / size;
+  const px = x => (x - MAP.cx) * k + S / 2, pz = z => (z - MAP.cz) * k + S / 2;
+  const fillPoly = (ctx, poly) => { ctx.beginPath(); poly.forEach((p, i) => (i ? ctx.lineTo(px(p[0]), pz(p[1])) : ctx.moveTo(px(p[0]), pz(p[1])))); ctx.closePath(); ctx.fill(); };
+  const stroke = (a, b, w) => { g.lineWidth = w * k; g.lineCap = 'round'; g.beginPath(); g.moveTo(px(a[0]), pz(a[1])); g.lineTo(px(b[0]), pz(b[1])); g.stroke(); };
   g.fillStyle = '#000'; g.fillRect(0, 0, S, S);
-  const px = x => (x - 0) / size * S + S / 2, pz = z => (z + 10) / size * S + S / 2;
-  g.fillStyle = '#fff';
-  g.filter = 'blur(3px)';
-  for (const [x0, z0, x1, z1] of ROADS) g.fillRect(px(x0), pz(z0), px(x1) - px(x0), pz(z1) - pz(z0));
-  // 집터 둘레·마당
-  for (const L of Object.values(LOT)) g.fillRect(px(L.x0), pz(L.z0), px(L.x1) - px(L.x0), pz(L.z1) - pz(L.z0));
-  for (const [x0, z0, x1, z1] of UCHIHA.dirt) g.fillRect(px(x0), pz(z0), px(x1) - px(x0), pz(z1) - pz(z0));   // 우치하 구역의 길과 마당
-  g.beginPath(); g.arc(px(0), pz(182), 26 / size * S, 0, Math.PI * 2); g.fill();          // 정문 앞마당
-  g.fillRect(px(-7), pz(180), px(7) - px(-7), pz(262) - pz(180));                            // 정문 밖 길
-  g.fillRect(px(78), pz(-150), px(122) - px(78), pz(-138) - pz(-150));                       // 바위 오르는 계단 밑
-  g.fillRect(px(104), pz(-140), px(112) - px(104), pz(-50) - pz(-140));
+  g.filter = 'blur(2px)';
+  g.save(); g.beginPath(); g.rect(0, pz(CLIFF.z), S, S); g.clip();                           // 담 안은 일단 온통 흙(절벽 뒤는 빼고)
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(px(WALL.cx), pz(WALL.cz), (WALL.r - 1.5) * k, 0, Math.PI * 2); g.fill();
+  g.restore();
+  g.fillStyle = '#000';
+  for (const b of PLAN.town) fillPoly(g, b);                                                  // 일반 블록
+  for (const p of PLAN.greens) fillPoly(g, p);                                                // 숲·녹지
+  for (const z of PLAN.zones) { if (z.blocks) { g.fillStyle = '#fff'; fillPoly(g, z.poly); g.fillStyle = '#000'; for (const b of z.blocks) fillPoly(g, b); } else fillPoly(g, z.poly); }
+  // 큰 길들은 블록 위에 덧칠한다
+  g.fillStyle = g.strokeStyle = '#fff';
+  const R = PLAN.roads;
+  for (const s of R.spokes) stroke(s.a, s.b, s.w);
+  for (const s of R.vertical) stroke(s.a, s.b, s.w);
+  stroke(R.main.a, R.main.b, R.main.w);
+  g.lineWidth = R.ring.w * k; g.beginPath(); g.arc(px(WALL.cx), pz(WALL.cz), R.ring.r * k, 0, Math.PI * 2); g.stroke();
+  fillPoly(g, R.plaza);
+  g.beginPath(); g.arc(px(PLAN.fan[0]), pz(PLAN.fan[1]), PLAN.forecourt * k, 0, Math.PI * 2); g.fill();   // 관저 앞마당
+  g.beginPath(); g.arc(px(0), pz(WALL.gateZ + 7), 26 * k, 0, Math.PI * 2); g.fill();                        // 정문 앞마당
+  g.fillRect(px(-7), pz(WALL.gateZ + 5), 14 * k, 90 * k);                                                    // 정문 밖 길
+  g.fillRect(px(78), pz(CLIFF.z), 44 * k, 14 * k); stroke([58, -122], [100, -142], 9);                       // 바위 오르는 계단 밑과 거기로 가는 길
+  for (const b of PLAN.bridges) stroke(b[0], b[1], 8);
   const mask = new THREE.CanvasTexture(c);
-  mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.anisotropy = 4;
+  mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.anisotropy = 8;
+
+  // 구역 빛깔: 빈 터가 어느 구역인지 알아보게 블록에 배치도의 색을 엷게 입힌다(집이 서면 끈다. 확인용 ?tint=0)
+  const tc = document.createElement('canvas'); tc.width = tc.height = S;
+  const tg = tc.getContext('2d');
+  if (tintOn) for (const z of PLAN.zones) { tg.fillStyle = z.fill; for (const b of z.blocks || [z.poly]) fillPoly(tg, b); }
+  const tint = new THREE.CanvasTexture(tc);
+  tint.flipY = false; tint.colorSpace = THREE.SRGBColorSpace;
 
   const grass = mat('grass').map;
   const extra = sh => {
-    sh.uniforms.uMask = { value: mask }; sh.uniforms.uGrass = { value: grass };
+    sh.uniforms.uMask = { value: mask }; sh.uniforms.uGrass = { value: grass }; sh.uniforms.uTint = { value: tint };
     sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform sampler2D uMask, uGrass;')
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uMask, uGrass, uTint;')
       .replace('#include <map_fragment>', `
         vec2 gUv = vWPos.xz;
         // 만화 화풍(uToon)일 때는 풀잎·잔돌 무늬를 평균 색으로 뭉개고, 얼룩과 길 가장자리를 또렷한 두 색으로 끊는다
@@ -61,9 +112,12 @@ function buildGround(scene) {
         gGrass.rgb = (gGrass.rgb * 0.62 + vec3(0.055, 0.05, 0.02)) * gTone;
         float gSun = wNoise(gUv * 0.027 + 11.0);
         gGrass.rgb = mix(gGrass.rgb, gGrass.rgb * vec3(1.25, 1.12, 0.7), mix(smoothstep(0.55, 0.8, gSun), smoothstep(0.67, 0.69, gSun), uToon));   // 볕에 바랜 누런 자리
-        float gM = texture2D(uMask, (gUv - vec2(0.0, -10.0)) / ${size.toFixed(1)} + 0.5).r;
+        vec2 mUv = (gUv - vec2(${MAP.cx.toFixed(1)}, ${MAP.cz.toFixed(1)})) / ${size.toFixed(1)} + 0.5;
+        float gM = texture2D(uMask, mUv).r;
         gM = smoothstep(0.38 + 0.1 * uToon, 0.62 - 0.1 * uToon, gM + (wFbm(gUv * 0.8) - 0.5) * 0.5 * (1.0 - 0.6 * uToon));
         vec3 gRock = vec3(0.56, 0.50, 0.41) * mix(0.7 + 0.5 * wFbm(gUv * 0.35), 0.95, uToon);
+        vec4 gTint = texture2D(uTint, mUv);
+        gGrass.rgb = mix(gGrass.rgb, gTint.rgb * (0.55 + 0.45 * gTone), gTint.a * 0.55);   // 구역 빛깔
         vec4 gCol = mix(gGrass, gDirt, gM);
         gCol.rgb = mix(gCol.rgb, gRock, smoothstep(0.82, 0.6, vWNor.y));          // 가파른 비탈은 바위가 드러난다
         diffuseColor *= gCol;`);
@@ -73,37 +127,113 @@ function buildGround(scene) {
   const gm = weatherize(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normalMap, roughness: 0.96 }), { puddles: true, extra });
 
   const mk = (x0, z0, x1, z1, step, hf) => {
-    const nx = Math.round((x1 - x0) / step), nz = Math.round((z1 - z0) / step), pos = [], idx = [];
-    for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = x0 + (x1 - x0) * i / nx, z = z0 + (z1 - z0) * j / nz; pos.push(x, hf(x, z), z); }
-    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b = a + 1, d = a + nx + 1, e = d + 1; idx.push(a, d, b, b, d, e); }
+    const nx = Math.round((x1 - x0) / step), nz = Math.round((z1 - z0) / step), pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = new Uint32Array(nx * nz * 6);
+    let p = 0, q = 0;
+    for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = x0 + (x1 - x0) * i / nx, z = z0 + (z1 - z0) * j / nz; pos[p++] = x; pos[p++] = hf(x, z); pos[p++] = z; }
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) { const a = j * (nx + 1) + i, b = a + 1, d = a + nx + 1, e = d + 1; idx[q++] = a; idx[q++] = d; idx[q++] = b; idx[q++] = b; idx[q++] = d; idx[q++] = e; }
     const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setIndex(idx); geo.computeVertexNormals();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setIndex(new THREE.BufferAttribute(idx, 1)); geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, gm); m.receiveShadow = true; m.matrixAutoUpdate = false; scene.add(m);
     return m;
   };
-  mk(-320, -320, 320, 320, 4, lowH);                                               // 마을 바닥과 담 밖 언덕
+  // 마을 바닥과 담 밖 언덕. 물길 둘레는 촘촘하게 떠야 강둑이 매끈하므로 마을 안은 3m 칸으로 뜬다
+  const low = (x, z) => { const h = lowH(x, z); return h > 0.01 ? h : -BED * carve(x, z); };
+  mk(WALL.cx - 720, CLIFF.z - 180, WALL.cx + 720, WALL.gateZ + 120, 3, low);
   // 산 위. 산자락이 땅과 같은 높이로 겹치면 깜빡이므로, 산이 끝난 자리는 땅 밑으로 내린다
-  mk(-200, -320, 200, CLIFF.z, 4, (x, z) => { const m = mountainH(x, Math.min(z, CLIFF.z - 0.01)), l = lowH(x, z); return m > l + 0.3 ? m : l - 1.5; });
+  mk(-200, CLIFF.z - 180, 200, CLIFF.z, 4, (x, z) => { const m = mountainH(x, Math.min(z, CLIFF.z - 0.01)), l = lowH(x, z); return m > l + 0.3 ? m : l - 1.5; });
+}
+
+/* ---------- 물 ---------- */
+function buildWater(scene) {
+  const up = geo => {   // 윗면이 하늘을 보게 맞춘다
+    geo.computeVertexNormals();
+    if (geo.attributes.normal.getY(0) < 0) { const ix = geo.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } geo.computeVertexNormals(); }
+    const m = new THREE.Mesh(geo, M.water); m.receiveShadow = true; m.matrixAutoUpdate = false; scene.add(m);
+  };
+  for (const r of RIVERS) {   // 강·냇물: 줄을 따라 띠를 깐다(둑 밑으로 조금 넉넉하게)
+    const pos = [], idx = [], hw = r.w / 2 + 3, n = r.pts.length;
+    for (let i = 0; i < n; i++) {
+      const a = r.pts[Math.max(0, i - 1)], b = r.pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l;
+      pos.push(r.pts[i][0] + nx * hw, WATER_Y, r.pts[i][1] + nz * hw, r.pts[i][0] - nx * hw, WATER_Y, r.pts[i][1] - nz * hw);
+      if (i < n - 1) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); up(geo);
+  }
+  for (const p of POOLS) {    // 호수·못: 가운데에서 가장자리로 부채처럼 편다
+    const cx = p.poly.reduce((t, v) => t + v[0], 0) / p.poly.length, cz = p.poly.reduce((t, v) => t + v[1], 0) / p.poly.length, pos = [cx, WATER_Y - 0.01, cz], idx = [], n = p.poly.length;
+    for (const v of p.poly) { const l = Math.hypot(v[0] - cx, v[1] - cz), s = (l + 3) / l; pos.push(cx + (v[0] - cx) * s, WATER_Y - 0.01, cz + (v[1] - cz) * s); }
+    for (let i = 0; i < n; i++) idx.push(0, 1 + i, 1 + (i + 1) % n);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); up(geo);
+  }
+}
+
+/* ---------- 다리와 부두: 비스듬히 놓이므로 모습은 통째로 돌려 놓고, 밟는 바닥은 작은 상자를 줄지어 깐다 ---------- */
+function deck(B, a, b, width, y, planks, rail) {
+  const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz), ry = Math.atan2(dx, dz), cx = (a[0] + b[0]) / 2, cz = (a[1] + b[1]) / 2;
+  B.geo(planks, new THREE.BoxGeometry(width, 0.28, len), mat4(cx, y - 0.14, cz, 0, ry, 0), [width / 2, len / 2]);
+  const ux = dx / len, uz = dz / len, nx = uz, nz = -ux;
+  for (const s of [-1, 1]) {
+    B.geo(M.beam, new THREE.BoxGeometry(0.3, 0.34, len), mat4(cx + nx * s * (width / 2 - 0.15), y - 0.45, cz + nz * s * (width / 2 - 0.15), 0, ry, 0));   // 들보
+    if (rail) B.geo(M.beam, new THREE.BoxGeometry(0.12, 0.12, len), mat4(cx + nx * s * (width / 2 - 0.1), y + 1.0, cz + nz * s * (width / 2 - 0.1), 0, ry, 0));   // 난간 가로대
+    for (let t = 0; t <= len + 0.01; t += len / Math.max(1, Math.round(len / 4))) {     // 기둥: 물 밑 바닥까지
+      const x = a[0] + ux * t + nx * s * (width / 2 - 0.1), z = a[1] + uz * t + nz * s * (width / 2 - 0.1);
+      B.geo(M.beam, new THREE.BoxGeometry(0.22, (rail ? 1.1 : 0.2) + y + BED + 0.3, 0.22), mat4(x, ((rail ? 1.1 : 0.2) + y - BED - 0.3) / 2, z, 0, ry, 0));
+    }
+  }
+  const h = (width / 2) / (Math.abs(ux) + Math.abs(uz));       // 줄지은 상자가 널 밖으로 삐져나오지 않는 크기
+  for (let t = 0; t <= len; t += h * 0.6) addCollider(a[0] + ux * t - h, -BED - 0.5, a[1] + uz * t - h, a[0] + ux * t + h, y, a[1] + uz * t + h);
+}
+function buildCrossings(scene) {
+  const B = new Builder(), planks = mat('planks', 0x8a6a48);
+  PLAN.bridges.forEach((b, i) => deck(B, b[0], b[1], i < 2 ? 9 : 5, 0.22, planks, true));
+  deck(B, WT.pier[0], WT.pier[1], 2.6, 0.3, planks, false);
+  B.finish(scene);
+}
+
+/* ---------- 구역 팻말(빈 마을 확인용): 구역 번호 자리에 이름을 적은 팻말을 세운다 ---------- */
+function buildSigns(scene) {
+  const B = new Builder();
+  const post = (name, x, z) => {
+    const ry = Math.atan2(PLAN.fan[0] - x, PLAN.fan[1] - z), w = Math.max(2.4, name.length * 0.62 + 0.8), y = terrainH(x, z);
+    for (const s of [-1, 1]) B.geo(M.beam, new THREE.BoxGeometry(0.16, 3.6, 0.16), mat4(x + Math.cos(ry) * s * (w / 2 - 0.1), y + 1.8, z - Math.sin(ry) * s * (w / 2 - 0.1), 0, ry, 0));
+    signBoard(B, name, x, y + 3.0, z, ry, w, 0.9, { font: 'gothic' });
+    addCollider(x - 0.3, y, z - 0.3, x + 0.3, y + 3.6, z + 0.3);
+  };
+  for (const z of PLAN.zones) post(z.name, z.at[0], z.at[1]);
+  for (const t of PLAN.train) if (t.id !== '0') post(t.name.split(' — ')[0], t.at[0] + 4, t.at[1] + 4);
+  B.finish(scene);
 }
 
 export async function buildVillage(scene, ctx) {
-  buildGround(scene);
+  buildGround(scene, ctx.tint !== false);
+  buildWater(scene);
+  buildCrossings(scene);
+  const bounds = poly => { const b = bbox(poly, 0); return [b[0], b[2], b[1], b[3]]; };
   const places = [
-    { n: '나뭇잎 마을', t: '불의 나라 숨은 마을. 북쪽 절벽에는 역대 호카게의 얼굴이 새겨져 있다.', b: [-200, 200, -150, 200] },
-    { n: '큰길', t: '정문에서 호카게 관저까지 곧게 뻗은 길.', b: [-6, 6, -50, 176] },
+    { n: '나뭇잎 마을', t: '불의 나라 숨은 마을. 북쪽 절벽에는 역대 호카게의 얼굴이 새겨져 있다.', b: [WALL.cx - WALL.r, WALL.cx + WALL.r, CLIFF.z, WALL.gateZ] },
+    { n: '큰길', t: '정문에서 호카게 관저까지 곧게 뻗은 길.', b: [-6, 6, -50, WALL.gateZ - 1] },
+    { n: '정문', t: '마을의 남쪽 대문. 왼쪽 문짝에 あ, 오른쪽 문짝에 ん이 적혀 있다.', b: [-16, 16, WALL.gateZ - 16, WALL.gateZ + 6] },
+    { n: '화둔 호수', t: '우치하 구역 안의 호수. 나카 강에서 물을 끌어들였다. 부두 끝에서 호화구를 익힌다.', poly: WT.lake, b: bounds(WT.lake) },
+    { n: '섬 있는 못', t: '나카 강이 시작되는 못. 제2 훈련장.', poly: WT.isle, b: bounds(WT.isle) },
+    ...PLAN.zones.map(z => ({ n: z.name, t: '새 배치의 자리. 아직 빈 터다.', poly: z.poly, b: bounds(z.poly) })),
+    ...PLAN.train.map(t => ({ n: t.name.split(' — ')[0], t: t.name.split(' — ')[1] || '', b: [t.at[0] - 18, t.at[0] + 18, t.at[1] - 18, t.at[1] + 18] })),
   ];
-  const jumps = [['정문', 0, 0, 160, 0, 0], ['큰길 한가운데', 0, 0, 30, 0, 1]];
+  // 바로 가기: 구역마다 번호 자리 앞에 선다(관저 쪽을 등지고 구역을 본다)
+  const face = (x, z) => Math.atan2(PLAN.fan[0] - x, PLAN.fan[1] - z) + Math.PI;
+  const jumps = [['정문', 0, 0, WALL.gateZ - 15, 0, 0], ['큰길 한가운데', 0, 0, WALL.cz, 0, 1],
+    ['화둔 호수 부두', WT.pier[0][0], 0.3, WT.pier[0][1], Math.atan2(WT.pier[0][0] - WT.pier[1][0], WT.pier[0][1] - WT.pier[1][1]), 20],
+    ...PLAN.zones.filter(z => z.blocks || [3, 26, 30, 31, 20].includes(z.n)).map((z, i) => [z.name, z.at[0] + 6, 0, z.at[1] + 6, face(z.at[0], z.at[1]), 21 + i])];
   const out = { places, jumps, skip: [], lights: [], glows: [], ticks: [] };
-  // 호카게 바위·거리·숲은 따로 나눠 짓는다(건물 하나만 확인할 때는 건너뛴다)
-  if (!ctx.lite) for (const [name, msg] of [['rock', '절벽에 호카게의 얼굴을 새기는 중…'], ['town', '거리에 집을 세우는 중…'], ['flora', '나무를 심는 중…']]) {
-    if (ctx.part && ctx.part !== name) continue;
-    await ctx.say(msg);
-    try {
-      const r = await (await import(`./${name}.js`)).build(scene, ctx);
-      for (const k of ['places', 'jumps', 'skip', 'lights', 'glows']) out[k].push(...(r[k] || []));
-      if (r.tick) out.ticks.push(r.tick);
-    } catch (e) { console.error('짓기 실패: ' + name, e); }
+  const take = r => { for (const k of ['places', 'jumps', 'skip', 'lights', 'glows']) out[k].push(...(r[k] || [])); if (r.tick) out.ticks.push(r.tick); };
+  if (!ctx.lite) {
+    // 호카게 바위와 담·정문(건물 하나만 확인할 때는 건너뛴다). 거리의 집과 나무는 다음 단계에서 새 자리표로 세운다.
+    if (!ctx.part || ctx.part === 'rock') { await ctx.say('절벽에 호카게의 얼굴을 새기는 중…'); try { take(await (await import('./rock.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: rock', e); } }
+    if (!ctx.part || ctx.part === 'wall') {
+      await ctx.say('담을 두르고 정문을 세우는 중…');
+      try { const town = await import('./town.js'); town.buildWall(scene, town.makeKit(), out.glows); } catch (e) { console.error('짓기 실패: wall', e); }
+    }
+    if (!ctx.part) { await ctx.say('구역 팻말을 세우는 중…'); buildSigns(scene); }
   }
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;

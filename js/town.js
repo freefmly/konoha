@@ -272,14 +272,15 @@ function planHouses(R, mobile) {
 }
 
 /* ---------- 담과 정문 ---------- */
-function buildWall(scene, K, glows) {
+export function buildWall(scene, K, glows) {
+  const SEG = Math.round(WALL.r * 0.65);   // 담이 커져도 한 마디 길이가 같게
   const B = new Builder(), r = WALL.r, wm = mat('plaster', 0xd8ceb4), tile = mat('tile', 0x4a5560), red = mat('plaster', 0xa63a2a), green = mat('planks', 0x3f6b46);
   const aE = Math.asin((CLIFF.z + 1 - WALL.cz) / r), a0 = aE, a1 = Math.PI - aE;      // 절벽에서 시작해 남쪽을 돌아 절벽에서 끝난다
   const gw = 6.2 / r, gate = [{ a0: Math.PI / 2 - gw, a1: Math.PI / 2 + gw, ys: [[0, 8.2]] }];
-  roundWall(B, wm, WALL.cx, WALL.cz, r - 1.1, r + 1.1, 0, 9, gate, { a0, a1, seg: 120 });
-  roundWall(B, K.stone, WALL.cx, WALL.cz, r - 1.2, r + 1.2, 0, 1.3, [{ a0: Math.PI / 2 - gw, a1: Math.PI / 2 + gw, ys: [[0, 1.3]] }], { a0, a1, seg: 120, collide: false });
+  roundWall(B, wm, WALL.cx, WALL.cz, r - 1.1, r + 1.1, 0, 9, gate, { a0, a1, seg: SEG });
+  roundWall(B, K.stone, WALL.cx, WALL.cz, r - 1.2, r + 1.2, 0, 1.3, [{ a0: Math.PI / 2 - gw, a1: Math.PI / 2 + gw, ys: [[0, 1.3]] }], { a0, a1, seg: SEG, collide: false });
   // 담 위 기와: 양쪽으로 흘러내리는 두 면과 용마루
-  const N = 150;
+  const N = Math.round(WALL.r * 0.81);
   for (let i = 0; i < N; i++) {
     const p = a0 + (a1 - a0) * i / N, q = a0 + (a1 - a0) * (i + 1) / N, mid = (p + q) / 2;
     if (Math.abs(mid - Math.PI / 2) < gw) continue;
@@ -295,7 +296,7 @@ function buildWall(scene, K, glows) {
   B.geo(tile, tube(ridge, 0.16, 8, true));
   // 기와 밑널: 정문 자리는 비운다(이어 두면 문루 앞으로 튀어나와 "忍" 판을 가로지른다). 끝은 붉은 기둥 속에 묻힌다
   const gp = 7.3 / r;
-  for (const [p, q] of [[a0, Math.PI / 2 - gp], [Math.PI / 2 + gp, a1]]) { const g = new THREE.RingGeometry(r - 1.75, r + 1.75, 75, 1, p, q - p); g.rotateX(Math.PI / 2); B.geo(K.wood, g, mat4(WALL.cx, 8.98, WALL.cz)); }
+  for (const [p, q] of [[a0, Math.PI / 2 - gp], [Math.PI / 2 + gp, a1]]) { const g = new THREE.RingGeometry(r - 1.75, r + 1.75, Math.round(SEG * 0.6), 1, p, q - p); g.rotateX(Math.PI / 2); B.geo(K.wood, g, mat4(WALL.cx, 8.98, WALL.cz)); }
 
   // 정문: 붉은 기둥과 문루 지붕, 활짝 열린 초록 문짝(あ·ん)
   const gz = WALL.gateZ, gx = 6.2;

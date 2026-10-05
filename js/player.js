@@ -1,6 +1,7 @@
 // 걷는 사람 — 1인칭 시점. WASD로 걷고, Shift로 달리고, Space로 뛴다(길게 누르면 힘을 모아 지붕 높이까지). 벽에 막히고 계단을 오르고 지붕을 밟는다.
 import * as THREE from '../vendor/three.module.js';
 import { collidersNear, roofAt } from './build.js';
+import { WALL } from './layout.js';
 
 const RAD = 0.34, HEIGHT = 1.75, EYE = 1.62, STEP = 0.5, WALK = 4.6, RUN = 9.5, JUMP = 6.4, GRAV = 20;
 // 모아 뛰기: HOLD초 넘게 누르고 있으면 힘이 모이기 시작해 CHARGE초 만에 가득 찬다. 가득 모으면 LEAP_H(m)까지 솟는다.
@@ -93,8 +94,9 @@ export class Player {
     if (!this.blocked(nx, p.z, p.y)) p.x = nx; else v.x = 0;
     const nz = p.z + v.z * dt;
     if (!this.blocked(p.x, nz, p.y)) p.z = nz; else v.z = 0;
-    const lim = 262, d = Math.hypot(p.x, p.z);
-    if (d > lim) { p.x *= lim / d; p.z *= lim / d; }
+    // 담 밖으로는 숲 가장자리까지만 나갈 수 있다
+    const lim = WALL.r + 77, ox = p.x - WALL.cx, oz = p.z - WALL.cz, d = Math.hypot(ox, oz);
+    if (d > lim) { p.x = WALL.cx + ox * lim / d; p.z = WALL.cz + oz * lim / d; }
 
     // 세로 이동
     const g = this.groundAt(p.x, p.z, p.y);
@@ -108,7 +110,7 @@ export class Player {
       p.y = g; v.y = 0; this.grounded = true;
     }
     else { p.y = ny; this.grounded = false; }
-    if (p.y < -60) this.place(0, 0, 150, 0);
+    if (p.y < -60) this.place(0, 0, WALL.gateZ - 25, 0);
 
     // 눈높이는 부드럽게 따라가서 계단에서 화면이 덜컥거리지 않는다
     this.eyeY += (p.y - this.eyeY) * (1 - Math.exp(-dt * 16));

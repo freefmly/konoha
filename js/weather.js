@@ -5,10 +5,10 @@ import { collidersNear } from './build.js';
 
 /* ---------- 지붕 지도: 위에서 내려다본 높이. 비·눈이 지붕을 뚫지 않게 하고, 눈·웅덩이가 하늘 아래에만 생기게 한다 ---------- */
 export class Cover {
-  constructor(renderer, cx, cz, size) {
+  constructor(renderer, cx, cz, size, res = 2048) {
     this.renderer = renderer; this.cx = cx; this.cz = cz; this.size = size;
     const opt = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: true };
-    this.rt = new THREE.WebGLRenderTarget(2048, 2048, opt);
+    this.rt = new THREE.WebGLRenderTarget(res, res, opt);
     this.small = new THREE.WebGLRenderTarget(512, 512, opt);
     this.cam = new THREE.OrthographicCamera(-size / 2, size / 2, size / 2, -size / 2, 1, 700);
     this.cam.position.set(cx, 400, cz);

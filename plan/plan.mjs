@@ -1,6 +1,7 @@
 // 나뭇잎 마을 새 배치도(안) — 자리표와 그림을 한 파일에서 뽑는다.
-// 도면 단위: 1칸 = 2.5m. 담의 중심 (285,268), 반지름 240칸(= 600m). 왼쪽이 호카게 바위, 오른쪽이 정문.
-// 앱 좌표로 옮길 때: 앱 z(남) = (x-285)*2.5, 앱 x(동) = -(y-268)*2.5  (지도의 위쪽이 앱의 동쪽)
+// 도면 단위: 1칸 = 2.5m. 담의 중심 (285,270), 반지름 240칸(= 600m). 왼쪽이 호카게 바위, 오른쪽이 정문.
+// 앱 좌표로 옮길 때(plan/export.mjs): 관저(FAN)가 지금 앱의 관저 자리(0,-104)에 오게 한다 → 앱 x(동) = -(y-270)*2.5, 앱 z(남) = (x-75)*2.5-104  (지도의 위쪽이 앱의 동쪽)
+// 앱이 읽는 자리표는 node plan/export.mjs → js/plan-data.js
 // 실행: node plan/plan.mjs → village-plan.svg (구역만) / node plan/plan.mjs detail → village-detail.svg (길과 블록까지). 그 뒤 크롬으로 png를 찍는다
 //
 // 뼈대: 호카게 관저(FAN)에서 큰 바큇살 길이 담까지 뻗어 마을을 부채꼴 조각으로 나눈다. 조각 안의 블록은 고리 조각 모양.
@@ -9,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-export const UNIT = 2.5, C = { x: 285, y: 268, r: 240 };
+export const UNIT = 2.5, C = { x: 285, y: 270, r: 240 };   // 담의 중심은 큰길(y=270) 위에 둔다 — 정문이 큰길 끝에 온다
 export const FAN = { x: 75, y: 270 };
 export const SPOKES = [{ a: -66 }, { a: -42, r1: 214 }, { a: -17, r1: 54 }, { a: -17, r0: 124, r1: 226 }, { a: 18 }, { a: 45, r1: 89 }, { a: 45, r0: 199 }, { a: 63 }];   // 큰 바큇살 길: 각도(0 = 정문 쪽 큰길, 음수 = 지도 위쪽), r0~r1 구간(없으면 관저 앞~담)
 const EDGES = [-90, -66, -42, -17, 0, 18, 45, 63, 90];       // 부채꼴 조각의 경계
@@ -101,18 +102,23 @@ export const GREEN = [
   sector(-8, 0, 30, 52), sector(0, 8, 30, 52),
 ];
 export const ROADSIDE = { x0: 131, x1: 199, off: 4.5, w: 4, step: 6.2 };   // 큰길 양쪽 가로수 줄: 나무 고리 밖(x0)부터 첫 둥근 길(x1)까지, 길 가장자리에서 폭 w
-const ROCK = [[57, 216], [57, 320], [50, 342], [30, 358], [-4, 352], [-16, 268], [-4, 184], [30, 178], [50, 194]];
-const PLAZA = [[446, 226], [522, 236], [522, 266], [446, 266]];   // 정문 안 마당
+export const ROCK = [[57, 216], [57, 320], [50, 342], [30, 358], [-4, 352], [-16, 268], [-4, 184], [30, 178], [50, 194]];
+export const PLAZA = [[446, 226], [522, 236], [522, 266], [446, 266]];   // 정문 안 마당
+export const PONDS = [[463, 322, 11, 9], [398, 344, 10, 7], [460, 238, 7, 6]];   // 작은 못: 나카 강이 끝나는 못, 공원 못, 냇물이 끝나는 못 [x, y, rx, ry]
+export const BROOK = [[330, 22], [334, 60], [322, 96]];                          // 제3 훈련장의 냇물
+export const BRIDGES = [[pol(45, 275), pol(45, 290)], [pol(18, 367), pol(18, 382)], [[452, 331], [466, 337]]];   // 다리: 강을 건너는 자리 [한쪽 끝, 다른 쪽 끝]
+export const VROADS = [[XGRID, 40, 340, 4.5], [XMID, 46, 266, 4], [440, 150, 400, 3]];                           // 세로 길 [x, y0, y1, 폭]
+export const MAINROAD = { x0: 86, x1: 530, w: 9 }, SPOKE_W = 5.5, RING = { r: C.r - 9, w: 3 }, FORECOURT = 28;   // 큰길, 바큇살 길 폭, 담 안쪽 둘레길, 관저 앞마당 반지름
 
 /* ============================ 블록 자르기 ============================ */
-const zonePts = z => z.pts || (z.fan ? (z.clipX ? clipX(sector(...z.fan), z.clipX) : sector(...z.fan)) : z.rect ? [[z.rect[0], z.rect[1]], [z.rect[2], z.rect[1]], [z.rect[2], z.rect[3]], [z.rect[0], z.rect[3]]] : null);
+export const zonePts = z => z.pts || (z.fan ? (z.clipX ? clipX(sector(...z.fan), z.clipX) : sector(...z.fan)) : z.rect ? [[z.rect[0], z.rect[1]], [z.rect[2], z.rect[1]], [z.rect[2], z.rect[3]], [z.rect[0], z.rect[3]]] : null);
 const inPoly = (p, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < (b[0] - a[0]) * (p[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
 const inZone = (p, z) => z.circle ? Math.hypot(p[0] - z.circle[0], p[1] - z.circle[1]) < z.circle[2] : inPoly(p, zonePts(z));
 const distLine = (p, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], vx = b[0] - a[0], vy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / (vx * vx + vy * vy))); d = Math.min(d, Math.hypot(p[0] - a[0] - vx * t, p[1] - a[1] - vy * t)); } return d; };
 const wet = (p, k = 1) => distLine(p, NAKA) < 7 * k || distLine(p, NE_STREAM) < 5 * k || Math.hypot(p[0] - LAKE.x, p[1] - LAKE.y) < 22 * k || Math.hypot(p[0] - ISLE.x, p[1] - ISLE.y) < 24 * k || Math.hypot(p[0] - 463, p[1] - 322) < 13;
 const cutRect = (poly, x0, y0, x1, y1) => { let q = cut(poly, p => p[0] - x0); q = q.length ? cut(q, p => x1 - p[0]) : q; q = q.length ? cut(q, p => p[1] - y0) : q; return q.length ? cut(q, p => y1 - p[1]) : q; };
 const areaOf = q => { let s2 = 0; for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length]; s2 += a[0] * b[1] - b[0] * a[1]; } return Math.abs(s2) / 2; };
-const mid = q => [q.reduce((t, p) => t + p[0], 0) / q.length, q.reduce((t, p) => t + p[1], 0) / q.length];
+export const mid = q => [q.reduce((t, p) => t + p[0], 0) / q.length, q.reduce((t, p) => t + p[1], 0) / q.length];
 const inWall = (p, pad = 15) => Math.hypot(p[0] - C.x, p[1] - C.y) < C.r - pad;
 const angOf = p => Math.atan2(p[1] - FAN.y, p[0] - FAN.x) / D;
 // 고리 하나(r0~r1)를 각도 a0~a1 사이에서 호 길이 arc 쯤으로 나눈다. 칸 사이 샛길 폭 gap
@@ -143,6 +149,12 @@ export function blocksIn(poly, ang, cw, ch, gap, minFrac = 0.3) {
   }
   return out;
 }
+// 블록 크기: 부채꼴 구역 [깊이, 호 길이], 격자 구역 [가로, 세로, 길 폭]
+const SUB = { 6: [30, 30], 7: [22, 30], 9: [21, 30], 32: [23, 36] };
+const CELL = { 33: [24, 17.5, 2.8], 10: [26.5, 25, 3], 12: [22.7, 19.4, 2.6], 21: [22.5, 16.4, 2.6], 22: [14, 11.4, 2.4] };
+// 구역 안의 블록들(블록으로 나누지 않는 한 채짜리 터는 null). 자기보다 나중에 그리는(위에 얹히는) 구역에 가린 칸은 뺀다
+export const zoneBlocks = z => z.fan ? fanBlocks(z, ...SUB[z.n]) : CELL[z.n] ? blocksIn(zonePts(z), z.grid, ...CELL[z.n], 0.22).filter(b => { const m = mid(b); return !wet(m, 0.95) && !ZONES.some((q, i) => i > ZONES.indexOf(z) && inZone(m, q)); }) : null;
+export const reach = a => { let r = 20; while (inWall(pol(a, r + 2), 9)) r += 2; return r; };   // 바큇살 길이 담 안쪽 둘레길에 닿는 반지름
 const taken = m => ZONES.some(z => inZone(m, z)) || GREEN.some(g => inPoly(m, g)) || inPoly(m, ROCK) || inPoly(m, PLAZA) || wet(m, 1.2);
 // 일반 살림집 블록
 export function townBlocks() {
@@ -170,6 +182,7 @@ export function townBlocks() {
 
 /* ============================ 그림 ============================ */
 const DETAIL = process.argv.includes('detail');
+const MAIN = !!process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);   // 이 파일을 직접 돌렸을 때만 그림을 남긴다(다른 스크립트가 자리표만 가져다 쓸 수 있게)
 const P = a => a.map(p => `${r1(p[0])},${r1(p[1])}`).join(' ');
 const shape = (z, extra = '') => z.circle ? `<circle cx="${z.circle[0]}" cy="${z.circle[1]}" r="${z.circle[2]}" ${extra}/>` : `<polygon points="${P(zonePts(z))}" ${extra}/>`;
 const line = (pts, w, col, extra = '') => `<polyline points="${P(pts)}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" ${extra}/>`;
@@ -179,9 +192,9 @@ let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 214748364
 const ROAD = '#e6c98c', BLOCK = '#c49a55', S = 2.5, MX = -22, MY = -8, MW = 590, MH = 552, LEG = 590;
 const W = Math.round(MW * S) + LEG, H = Math.round(MH * S);
 let trees = ''; for (let i = 0; i < 46; i++) trees += `<circle cx="${(rnd() * 80).toFixed(1)}" cy="${(rnd() * 80).toFixed(1)}" r="${(3 + rnd() * 5).toFixed(1)}" fill="${rnd() < 0.5 ? '#2f7d32' : '#3b8f3a'}"/>`;
-// 블록 크기: 부채꼴 구역 [깊이, 호 길이], 격자 구역 [가로, 세로, 길 폭]
-const SUB = { 6: [30, 30], 7: [22, 30], 9: [21, 30], 32: [23, 36] };
-const CELL = { 33: [24, 17.5, 2.8], 10: [26.5, 25, 3], 12: [22.7, 19.4, 2.6], 21: [22.5, 16.4, 2.6], 22: [14, 11.4, 2.4] };
+
+
+
 // 한 채짜리 터 안의 건물 자리(상세 지도)
 const BLD = { 3: [sector(-39, -22, 96, 106), sector(-39, -31, 110, 119), sector(-25, -19.5, 108, 119)], 4: [sector(-11, -6.5, 60, 78)], 26: [sector(5, 16, 133, 146), sector(8, 13, 146, 165)], 27: [sector(6, 15.5, 181, 209)], 28: [sector(8, 15.5, 62, 81)], 35: [sector(20.3, 21.8, 330, 340)], 37: [sector(20.4, 22.6, 248, 258)] };
 
@@ -210,7 +223,7 @@ for (const g of GREEN) s += `<polygon points="${P(g)}" fill="url(#trees)"/>`;
 s += `<polygon points="${P([[340, 20], [470, 20], [462, 62], [420, 68], [346, 66]])}" fill="#0f3d17" opacity="0.75"/>${line([[344, 67], [420, 69], [462, 63]], 1.4, '#222', 'stroke-dasharray="3 2"')}`;
 // 구역
 for (const z of ZONES) {
-  const sub = DETAIL && (z.fan ? fanBlocks(z, ...SUB[z.n]) : CELL[z.n] ? blocksIn(zonePts(z), z.grid, ...CELL[z.n], 0.22).filter(b => { const m = mid(b); return !wet(m, 0.95) && !ZONES.some((q, i) => i > ZONES.indexOf(z) && inZone(m, q)); }) : null);
+  const sub = DETAIL && zoneBlocks(z);
   if (sub) {
     s += shape(z, `fill="${ROAD}" stroke="${ROAD}" stroke-width="3"`);
     for (const b of sub) s += `<polygon points="${P(b)}" fill="${z.fill}"/>`;
@@ -226,22 +239,23 @@ for (const z of ZONES) {
   if (z.n === 30) for (let r = 62; r < 120; r += 6) for (let a = 65.5; a < 87; a += 360 / (2 * Math.PI * r) * 5.5) { const p = pol(a, r); if (!inWall(p, 14)) continue; s += `<rect x="${p[0] - 1}" y="${p[1] - 1.3}" width="2" height="2.6" fill="#ddd"/>`; }   // 묘비
 }
 // 물
-s += line(NAKA, 7, '#9ccbe6') + line(NE_STREAM, 5, '#9ccbe6') + line([[330, 22], [334, 60], [322, 96]], 3, '#9ccbe6');
+s += line(NAKA, 7, '#9ccbe6') + line(NE_STREAM, 5, '#9ccbe6') + line(BROOK, 3, '#9ccbe6');
 s += ell(LAKE, 'fill="#8cc3e6" stroke="#5b9cc4" stroke-width="1"') + line(FEED, 4, '#9ccbe6') + line(PIER, 2.2, '#6b4a2a');
 s += ell(ISLE, 'fill="#8cc3e6" stroke="#5b9cc4" stroke-width="1"') + ell({ ...ISLE, rx: 9, ry: 5.5 }, 'fill="#6fb040" stroke="#3b7a2a" stroke-width="0.8"');
-s += `<ellipse cx="463" cy="322" rx="11" ry="9" fill="#8cc3e6"/><ellipse cx="398" cy="344" rx="10" ry="7" fill="#8cc3e6"/><ellipse cx="460" cy="238" rx="7" ry="6" fill="#8cc3e6"/>`;
+for (const [x, y, rx, ry] of PONDS) s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#8cc3e6"/>`;
 // 큰 바큇살 길(담까지) · 큰길 · 세로 큰길 · 둘레길 · 다리
-const reach = a => { let r = 20; while (inWall(pol(a, r + 2), 9)) r += 2; return r; };
-for (const k of SPOKES) s += line([pol(k.a, k.r0 || 13), pol(k.a, k.r1 || reach(k.a))], 5.5, ROAD);
-s += line([[86, 270], [530, 270]], 9, ROAD) + line([[XGRID, 40], [XGRID, 340]], 4.5, ROAD) + line([[XMID, 46], [XMID, 266]], 4, ROAD) + line([[440, 150], [440, 400]], 3, ROAD);
-s += `<circle cx="${C.x}" cy="${C.y}" r="${C.r - 9}" fill="none" stroke="${ROAD}" stroke-width="3"/><polygon points="${P(PLAZA)}" fill="${ROAD}"/>`;
-s += `<circle cx="${FAN.x}" cy="${FAN.y}" r="28" fill="${ROAD}"/>`;
+
+for (const k of SPOKES) s += line([pol(k.a, k.r0 || 13), pol(k.a, k.r1 || reach(k.a))], SPOKE_W, ROAD);
+s += line([[MAINROAD.x0, FAN.y], [MAINROAD.x1, FAN.y]], MAINROAD.w, ROAD);
+for (const [x, y0, y1, w] of VROADS) s += line([[x, y0], [x, y1]], w, ROAD);
+s += `<circle cx="${C.x}" cy="${C.y}" r="${RING.r}" fill="none" stroke="${ROAD}" stroke-width="${RING.w}"/><polygon points="${P(PLAZA)}" fill="${ROAD}"/>`;
+s += `<circle cx="${FAN.x}" cy="${FAN.y}" r="${FORECOURT}" fill="${ROAD}"/>`;
 for (const side of [-1, 1]) {   // 큰길 양쪽 가로수
   const y0 = FAN.y + side * ROADSIDE.off, y1 = y0 + side * ROADSIDE.w;
   s += `<rect x="${ROADSIDE.x0}" y="${Math.min(y0, y1)}" width="${ROADSIDE.x1 - ROADSIDE.x0}" height="${ROADSIDE.w}" fill="#6fb040"/>`;
   for (let x = ROADSIDE.x0 + 3; x < ROADSIDE.x1; x += ROADSIDE.step) s += `<circle cx="${r1(x)}" cy="${(y0 + y1) / 2}" r="2.1" fill="#2f7d32"/>`;
 }
-s += line([pol(45, 275), pol(45, 290)], 4.5, '#7a5230') + line([pol(18, 367), pol(18, 382)], 4.5, '#7a5230') + line([[452, 331], [466, 337]], 3.2, '#7a5230') + `</g>`;
+s += BRIDGES.map((b, i) => line(b, i < 2 ? 4.5 : 3.2, '#7a5230')).join('') + `</g>`;
 // 담, 정문, 바위, 관저
 s += `<circle cx="${C.x}" cy="${C.y}" r="${C.r}" fill="none" stroke="#111" stroke-width="4.5"/><rect x="519" y="259" width="12" height="22" fill="#b33" stroke="#111" stroke-width="1.2"/>`;
 s += `<polygon points="${P(ROCK)}" fill="#cbb89a" stroke="#8a775c" stroke-width="1.5"/>`;
@@ -279,5 +293,4 @@ s += `<text x="${LX}" y="${ly}" font-size="14" fill="#bbb">${DETAIL ? '갈색 �
 s += `</svg>`;
 
 const dir = path.dirname(fileURLToPath(import.meta.url)), name = DETAIL ? 'village-detail.svg' : 'village-plan.svg';
-fs.writeFileSync(path.join(dir, name), s);
-console.log(name, W, H);
+if (MAIN) { fs.writeFileSync(path.join(dir, name), s); console.log(name, W, H); }

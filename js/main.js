@@ -5,8 +5,8 @@ import { Cover, Weather, WEATHERS } from './weather.js';
 import { Sound } from './audio.js';
 import { Toon } from './toon.js';
 import { Player } from './player.js';
-import { LOT } from './layout.js';
-import { buildVillage, terrainH } from './village.js';
+import { LOT, WALL } from './layout.js';
+import { buildVillage, terrainH, inPoly } from './village.js';
 
 const $ = s => document.querySelector(s);
 const tick = () => new Promise(r => setTimeout(r, 0));
@@ -16,9 +16,9 @@ const TOUCH = Q.get('touch') ? Q.get('touch') === '1' : matchMedia('(pointer: co
 document.body.classList.toggle('touch', TOUCH);
 
 // 따로 짓는 건물들. 하나가 고장 나도 나머지는 뜨게 하나씩 불러온다.
+// 새 배치로 옮기는 중: 지금은 제자리가 그대로인 호카게 관저만 세운다. 나머지(academy·naruto·homes·ichiraku·uchiha)는 새 자리로 옮긴 뒤 다시 넣는다.
 const BUILDINGS = [
-  ['hokage', '호카게 관저를 올리는 중…'], ['academy', '닌자 아카데미를 짓는 중…'],
-  ['naruto', '나루토의 집을 짓는 중…'], ['homes', '사쿠라와 이노의 집을 짓는 중…'], ['ichiraku', '이치라쿠 라멘의 국물을 끓이는 중…'], ['uchiha', '우치하 일족의 거리를 세우는 중…'],
+  ['hokage', '호카게 관저를 올리는 중…'],
 ];
 
 async function init() {
@@ -40,7 +40,7 @@ async function init() {
 
   await say('회벽을 바르고 기와를 굽는 중…');
   createMaterials();
-  const cover = new Cover(renderer, 0, -10, 500);
+  const cover = new Cover(renderer, WALL.cx, WALL.cz, WALL.r * 2 + 120, TOUCH ? 2048 : 4096);   // 지붕 지도는 마을 전체를 덮는다
   const weather = new Weather(scene, renderer, camera, cover);
   if (TOUCH) weather.sun.shadow.mapSize.set(2048, 2048);   // 폰은 그림자 지도를 작게
 
@@ -51,7 +51,7 @@ async function init() {
     glows.push(...(r.glows || [])); skip.push(...(r.skip || [])); if (r.tick) ticks.push(r.tick);
   };
   const only = Q.get('only');   // 확인용: ?only=hokage 처럼 주면 그 건물만 짓는다(마을 채움 건물·숲은 생략)
-  const ctx = { LOT, renderer, say, lite: !!only && only !== 'none', part: Q.get('part'), mobile: TOUCH };   // only=none: 필수 건물 없이 마을만
+  const ctx = { LOT, renderer, say, lite: !!only && only !== 'none', part: Q.get('part'), mobile: TOUCH, tint: Q.get('tint') !== '0' };   // only=none: 필수 건물 없이 마을만
   for (const [name, msg] of BUILDINGS) {
     if (only && only !== name) continue;
     await say(msg);
@@ -81,7 +81,7 @@ async function init() {
   player.touchMode = TOUCH;
   const sound = new Sound();
   weather.onThunder = d => sound.thunder(d);
-  const START = [0, 0, 150, 0];
+  const START = [0, 0, WALL.gateZ - 25, 0];
   player.place(...START);
 
   /* ---------- 화면 ---------- */
@@ -291,7 +291,7 @@ async function init() {
     if (hudT <= 0 && started) {
       hudT = 0.2;
       const fy = player.pos.y;
-      const pl = places.find(q => p.x >= q.b[0] && p.x <= q.b[1] && p.z >= q.b[2] && p.z <= q.b[3] && (!q.y || (fy >= q.y[0] - 0.3 && fy < q.y[1]))) || null;
+      const pl = places.find(q => p.x >= q.b[0] && p.x <= q.b[1] && p.z >= q.b[2] && p.z <= q.b[3] && (!q.y || (fy >= q.y[0] - 0.3 && fy < q.y[1])) && (!q.poly || inPoly(p.x, p.z, q.poly))) || null;   // poly가 있으면 그 다각형 안일 때만
       if (pl !== lastPlace) {
         lastPlace = pl;
         ui.place.textContent = pl ? pl.n : '마을 밖 숲'; ui.text.textContent = pl ? (pl.t || '') : '담장 너머는 불의 나라의 깊은 숲이다.';
