@@ -375,11 +375,266 @@ function akimichi(scene, out) {
 
   GROUPS.push({
     polys: Z.blocks.filter((_, i) => ![HALL, STORE].includes(i)), land: 3, size: [9.5, 4.5, 8.5, 3.5],
+    ok: (x, z) => !inPoly(x, z, zone(10).poly),                     // 야마나카 구역과 겹친 귀퉁이는 그쪽에 내준다
     style: Rr => ({ round: false, floors: 1 + (Rr() < 0.5 ? 1 : 0), wall: Rr() < 0.55 ? 3 : 0, roof: 1, roofKind: Rr() < 0.55 ? 'hip' : 'gable', shop: Rr() < 0.1 ? ['米', '団子', '焼肉', '菓子', '餅'][Math.floor(Rr() * 5)] : null }),
     deco: (B, h) => crestDisc(B, drawAkimichi, 'akimichi', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36),
   });
   out.places.push({ n: '아키미치 구역', t: '많이 먹고 몸을 불려 싸우는 아키미치 일족의 구역. 옷에 먹을 식(食) 자를 새긴다.', poly: Z.poly, b: bound(Z.poly) });
   out.jumps.push(['아키미치 구역', gate[0] - u[0] * 9, 0, gate[1] - u[1] * 9, yawTo(u[0], u[1]), 52]);
+}
+/* ============================ 야마나카 구역 ============================
+   마음을 다루는 술법의 일족이자, 마을에서 꽃집을 하는 집안의 구역. 들머리에 나무 문, 가운데 길 양쪽으로 일족의 꽃인 싸리가 늘어서고,
+   길 끝(마을 담 쪽) 두 블록이 꽃밭, 그 앞 블록이 온실과 꽃 다듬는 작업장. 집은 흰 벽에 청록 기와, 집 앞마다 꽃 화분.
+   꽃집과 싸리꽃 문장은 원작의 것이고, 꽃밭·온실·작업장은 "꽃집을 하는 일족"에서 지어낸 것이다. */
+// 야마나카 일족의 문장: 둥근 테 안에 가로줄, 그 위로 반원과 세로줄 둘, 아래로 세로줄 하나(나루토 위키의 문장 그림을 따랐다)
+function drawYamanaka(g, cx, cy, r) {
+  g.save(); g.translate(cx - r, cy - r); g.scale(r / 50, r / 50);
+  g.strokeStyle = '#1a1410'; g.lineJoin = 'round'; g.lineWidth = 10;
+  g.beginPath(); g.arc(50, 50, 45, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.arc(50, 50, 45, 0, Math.PI * 2); g.clip();
+  for (const [x0, y0, x1, y1] of [[5, 50, 95, 50], [50, 95, 50, 50], [38.75, 50, 38.75, 22.2], [61.25, 50, 61.25, 22.2]]) { g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); }
+  g.beginPath(); g.arc(50, 50, 30, Math.PI, Math.PI * 2); g.stroke();
+  g.restore();
+}
+// 세모 낱장들을 도형으로(빛깔을 주면 꼭짓점마다 적는다)
+function leafGeo(pos, col) {
+  const g = new THREE.BufferGeometry(), uv = [];
+  let top = 0.01; for (let i = 1; i < pos.length; i += 3) top = Math.max(top, pos[i]);
+  for (let i = 0; i < pos.length; i += 3) uv.push(0.5, pos[i + 1] / top);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  if (col) g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  return g;
+}
+// 연 모양 낱장: 밑(b)에서 허리(m)를 지나 끝(t)으로, 허리에서 양옆(s 방향)으로 w만큼 벌어진다
+const kite = (out, b, m, t, sx, sy, sz, w) => out.push(b[0], b[1], b[2], m[0] + sx * w, m[1] + sy * w, m[2] + sz * w, t[0], t[1], t[2], b[0], b[1], b[2], t[0], t[1], t[2], m[0] - sx * w, m[1] - sy * w, m[2] - sz * w);
+// 꽃 한 포기 — 줄기·잎, 꽃잎, 꽃술을 따로 빚는다(빛깔을 따로 주려고). kind 0 납작하게 핀 꽃(코스모스), 1 오므린 꽃(튤립), 2 이삭처럼 솟은 꽃(라벤더), 3 해바라기
+function flowerGeos(kind, seed) {
+  const R = rngOf(seed), stem = [], head = [], eye = [], n = [3, 3, 4, 1][kind];
+  for (let i = 0; i < n; i++) {
+    const a = i / n * 6.283 + R() * 1.2, rad = kind === 3 ? 0 : 0.08 + R() * 0.16, bx = Math.cos(a) * rad, bz = Math.sin(a) * rad;
+    const h = [0.55 + R() * 0.3, 0.36 + R() * 0.16, 0.52 + R() * 0.22, 1.45 + R() * 0.3][kind];
+    const lean = kind === 3 ? 0.04 : 0.08 + R() * 0.12, tx = bx + Math.cos(a) * lean, tz = bz + Math.sin(a) * lean, sw = kind === 3 ? 0.028 : 0.011;
+    for (const [qx, qz] of [[-Math.sin(a) * sw, Math.cos(a) * sw], [Math.cos(a) * sw, Math.sin(a) * sw]])            // 줄기: 엇갈린 낱장 둘
+      stem.push(bx - qx, 0, bz - qz, bx + qx, 0, bz + qz, tx + qx * 0.6, h, tz + qz * 0.6, bx - qx, 0, bz - qz, tx + qx * 0.6, h, tz + qz * 0.6, tx - qx * 0.6, h, tz - qz * 0.6);
+    const nl = [2, 2, 2, 5][kind], ll = [0.17, 0.3, 0.12, 0.44][kind], lw = [0.026, 0.042, 0.02, 0.16][kind], up = [0.5, 0.95, 0.5, 0.1][kind];
+    for (let l = 0; l < nl; l++) {                                                                                   // 잎
+      const la = a + 1.3 + l * 2.4 + R(), f = kind === 1 ? 0.03 : 0.2 + 0.5 * l / nl, ox = bx + (tx - bx) * f, oz = bz + (tz - bz) * f, oy = h * f, dx = Math.cos(la), dz = Math.sin(la);
+      kite(stem, [ox, oy, oz], [ox + dx * ll * 0.5, oy + ll * 0.5 * up + (kind === 3 ? 0.07 : 0), oz + dz * ll * 0.5], [ox + dx * ll, oy + ll * up, oz + dz * ll], -dz, 0, dx, lw);
+    }
+    if (kind === 0 || kind === 3) {
+      // 꽃 얼굴이 보는 쪽 F, 그 면 위의 두 축 U·W
+      const fa = kind === 3 ? 0.6 : R() * 6.283, tilt = kind === 3 ? 1.15 : 0.25 + R() * 0.5;
+      const F = V(Math.sin(tilt) * Math.cos(fa), Math.cos(tilt), Math.sin(tilt) * Math.sin(fa)), U = V(-F.z, 0, F.x).normalize(), W = F.clone().cross(U);
+      const np = kind === 3 ? 14 : 6, r0 = kind === 3 ? 0.11 : 0.03, r1 = kind === 3 ? 0.27 : 0.17, pw = kind === 3 ? 0.046 : 0.055, cy = kind === 3 ? h + 0.05 : h;
+      const P = (r, ang, lift) => [tx + (U.x * Math.cos(ang) + W.x * Math.sin(ang)) * r + F.x * lift, cy + (U.y * Math.cos(ang) + W.y * Math.sin(ang)) * r + F.y * lift, tz + (U.z * Math.cos(ang) + W.z * Math.sin(ang)) * r + F.z * lift];
+      for (let k = 0; k < np; k++) {
+        const ang = k / np * 6.283, c = Math.cos(ang), s = Math.sin(ang);
+        kite(head, P(r0 * 0.6, ang, 0), P((r0 + r1) * 0.55, ang, 0.022), P(r1, ang, 0.04), -s * U.x + c * W.x, -s * U.y + c * W.y, -s * U.z + c * W.z, pw);
+      }
+      const re = r0 * 1.2, ne = kind === 3 ? 8 : 5;
+      for (let k = 0; k < ne; k++) eye.push(...P(0, 0, 0.03), ...P(re, k / ne * 6.283, 0.016), ...P(re, (k + 1) / ne * 6.283, 0.016));
+    } else if (kind === 1) {
+      for (let k = 0; k < 6; k++) { const ang = k / 6 * 6.283, c = Math.cos(ang), s = Math.sin(ang); kite(head, [tx, h, tz], [tx + c * 0.068, h + 0.085, tz + s * 0.068], [tx + c * 0.04, h + 0.18, tz + s * 0.04], -s, 0, c, 0.045); }
+    } else {
+      for (let w = 0; w < 5; w++) {
+        const f = 0.5 + 0.5 * w / 4, cx = bx + (tx - bx) * f, cz = bz + (tz - bz) * f, cy = h * f, rr = 0.062 * (1 - w / 8);
+        for (let j = 0; j < 2; j++) { const ang = w * 1.9 + j * 3.14 + R(), c = Math.cos(ang), s = Math.sin(ang); kite(head, [cx, cy, cz], [cx + c * rr * 0.55, cy + 0.035, cz + s * rr * 0.55], [cx + c * rr, cy + 0.075, cz + s * rr], -s, 0, c, 0.028); }
+      }
+    }
+  }
+  return { stem: leafGeo(stem), head: leafGeo(head), eye: eye.length ? leafGeo(eye) : null };
+}
+// 싸리 한 그루: 밑동에서 사방으로 솟았다가 휘어 늘어지는 가는 가지들, 가지마다 세 잎과 붉보랏빛 꽃
+function hagiGeo(seed) {
+  const R = rngOf(seed), pos = [], col = [], tmp = [];
+  const paint = hex => { const c = new THREE.Color(hex); for (let i = 0; i < tmp.length; i += 3) { pos.push(tmp[i], tmp[i + 1], tmp[i + 2]); col.push(c.r, c.g, c.b); } tmp.length = 0; };
+  for (let b = 0; b < 24; b++) {
+    const a = b / 24 * 6.283 + R() * 0.35, reach = 0.75 + R() * 0.6, top = 1.25 + R() * 0.55, droop = 0.45 + R() * 0.45, dx = Math.cos(a), dz = Math.sin(a), px = -dz, pz = dx, pts = [];
+    for (let i = 0; i <= 7; i++) { const t = i / 7; pts.push([dx * reach * Math.pow(t, 1.25), top * (1 - (1 - t) * (1 - t)) - droop * t * t * t, dz * reach * Math.pow(t, 1.25)]); }
+    for (let i = 0; i < 7; i++) {
+      const p = pts[i], q = pts[i + 1], w0 = 0.016 * (1 - i / 9), w1 = 0.016 * (1 - (i + 1) / 9);
+      for (const [sx, sy, sz] of [[px, 0, pz], [0, 1, 0]]) tmp.push(p[0] - sx * w0, p[1] - sy * w0, p[2] - sz * w0, p[0] + sx * w0, p[1] + sy * w0, p[2] + sz * w0, q[0] + sx * w1, q[1] + sy * w1, q[2] + sz * w1, p[0] - sx * w0, p[1] - sy * w0, p[2] - sz * w0, q[0] + sx * w1, q[1] + sy * w1, q[2] + sz * w1, q[0] - sx * w1, q[1] - sy * w1, q[2] - sz * w1);
+    }
+    paint(0x6a5236);
+    for (let i = 2; i <= 7; i++) for (const s of [-1, 1]) {                                     // 잎: 가지 양옆으로
+      const p = pts[i], la = a + s * (0.9 + R() * 0.5), lx = Math.cos(la), lz = Math.sin(la), L = 0.15 + R() * 0.06;
+      kite(tmp, p, [p[0] + lx * L * 0.5, p[1] + 0.02, p[2] + lz * L * 0.5], [p[0] + lx * L, p[1] - 0.015, p[2] + lz * L], -lz, 0, lx, 0.05);
+      paint(R() < 0.5 ? 0x4c8a3a : 0x6aa046);
+    }
+    for (let i = 4; i <= 7; i++) for (let k = 0; k < 3; k++) {                                  // 꽃: 가지 끝 쪽에 조롱조롱
+      const p = pts[i], q = pts[Math.max(0, i - 1)], f = R(), bx = q[0] + (p[0] - q[0]) * f, by = q[1] + (p[1] - q[1]) * f, bz = q[2] + (p[2] - q[2]) * f, fa = R() * 6.283, fx = Math.cos(fa), fz = Math.sin(fa), L = 0.07 + R() * 0.03;
+      kite(tmp, [bx, by, bz], [bx + fx * L * 0.5, by + 0.035, bz + fz * L * 0.5], [bx + fx * L, by + 0.01, bz + fz * L], -fz, 0, fx, 0.042);
+      paint([0xc04a9a, 0xd873b4, 0x9a3c8a][Math.floor(R() * 3)]);
+    }
+  }
+  return leafGeo(pos, col);
+}
+// 유리 온실: 돌 허리벽 위에 흰 나무 뼈대와 유리, 유리 맞배지붕. 안에는 양옆으로 화분 선반. 가운데가 (x, z), 문은 +z 쪽.
+function glasshouse(B, K, Y, x, z, hw, hd, R) {
+  const eave = 2.35, ridge = 3.95, wm = Y.white, z0 = z - hd, z1 = z + hd;
+  B.box(K.stone, x - hw, 0, z0, x + hw, 0.04, z1, false);                                               // 바닥
+  B.box(K.stone, x - hw - 0.1, 0, z0 - 0.1, x - hw + 0.1, 0.55, z1 + 0.1); B.box(K.stone, x + hw - 0.1, 0, z0 - 0.1, x + hw + 0.1, 0.55, z1 + 0.1);
+  B.box(K.stone, x - hw, 0, z0 - 0.1, x + hw, 0.55, z0 + 0.1); for (const s of [-1, 1]) B.box(K.stone, x + (s < 0 ? -hw : 0.8), 0, z1 - 0.1, x + (s < 0 ? -0.8 : hw), 0.55, z1 + 0.1);
+  const nb = Math.round(hd), step = 2 * hd / nb;
+  for (let i = 0; i <= nb; i++) {                                                                       // 기둥과 서까래
+    const zz = z0 + i * step;
+    for (const s of [-1, 1]) { B.box(wm, x + s * hw - 0.05, 0.55, zz - 0.05, x + s * hw + 0.05, eave, zz + 0.05, false); beamBetween(B, wm, V(x + s * hw, eave, zz), V(x, ridge, zz), 0.05, 0.08); }
+  }
+  for (const s of [-1, 1]) { B.box(wm, x + s * hw - 0.05, eave - 0.06, z0, x + s * hw + 0.05, eave + 0.04, z1, false); B.box(wm, x + s * hw - 0.03, 1.4, z0, x + s * hw + 0.03, 1.45, z1, false); B.box(M.glass, x + s * hw - 0.015, 0.55, z0, x + s * hw + 0.015, eave, z1); }
+  B.box(wm, x - 0.05, ridge - 0.05, z0, x + 0.05, ridge + 0.05, z1, false);
+  const sl = Math.hypot(hw, ridge - eave), ang = Math.atan2(ridge - eave, hw);
+  for (const s of [-1, 1]) B.geo(M.glass, new THREE.PlaneGeometry(sl, 2 * hd).rotateX(-Math.PI / 2), mat4(x + s * hw / 2, (eave + ridge) / 2, z, 0, 0, -s * ang));
+  for (const zz of [z0, z1]) {                                                                          // 앞뒤 유리벽과 박공
+    const tri = new THREE.BufferGeometry(); tri.setAttribute('position', new THREE.Float32BufferAttribute([x - hw, eave, zz, x + hw, eave, zz, x, ridge, zz], 3)); tri.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0.5, 1], 2)); tri.computeVertexNormals();
+    B.geo(M.glass, tri, new THREE.Matrix4());
+    B.box(wm, x - hw, eave - 0.05, zz - 0.04, x + hw, eave + 0.05, zz + 0.04, false); B.box(wm, x - 0.04, eave, zz - 0.04, x + 0.04, ridge, zz + 0.04, false);
+  }
+  B.box(M.glass, x - hw, 0.55, z0 - 0.015, x + hw, eave, z0 + 0.015);
+  for (const s of [-1, 1]) { B.box(M.glass, x + (s < 0 ? -hw : 0.8), 0.55, z1 - 0.015, x + (s < 0 ? -0.8 : hw), eave, z1 + 0.015); B.box(wm, x + s * 0.8 - 0.05, 0, z1 - 0.06, x + s * 0.8 + 0.05, eave, z1 + 0.06, false); }
+  B.box(wm, x - 0.8, 2.1, z1 - 0.06, x + 0.8, 2.2, z1 + 0.06, false); B.box(M.glass, x - 0.8, 2.2, z1 - 0.015, x + 0.8, eave, z1 + 0.015, false);
+  for (const s of [-1, 1]) {                                                                            // 화분 선반
+    const bx0 = x + (s < 0 ? -hw + 0.25 : 1.1), bx1 = x + (s < 0 ? -1.1 : hw - 0.25), bm = (bx0 + bx1) / 2;
+    B.box(M.beamLight, bx0, 0.78, z0 + 0.5, bx1, 0.84, z1 - 1.0); for (let zz = z0 + 0.7; zz < z1 - 1.0; zz += 2.2) for (const xx of [bx0 + 0.1, bx1 - 0.1]) B.box(M.beam, xx - 0.04, 0.04, zz - 0.04, xx + 0.04, 0.78, zz + 0.04, false);
+    for (let zz = z0 + 0.95; zz < z1 - 1.3; zz += 0.62) for (const xx of [bm - 0.42, bm + 0.42]) {
+      const kd = Math.floor(R() * 3), f = Y.FG[kd][Math.floor(R() * 2)], m = mat4(xx, 1.04, zz, 0, R() * 6.283, 0, [0.75, 0.75, 0.75]);
+      B.geo(K.pot, new THREE.CylinderGeometry(0.17, 0.12, 0.2, 10), mat4(xx, 0.94, zz));
+      B.geo(Y.green, f.stem, m); B.geo(Y.petal(Y.hues[kd][Math.floor(R() * Y.hues[kd].length)]), f.head, m); if (f.eye) B.geo(Y.eye, f.eye, m);
+    }
+  }
+}
+// 꽃밭: 네모 터에 이랑을 치고 띠마다 다른 꽃을 심는다. bands = [[꽃 종류, 꽃빛], …], skip(x, z)가 참인 자리는 비운다.
+function flowerField(scene, Y, rect, bands, R, skip = null) {
+  const [x0, x1, z0, z1] = rect, B = new Builder(), stems = [[], [], [], []], eyes = [[], [], [], []], heads = new Map();
+  let z = z0 + 0.8, bi = 0;
+  while (z < z1 - 0.8) {
+    const [kind, hue] = bands[bi++ % bands.length], rows = kind === 3 ? 2 : 3, gap = kind === 3 ? 1.5 : 1.2, dx = kind === 3 ? 1.05 : 0.92, key = kind + ':' + hue;
+    if (!heads.has(key)) heads.set(key, { kind, hue, list: [] });
+    for (let r = 0; r < rows && z < z1 - 0.6; r++, z += gap) {
+      const open = x => !skip || !skip(Math.floor((x - x0) / 2) * 2 + x0 + 1, z);                       // 이랑은 2m 토막으로 끊어 놓는다
+      for (let sx = x0; sx < x1 - 0.5; sx += 2) if (open(sx + 1)) B.box(Y.soil, sx, 0, z - 0.4, Math.min(x1, sx + 2), 0.14, z + 0.4, false);
+      for (let x = x0 + 0.5 + (r % 2) * 0.4; x < x1 - 0.4; x += dx) {
+        if (!open(x)) continue;
+        const s = kind === 3 ? 0.9 + R() * 0.2 : 1.15 + R() * 0.3, m = mat4(x + (R() - 0.5) * 0.18, 0.12, z + (R() - 0.5) * 0.18, 0, kind === 3 ? (R() - 0.5) * 0.5 : R() * 6.283, 0, [s, s * (0.85 + R() * 0.3), s]);
+        stems[kind].push(m); eyes[kind].push(m); heads.get(key).list.push(m);
+      }
+    }
+    z += 0.9;                                                                                           // 띠 사이 고랑길
+  }
+  B.finish(scene);
+  for (let k = 0; k < 4; k++) { instanced(scene, Y.FG[k][0].stem, Y.green, stems[k], false); if (Y.FG[k][0].eye) instanced(scene, Y.FG[k][0].eye, k === 3 ? Y.eyeDark : Y.eye, eyes[k], false); }
+  for (const h of heads.values()) instanced(scene, Y.FG[h.kind][0].head, Y.petal(h.hue), h.list, false);
+}
+// 꽃을 꽂아 둔 물통
+function flowerBucket(B, K, Y, x, z, R) {
+  B.geo(K.tank, new THREE.CylinderGeometry(0.24, 0.19, 0.42, 12), mat4(x, 0.21, z));
+  const kd = Math.floor(R() * 3), f = Y.FG[kd][Math.floor(R() * 2)], hue = Y.hues[kd][Math.floor(R() * Y.hues[kd].length)];
+  for (let k = 0; k < 3; k++) { const m = mat4(x + (R() - 0.5) * 0.12, 0.34, z + (R() - 0.5) * 0.12, 0, R() * 6.283, 0, [0.8, 0.9, 0.8]); B.geo(Y.green, f.stem, m); B.geo(Y.petal(hue), f.head, m); if (f.eye) B.geo(Y.eye, f.eye, m); }
+}
+function yamanaka(scene, out) {
+  const K = makeKit(), Z = zone(10), R = rngOf(1010), tile = mat('tile', ROOFS[0]);
+  const FIELD_A = 0, FIELD_B = 4, WORKS = 5;                         // 블록 번호: 꽃밭 둘, 온실과 작업장
+  const Y = {
+    FG: [0, 1, 2, 3].map(k => [flowerGeos(k, 1100 + k), flowerGeos(k, 1200 + k)]),
+    hues: [[0xe86aa6, 0xf4f1ea, 0xc23b78], [0xd8322e, 0xf0c230, 0xf08a3c], [0x7a5cc0, 0x4f6fd0], [0xf2c21c]],
+    green: mat('leaf', 0x4f8f3a, { side: 'double' }), eye: mat('leaf', 0xf0c63a, { side: 'double' }), eyeDark: mat('leaf', 0x5a3a1c, { side: 'double' }),
+    petal: hex => mat('leaf', hex, { side: 'double' }),
+    soil: mat('plain', 0x4f3d2c, { rough: 1 }), white: mat('plain', 0xeef0ec, { rough: 0.7 }),
+  };
+  const bb = Z.blocks.map(bound), zb = bound(Z.poly);
+  const zN = Math.max(...bb.filter(b => b[2] < (zb[2] + zb[3]) / 2 && b[3] < (zb[2] + zb[3]) / 2 + 8).map(b => b[3])), zS = Math.min(...bb.filter(b => b[3] > zN + 4 && b[2] > zN).map(b => b[2])), zL = (zN + zS) / 2;   // 가운데 길의 두 가장자리와 한가운데
+
+  // 들머리의 나무 문: 마을 쪽(서쪽) 끝, 가운데 길 위
+  const gate = [zb[0] + 4, zL];
+  put(scene, { x: gate[0], z: gate[1], ry: Math.PI / 2 }, B => {
+    for (const s of [-1, 1]) { B.box(M.beam, s * 3.3 - 0.2, 0, -0.2, s * 3.3 + 0.2, 4.5, 0.2); B.box(M.stone, s * 3.3 - 0.3, 0, -0.3, s * 3.3 + 0.3, 0.4, 0.3, false); }
+    B.box(M.beam, -4.2, 3.5, -0.11, 4.2, 3.74, 0.11, false); B.box(M.beam, -4.6, 4.34, -0.16, 4.6, 4.6, 0.16, false);
+    gableRoof(B, tile, -4.4, -0.7, 4.4, 0.7, 4.6, 0.7, { ridge: 'x', over: 0.5, overGable: 0.5 });
+    crestDisc(B, drawYamanaka, 'yamanaka', 0, 4.04, 0.13, 0, 0.4); crestDisc(B, drawYamanaka, 'yamanaka', 0, 4.04, -0.13, Math.PI, 0.4);
+    for (const s of [-1, 1]) flowerBucket(B, K, Y, s * 4.3, 0.2, R);
+  });
+
+  // 가운데 길의 싸리: 블록 가장자리를 따라 양쪽으로. 블록 사이 골목과 문 앞은 비운다
+  {
+    const hagi = [hagiGeo(1031), hagiGeo(1032)], lists = [[], []], B = new Builder();
+    let li = 0;
+    for (const b of bb) {
+      const north = b[3] <= zN + 0.5, zz = north ? b[3] + 0.9 : b[2] - 0.9;
+      if (!north && b[2] < zS - 0.5) continue;
+      for (let x = b[0] + 2.2; x <= b[1] - 2; x += 4.6) {
+        if (Math.abs(x - gate[0]) < 4) continue;
+        const s = 0.8 + R() * 0.25, k = Math.floor(R() * 2);
+        lists[k].push(mat4(x + (R() - 0.5), 0, zz + (R() - 0.5) * 0.3, 0, R() * 6.283, 0, [s, s, s]));
+        addCollider(x - 0.3, 0, zz - 0.3, x + 0.3, 1.0, zz + 0.3);
+        if (li++ % 6 === 3) {                                                                            // 사이사이 등롱 기둥
+          const px = x + 2.3, off = north ? 0.45 : -0.45;
+          B.box(M.beam, px - 0.06, 0, zz - 0.06, px + 0.06, 2.9, zz + 0.06, false); addCollider(px - 0.1, 0, zz - 0.1, px + 0.1, 2.9, zz + 0.1);
+          beamBetween(B, M.beam, V(px, 2.73, zz), V(px, 2.73, zz + off), 0.06, 0.06);
+          out.glows.push(lantern(B, px, 2.2, zz + off, { color: 0xe9d6ee, r: 0.17, h: 0.44 }));
+        }
+      }
+    }
+    B.finish(scene);
+    const hm = mat('leaf', 0xffffff, { vc: true, side: 'double' });
+    hagi.forEach((g, k) => instanced(scene, g, hm, lists[k]));
+  }
+
+  // 꽃밭 둘: 띠마다 다른 꽃. 길 쪽 가장자리에 연장과 꽃 물통을 두는 헛간
+  const H = Y.hues;
+  const beds = [[FIELD_A, [[0, H[0][0]], [2, H[2][0]], [0, H[0][1]], [1, H[1][0]], [1, H[1][1]], [0, H[0][2]], [2, H[2][1]], [1, H[1][2]]]],
+    [FIELD_B, [[1, H[1][1]], [2, H[2][1]], [0, H[0][1]], [3, H[3][0]], [0, H[0][0]], [1, H[1][0]], [3, H[3][0]], [2, H[2][0]]]]];
+  for (const [bi, bands] of beds) {
+    const b = bb[bi], north = b[3] <= zN + 0.5, cx = (b[0] + b[1]) / 2, sz = north ? b[3] - 6 : b[2] + 6, rect = [b[0] + 3, b[1] - 3, b[2] + 3, b[3] - 3];
+    flowerField(scene, Y, rect, bands, R, (x, z) => Math.abs(x - cx) < 4.6 && Math.abs(z - sz) < 4.2);
+    put(scene, { x: cx, z: sz, ry: north ? 0 : Math.PI }, B => {
+      for (const [a, c] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B.box(M.beam, a * 2.6 - 0.08, 0, c * 1.7 - 0.08, a * 2.6 + 0.08, 2.4, c * 1.7 + 0.08);
+      B.box(M.beam, -2.75, 2.3, -1.8, 2.75, 2.42, -1.64, false); B.box(M.beam, -2.75, 2.3, 1.64, 2.75, 2.42, 1.8, false);
+      gableRoof(B, tile, -2.9, -1.9, 2.9, 1.9, 2.42, 1.0, { ridge: 'x', over: 0.45, overGable: 0.4 });
+      B.box(M.beamLight, -2.4, 0.5, -1.5, 2.4, 0.56, -0.7); for (const x of [-2.2, 2.2]) B.box(M.beam, x - 0.05, 0, -1.4, x + 0.05, 0.5, -0.8, false);   // 걸상 겸 선반
+      for (let k = 0; k < 5; k++) flowerBucket(B, K, Y, -1.9 + k * 0.95, 0.5 + (k % 2) * 0.5, R);
+      B.geo(K.tank, new THREE.CylinderGeometry(0.42, 0.38, 0.9, 14), mat4(3.6, 0.45, 0)); addCollider(3.1, 0, -0.5, 4.1, 0.9, 0.5);                      // 물 받아 두는 통
+    });
+    out.places.push({ n: '야마나카 꽃밭', t: '꽃집에 낼 꽃을 기르는 밭. 띠마다 다른 꽃이 철 따라 핀다.', poly: Z.blocks[bi], b });
+    if (bi === FIELD_A) out.jumps.push(['야마나카 꽃밭', cx, 0, b[3] + 4, 0, 56]);
+  }
+
+  // 온실과 작업장: 길가에 꽃 다듬는 집, 그 뒤 양옆으로 유리 온실 둘, 사이와 앞은 모종밭
+  {
+    const b = bb[WORKS], cx = (b[0] + b[1]) / 2, cz = (b[2] + b[3]) / 2, hd = (b[3] - b[2]) / 2, gx = 19, gz = -5.5, ghw = 3.4, ghd = Math.min(10, hd - 5.5);
+    for (const s of [-1, 1]) LOTS.push({ x: cx - s * gx, z: cz - gz, ry: 0, w: 2 * ghw + 0.6, d: 2 * ghd + 0.6 });   // 온실 바닥에는 풀이 나지 않게
+    const local = (x, z) => [cx - x, cz - z];                           // 이 터의 제 좌표(길 쪽이 +z)
+    flowerField(scene, Y, [b[0] + 3, b[1] - 3, b[2] + 3, b[3] - 3], [[2, H[2][0]], [0, H[0][1]], [1, H[1][0]], [0, H[0][0]], [1, H[1][1]]], R, (x, z) => {
+      const [lx, lz] = local(x, z);
+      return (Math.abs(Math.abs(lx) - gx) < ghw + 1.6 && lz > gz - ghd - 1.6 && lz < gz + ghd + 4) || (Math.abs(lx) < 9 && lz > 5) || (lz > gz + ghd + 1 && lz < gz + ghd + 3.6);
+    });
+    const res = put(scene, { x: cx, z: cz, ry: Math.PI }, B => {
+      const fz = hd - 7;                                                 // 작업장 앞벽
+      boxHouse(B, K, { x0: -6, z0: fz - 8, x1: 6, z1: fz, front: 's', floors: 2, wall: 5, roof: 0, roofKind: 'gable', rise: 2.0, shop: '花', near: true }, rngOf(1051), out.glows);
+      crestDisc(B, drawYamanaka, 'yamanaka', -4.5, 2.0, fz + 0.03, 0, 0.45);
+      for (let k = 0; k < 7; k++) flowerBucket(B, K, Y, -6.8 + k * 0.75 + (k > 3 ? 8.2 : 0), fz + 1.0 + (k % 2) * 0.55, R);
+      addCollider(-7.2, 0, fz + 0.7, -4.2, 0.6, fz + 1.9); addCollider(4.0, 0, fz + 0.7, 6.2, 0.6, fz + 1.9);
+      for (const s of [-1, 1]) glasshouse(B, K, Y, s * gx, gz, ghw, ghd, R);
+      return {
+        places: [{ n: '야마나카 온실과 작업장', t: '철을 타는 꽃을 기르는 유리 온실과, 밭에서 벤 꽃을 다듬어 꽃집으로 내는 작업장.', b: [-31, 31, -hd, hd], y: [0, 9] }],
+        jumps: [['야마나카 온실', gx, 0, gz + ghd + 4, Math.PI, 57]],
+      };
+    });
+    out.places.push(...res.places); out.jumps.push(...res.jumps);
+  }
+
+  // 구역 안의 집: 흰 벽·청록 기와, 벽에 문장, 집 앞에 꽃 화분
+  GROUPS.push({
+    polys: Z.blocks.filter((_, i) => ![FIELD_A, FIELD_B, WORKS].includes(i)), land: 3,
+    style: Rr => ({ round: false, floors: 1 + (Rr() < 0.4 ? 1 : 0), wall: Rr() < 0.65 ? 5 : 4, roof: 0, roofKind: Rr() < 0.6 ? 'gable' : 'hip', shop: Rr() < 0.05 ? ['茶', '花', '香'][Math.floor(Rr() * 3)] : null }),
+    deco: (B, h) => {
+      crestDisc(B, drawYamanaka, 'yamanaka', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36);
+      const kd = h.seed % 3, f = Y.FG[kd][h.seed % 2], hue = Y.hues[kd][(h.seed >> 2) % Y.hues[kd].length], x = h.w / 2 - 1.5, z = h.d / 2 + 0.42;
+      B.box(K.pot, x - 0.75, 0, z - 0.19, x + 0.75, 0.32, z + 0.19, false);
+      for (const o of [-0.48, 0, 0.48]) { const m = mat4(x + o, 0.3, z, 0, o * 9 + h.seed, 0, [0.85, 0.85, 0.85]); B.geo(Y.green, f.stem, m); B.geo(Y.petal(hue), f.head, m); if (f.eye) B.geo(Y.eye, f.eye, m); }
+    },
+  });
+  out.places.push({ n: '야마나카 구역', t: '마음을 다루는 술법으로 이름난 야마나카 일족의 구역. 대대로 마을에서 꽃집을 해 왔고, 일족의 꽃은 싸리다.', poly: Z.poly, b: zb });
+  out.jumps.push(['야마나카 구역', gate[0] - 9, 0, gate[1], yawTo(1, 0), 55]);
 }
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
@@ -391,6 +646,8 @@ export async function build(scene, ctx) {
   nara(scene, out);
   await ctx.say('아키미치 일족의 솥에 불을 지피는 중…');
   akimichi(scene, out);
+  await ctx.say('야마나카 일족의 꽃밭에 물을 주는 중…');
+  yamanaka(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
