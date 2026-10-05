@@ -221,7 +221,6 @@ export async function buildVillage(scene, ctx) {
     { n: '나뭇잎 마을', t: '불의 나라 숨은 마을. 북쪽 절벽에는 역대 호카게의 얼굴이 새겨져 있다.', b: [WALL.cx - WALL.r, WALL.cx + WALL.r, CLIFF.z, WALL.gateZ] },
     { n: '큰길', t: '정문에서 호카게 관저까지 곧게 뻗은 길.', b: [-6, 6, -50, WALL.gateZ - 1] },
     { n: '정문', t: '마을의 남쪽 대문. 왼쪽 문짝에 あ, 오른쪽 문짝에 ん이 적혀 있다.', b: [-16, 16, WALL.gateZ - 16, WALL.gateZ + 6] },
-    { n: '화둔 호수', t: '우치하 구역 안의 호수. 나카 강에서 물을 끌어들였다. 부두 끝에서 호화구를 익힌다.', poly: WT.lake, b: bounds(WT.lake) },
     { n: '섬 있는 못', t: '나카 강이 시작되는 못. 제2 훈련장.', poly: WT.isle, b: bounds(WT.isle) },
     ...PLAN.zones.filter(z => !BUILT.has(z.n)).map(z => ({ n: z.name, t: '새 배치의 자리. 아직 빈 터다.', poly: z.poly, b: bounds(z.poly) })),
     ...PLAN.train.map(t => ({ n: t.name.split(' — ')[0], t: t.name.split(' — ')[1] || '', b: [t.at[0] - 18, t.at[0] + 18, t.at[1] - 18, t.at[1] + 18] })),
@@ -229,7 +228,7 @@ export async function buildVillage(scene, ctx) {
   // 바로 가기: 구역마다 번호 자리 앞에 선다(관저 쪽을 등지고 구역을 본다)
   const face = (x, z) => Math.atan2(PLAN.fan[0] - x, PLAN.fan[1] - z) + Math.PI;
   const jumps = [['정문', 0, 0, WALL.gateZ - 15, 0, 0], ['큰길 한가운데', 0, 0, WALL.cz, 0, 1],
-    ['화둔 호수 부두', WT.pier[0][0], 0.3, WT.pier[0][1], Math.atan2(WT.pier[0][0] - WT.pier[1][0], WT.pier[0][1] - WT.pier[1][1]), 20],
+    ['우치하 구역 부두', WT.pier[0][0], 0.3, WT.pier[0][1], Math.atan2(WT.pier[0][0] - WT.pier[1][0], WT.pier[0][1] - WT.pier[1][1]), 20],
     ...PLAN.zones.filter(z => !BUILT.has(z.n) && (z.blocks || [3, 26, 30, 31, 20].includes(z.n))).map((z, i) => [z.name, z.at[0] + 6, 0, z.at[1] + 6, face(z.at[0], z.at[1]), 21 + i])];
   const out = { places, jumps, skip: [], lights: [], glows: [], ticks: [] };
   const take = r => { for (const k of ['places', 'jumps', 'skip', 'lights', 'glows']) out[k].push(...(r[k] || [])); if (r.tick) out.ticks.push(r.tick); };
