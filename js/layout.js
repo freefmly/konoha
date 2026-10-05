@@ -21,7 +21,7 @@ export const SITE = {
 };
 
 // 담·집·시설까지 다 채운 구역의 번호(빈 터 표시인 구역 빛깔·팻말을 끈다)
-export const DONE_ZONES = [33, 36, 37];
+export const DONE_ZONES = [33, 36, 37, 7];
 
 // ── 아래는 옛 배치(담 반지름 185m 시절)의 집터·길. 새 배치로 옮길 때까지 건물 파일들이 읽으므로 남겨 둔다.
 export const LOT = {
