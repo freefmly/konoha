@@ -122,6 +122,21 @@ function roofedGate(B, x, z0, z1, h, post = 0.3) {
   gableRoof(B, C.tile, x - 0.45, z0 - 0.35, x + 0.45, z1 + 0.35, h, 0.55, { ridge: 'z', over: 0.75, overGable: 0.4 });
 }
 
+/* ---------- 새 배치의 구역(zones.js)이 빌려 쓰는 것 ---------- */
+// 재질표를 채우고, 문장 판·기와 담을 내어 준다
+export function uchihaKit() { if (!C) C = palette(); return { crestPlaque, capWall }; }
+// 구역 대문: 굵은 기둥 둘, 인방, 맞배지붕, 문장을 물들인 남색 막. 문은 z 방향으로 6m 열리고 앞은 -x 쪽이다(가운데가 원점).
+export function uchihaGate(B, sign = true) {
+  if (!C) C = palette();
+  const g0 = -3, g1 = 3;
+  for (const z of [g0, g1]) { B.box(M.beam, -0.28, 0, z - 0.28, 0.28, 4.6, z + 0.28); B.box(M.stone, -0.36, 0, z - 0.36, 0.36, 0.5, z + 0.36, false); }
+  B.box(M.beam, -0.2, 4.05, g0, 0.2, 4.4, g1, false);
+  gableRoof(B, C.tile, -0.7, g0 - 0.6, 0.7, g1 + 0.6, 4.6, 0.8, { ridge: 'z', over: 1.0, overGable: 0.5 });
+  const curtain = textMat(' ', { w: 1024, h: 256, bg: '#1c2440', color: '#1c2440', draw: (g, w, h) => { for (const k of [0.2, 0.5, 0.8]) drawCrest(g, w * k, h * 0.42, h * 0.3, false); } }, 'cloth');
+  B.geo(curtain, new THREE.PlaneGeometry(5.4, 1.35, 18, 6), mat4(0, 4.05 - 0.675, 0, 0, -PI / 2, 0));
+  if (sign) signBoard(B, 'うちは', -0.3, 4.95, 0, -PI / 2, 2.0, 0.6, { both: false });
+}
+
 /* ============================ 담과 대문, 거리 ============================ */
 function district(B, K, R, out) {
   const { x0, x1, z0, z1, gateZ } = UCHIHA, H = 3.0, g0 = gateZ - 3, g1 = gateZ + 3;

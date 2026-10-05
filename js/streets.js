@@ -11,6 +11,7 @@ import { treeGeometry, bushGeometry, tuftGeometry } from './flora.js';
 import { PLAN } from './plan-data.js';
 import { WALL, CLIFF, STAIR, SITE } from './layout.js';
 import { terrainH, inPoly } from './village.js';
+import { zoneGroups, LOTS } from './zones.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const HC = 80, TC = 40, SC = 160;             // 집 칸, 나무·풀 칸, 먼 나무를 묶는 큰 칸의 한 변(m)
@@ -70,12 +71,24 @@ function boxesHit(a, b, gap) {
 }
 const corners = (o, pad = 0) => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [o.x + o.ux * a * (o.hw + pad) + o.vx * b * (o.hd + pad), o.z + o.uz * a * (o.hw + pad) + o.vz * b * (o.hd + pad)]);
 
-function planHouses(R, mobile) {
+// 비스듬한 네모 터들을 쓰임새 그림에 "집"으로 적는다(집·나무·풀이 피한다)
+function stamp(list) {
+  for (const h of list) {
+    const o = h.box || boxOf(h), r = Math.hypot(o.hw, o.hd) + 1;
+    for (let iz = Math.floor((h.z - r - LZ0) / LU); iz <= Math.floor((h.z + r - LZ0) / LU); iz++) for (let ix = Math.floor((h.x - r - LX0) / LU); ix <= Math.floor((h.x + r - LX0) / LU); ix++) {
+      const dx = LX0 + (ix + 0.5) * LU - h.x, dz = LZ0 + (iz + 0.5) * LU - h.z;
+      if (Math.abs(dx * o.ux + dz * o.uz) < o.hw + 0.8 && Math.abs(dx * o.vx + dz * o.vz) < o.hd + 0.8 && ix >= 0 && iz >= 0 && ix < LN && iz < LN) land[iz * LN + ix] = HOUSE;
+    }
+  }
+}
+// groups: 집을 세울 블록 묶음들. 살림집 거리 하나와 가문 구역들 — 구역은 집의 생김새(style)와 꾸밈(deco)을 따로 준다.
+function planHouses(R, mobile, groups) {
   const houses = [];
-  let shopI = 0;
+  let shopI = 0, G = null;
+  stamp([...Object.values(SITE).filter(s => s.w), ...LOTS]);       // 들어갈 수 있는 건물과 구역의 특별한 건물 터부터 비워 둔다
   const fits = (h, mine, poly) => {
     const o = boxOf(h);
-    for (const [x, z] of [...corners(o, 0.6), [h.x, h.z]]) if (!inPoly(x, z, poly) || landAt(x, z) !== TOWN || terrainH(x, z) < -0.05) return false;
+    for (const [x, z] of [...corners(o, 0.6), [h.x, h.z]]) if (!inPoly(x, z, poly) || landAt(x, z) !== G.land || terrainH(x, z) < -0.05 || (G.ok && !G.ok(x, z))) return false;
     for (const q of mine) if (boxesHit(o, q.box, 1.3)) return false;
     return true;
   };
@@ -89,11 +102,13 @@ function planHouses(R, mobile) {
       shop: R() < (main ? 0.75 : 0.22) ? SHOPS[shopI++ % SHOPS.length] : null,
       seed: Math.floor(R() * 1e6), rise: 1.5 + R() * 0.9,
     });
+    if (G.style) Object.assign(h, G.style(R));
+    h.deco = G.deco || null;
     h.H = h.floors * 3.0 + 0.3;
     if (h.round) { h.r = Math.min(h.w, h.d) / 2 - 0.3; h.rise = h.r * (0.5 + R() * 0.25); }
     mine.push(h); houses.push(h);
   };
-  for (const poly of PLAN.town) {
+  for (G of groups) for (const poly of G.polys) {
     const mine = [], n = poly.length, len = [0];
     for (let i = 0; i < n; i++) { const a = poly[i], b = poly[(i + 1) % n]; len.push(len[i] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
     const T = len[n];
@@ -125,15 +140,7 @@ function planHouses(R, mobile) {
       add(h, mine);
     }
   }
-  // 집이 선 자리를 쓰임새 그림에 적어 둔다(나무·풀이 피한다). 들어갈 수 있는 건물의 터도 같이 적는다.
-  const lots = Object.values(SITE).filter(s => s.w).map(s => ({ x: s.x, z: s.z, w: s.w, d: s.d, box: boxOf(s) }));
-  for (const h of [...houses, ...lots]) {
-    const o = h.box, r = Math.hypot(o.hw, o.hd) + 1;
-    for (let iz = Math.floor((h.z - r - LZ0) / LU); iz <= Math.floor((h.z + r - LZ0) / LU); iz++) for (let ix = Math.floor((h.x - r - LX0) / LU); ix <= Math.floor((h.x + r - LX0) / LU); ix++) {
-      const dx = LX0 + (ix + 0.5) * LU - h.x, dz = LZ0 + (iz + 0.5) * LU - h.z;
-      if (Math.abs(dx * o.ux + dz * o.uz) < o.hw + 0.8 && Math.abs(dx * o.vx + dz * o.vz) < o.hd + 0.8 && ix >= 0 && iz >= 0 && ix < LN && iz < LN) land[iz * LN + ix] = HOUSE;
-    }
-  }
+  stamp(houses);                                                   // 집이 선 자리도 적어 둔다(나무·풀이 피한다)
   return houses;
 }
 
@@ -261,7 +268,8 @@ export async function build(scene, ctx) {
   const MB = ctx.mobile, R = rng(20261005), K = makeKit();
   await ctx.say('거리에 집터를 잡는 중…');
   paintLand();
-  const houses = planHouses(R, MB);
+  const groups = [{ polys: PLAN.town, land: TOWN }, ...zoneGroups()];
+  const houses = planHouses(R, MB, groups);
 
   /* ----- 집: 칸마다 가벼운 모습을 먼저 세운다 ----- */
   const wallL = mat('plaster', 0xffffff, { vc: true }), roofL = mat('tile', 0xffffff, { vc: true });
@@ -322,7 +330,7 @@ export async function build(scene, ctx) {
   // 바위 꼭대기의 숲(계단을 올라온 자리와 벼랑 끝은 비운다)
   sow(-(CLIFF.half + 30), CLIFF.z - 150, CLIFF.half + 30, CLIFF.z - 10, STEP * 1.4, (x, z) => terrainH(x, z) > CLIFF.top - 12 && !(x > STAIR.x0 - 12 && x < STAIR.x1 + 14 && z > CLIFF.z - 22), 0.8, 0.5);
   // 블록 안마당의 나무
-  if (!MB) for (const poly of PLAN.town) { const b = bb(poly); for (let i = 0; i < 7; i++) { const x = b[0] + R() * (b[2] - b[0]), z = b[1] + R() * (b[3] - b[1]); if (inPoly(x, z, poly) && [-3.5, 3.5].every(o => landAt(x + o, z) === TOWN && landAt(x, z + o) === TOWN)) plant(x, z, 0.75 + R() * 0.4, 9, true); } }
+  if (!MB) for (const g of groups) for (const poly of g.polys) { const b = bb(poly); for (let i = 0; i < 7; i++) { const x = b[0] + R() * (b[2] - b[0]), z = b[1] + R() * (b[3] - b[1]); if (inPoly(x, z, poly) && (!g.ok || g.ok(x, z)) && [-3.5, 3.5].every(o => landAt(x + o, z) === g.land && landAt(x, z + o) === g.land)) plant(x, z, 0.75 + R() * 0.4, 9, true); } }
 
   /* ----- 나무·덤불·풀: 칸으로 묶는다 ----- */
   const tcells = new Map();
@@ -377,6 +385,7 @@ export async function build(scene, ctx) {
     if (!c.B) { c.B = new Builder(); c.i = 0; }
     const h = c.houses[c.i++], Bh = new Builder(), from = marks();
     (h.round ? towerHouse : boxHouse)(Bh, K, h.spec, rng(h.seed), glowsOff);
+    if (h.deco) h.deco(Bh, h);
     if (h.fineDone) dropSince(from); else { refillSite(h.site, from); h.fineDone = true; }
     c.B.absorb(Bh, h.mat);
     if (c.i < c.houses.length) return false;

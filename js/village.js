@@ -4,7 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, mat4 } from './build.js';
 import { mat, M, weatherize } from './materials.js';
 import { signBoard } from './arch.js';
-import { CLIFF, STAIR, WALL, SITE } from './layout.js';
+import { CLIFF, STAIR, WALL, SITE, DONE_ZONES } from './layout.js';
 import { PLAN } from './plan-data.js';
 
 /* ---------- 땅 높이 ---------- */
@@ -198,7 +198,7 @@ function buildCrossings(scene) {
 }
 
 /* ---------- 구역 팻말(빈 마을 확인용): 구역 번호 자리에 이름을 적은 팻말을 세운다 ---------- */
-const BUILT = new Set(Object.values(SITE).map(s => s.zone).filter(Boolean));   // 건물이 이미 선 구역(팻말·빈 터 안내를 뺀다)
+const BUILT = new Set([...Object.values(SITE).map(s => s.zone).filter(Boolean), ...DONE_ZONES]);   // 건물이 이미 선 구역(팻말·빈 터 안내를 뺀다)
 function buildSigns(scene) {
   const B = new Builder();
   const post = (name, x, z) => {
@@ -240,6 +240,7 @@ export async function buildVillage(scene, ctx) {
       try { const town = await import('./town.js'); town.buildWall(scene, town.makeKit(), out.glows); } catch (e) { console.error('짓기 실패: wall', e); }
     }
     if (!ctx.part) { await ctx.say('구역 팻말을 세우는 중…'); buildSigns(scene); }
+    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./zones.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: zones', e); } }
     if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./streets.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: streets', e); } }
   }
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
