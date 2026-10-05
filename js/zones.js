@@ -383,7 +383,7 @@ function akimichi(scene, out) {
   out.jumps.push(['아키미치 구역', gate[0] - u[0] * 9, 0, gate[1] - u[1] * 9, yawTo(u[0], u[1]), 52]);
 }
 /* ============================ 야마나카 구역 ============================
-   마음을 다루는 술법의 일족이자, 마을에서 꽃집을 하는 집안의 구역. 들머리에 나무 문, 가운데 길 양쪽으로 일족의 꽃인 싸리가 늘어서고,
+   마음을 다루는 술법의 일족이자, 마을에서 꽃집을 하는 집안의 구역. 북쪽 큰길 쪽 골목 어귀에 나무 문, 문에서 뻗는 골목과 꽃밭으로 꺾어 드는 골목 양쪽으로 일족의 꽃인 싸리가 늘어서고,
    길 끝(마을 담 쪽) 두 블록이 꽃밭, 그 앞 블록이 온실과 꽃 다듬는 작업장. 집은 흰 벽에 청록 기와, 집 앞마다 꽃 화분.
    꽃집과 싸리꽃 문장은 원작의 것이고, 꽃밭·온실·작업장은 "꽃집을 하는 일족"에서 지어낸 것이다. */
 // 야마나카 일족의 문장: 둥근 테 안에 가로줄, 그 위로 반원과 세로줄 둘, 아래로 세로줄 하나(나루토 위키의 문장 그림을 따랐다)
@@ -544,35 +544,40 @@ function yamanaka(scene, out) {
   const bb = Z.blocks.map(bound), zb = bound(Z.poly);
   const zN = Math.max(...bb.filter(b => b[2] < (zb[2] + zb[3]) / 2 && b[3] < (zb[2] + zb[3]) / 2 + 8).map(b => b[3])), zS = Math.min(...bb.filter(b => b[3] > zN + 4 && b[2] > zN).map(b => b[2])), zL = (zN + zS) / 2;   // 가운데 길의 두 가장자리와 한가운데
 
-  // 들머리의 나무 문: 마을 쪽(서쪽) 끝, 가운데 길 위
-  const gate = [zb[0] + 4, zL];
-  put(scene, { x: gate[0], z: gate[1], ry: Math.PI / 2 }, B => {
+  // 들머리의 나무 문: 북쪽 큰길에서 구역으로 드는 첫 세로 골목(서쪽 첫 블록과 둘째 블록 사이)의 어귀
+  const xs = [...new Set(bb.map(q => q[0]))].sort((p, q) => p - q), xA = Math.max(...bb.filter(q => q[0] === xs[0]).map(q => q[1])), xB = xs[1], xL = (xA + xB) / 2;   // 그 골목의 두 가장자리와 한가운데
+  const gate = [xL, Math.min(...bb.map(q => q[2])) - 2.5];
+  put(scene, { x: gate[0], z: gate[1], ry: 0 }, B => {
     for (const s of [-1, 1]) { B.box(M.beam, s * 3.3 - 0.2, 0, -0.2, s * 3.3 + 0.2, 4.5, 0.2); B.box(M.stone, s * 3.3 - 0.3, 0, -0.3, s * 3.3 + 0.3, 0.4, 0.3, false); }
     B.box(M.beam, -4.2, 3.5, -0.11, 4.2, 3.74, 0.11, false); B.box(M.beam, -4.6, 4.34, -0.16, 4.6, 4.6, 0.16, false);
     gableRoof(B, tile, -4.4, -0.7, 4.4, 0.7, 4.6, 0.7, { ridge: 'x', over: 0.5, overGable: 0.5 });
     crestDisc(B, drawYamanaka, 'yamanaka', 0, 4.04, 0.13, 0, 0.4); crestDisc(B, drawYamanaka, 'yamanaka', 0, 4.04, -0.13, Math.PI, 0.4);
-    for (const s of [-1, 1]) flowerBucket(B, K, Y, s * 4.3, 0.2, R);
+    for (const s of [-1, 1]) flowerBucket(B, K, Y, s * 4.3, -0.2, R);
   });
 
-  // 가운데 길의 싸리: 블록 가장자리를 따라 양쪽으로. 블록 사이 골목과 문 앞은 비운다
+  // 가운데 길의 싸리: 문에서 남쪽으로 뻗는 골목 양쪽, 그리고 그 골목에서 꽃밭으로 꺾어 드는 가로 골목 양쪽. 블록 가장자리를 따라 심는다
   {
     const hagi = [hagiGeo(1031), hagiGeo(1032)], lists = [[], []], B = new Builder();
     let li = 0;
-    for (const b of bb) {
-      const north = b[3] <= zN + 0.5, zz = north ? b[3] + 0.9 : b[2] - 0.9;
-      if (!north && b[2] < zS - 0.5) continue;
-      for (let x = b[0] + 2.2; x <= b[1] - 2; x += 4.6) {
-        if (Math.abs(x - gate[0]) < 4) continue;
-        const s = 0.8 + R() * 0.25, k = Math.floor(R() * 2);
-        lists[k].push(mat4(x + (R() - 0.5), 0, zz + (R() - 0.5) * 0.3, 0, R() * 6.283, 0, [s, s, s]));
-        addCollider(x - 0.3, 0, zz - 0.3, x + 0.3, 1.0, zz + 0.3);
+    // (ax, az)에서 (bx, bz)까지 한 줄. (ox, oz)는 길 한가운데 쪽 — 등롱이 그쪽으로 팔을 내민다
+    const row = (ax, az, bx, bz, ox, oz) => {
+      const L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L;
+      for (let t = 2.2; t <= L - 2; t += 4.6) {
+        const x = ax + ux * t, z = az + uz * t, s = 0.8 + R() * 0.25, k = Math.floor(R() * 2);
+        lists[k].push(mat4(x + ux * (R() - 0.5), 0, z + uz * (R() - 0.5), 0, R() * 6.283, 0, [s, s, s]));
+        addCollider(x - 0.3, 0, z - 0.3, x + 0.3, 1.0, z + 0.3);
         if (li++ % 6 === 3) {                                                                            // 사이사이 등롱 기둥
-          const px = x + 2.3, off = north ? 0.45 : -0.45;
-          B.box(M.beam, px - 0.06, 0, zz - 0.06, px + 0.06, 2.9, zz + 0.06, false); addCollider(px - 0.1, 0, zz - 0.1, px + 0.1, 2.9, zz + 0.1);
-          beamBetween(B, M.beam, V(px, 2.73, zz), V(px, 2.73, zz + off), 0.06, 0.06);
-          out.glows.push(lantern(B, px, 2.2, zz + off, { color: 0xe9d6ee, r: 0.17, h: 0.44 }));
+          const px = x + ux * 2.3, pz = z + uz * 2.3;
+          B.box(M.beam, px - 0.06, 0, pz - 0.06, px + 0.06, 2.9, pz + 0.06, false); addCollider(px - 0.1, 0, pz - 0.1, px + 0.1, 2.9, pz + 0.1);
+          beamBetween(B, M.beam, V(px, 2.73, pz), V(px + ox * 0.45, 2.73, pz + oz * 0.45), 0.06, 0.06);
+          out.glows.push(lantern(B, px + ox * 0.45, 2.2, pz + oz * 0.45, { color: 0xe9d6ee, r: 0.17, h: 0.44 }));
         }
       }
+    };
+    for (const q of bb) {
+      if (q[1] === xA) row(xA + 0.9, q[2], xA + 0.9, q[3], 1, 0);                    // 세로 골목의 서쪽 가장자리
+      if (q[0] === xB) row(xB - 0.9, q[2], xB - 0.9, q[3], -1, 0);                   // 세로 골목의 동쪽 가장자리
+      if (q[0] >= xB) { if (q[3] <= zN + 0.5) row(q[0], q[3] + 0.9, q[1], q[3] + 0.9, 0, 1); else row(q[0], q[2] - 0.9, q[1], q[2] - 0.9, 0, -1); }   // 가로 골목: 문 골목에서 꽃밭 쪽으로만
     }
     B.finish(scene);
     const hm = mat('leaf', 0xffffff, { vc: true, side: 'double' });
@@ -634,7 +639,7 @@ function yamanaka(scene, out) {
     },
   });
   out.places.push({ n: '야마나카 구역', t: '마음을 다루는 술법으로 이름난 야마나카 일족의 구역. 대대로 마을에서 꽃집을 해 왔고, 일족의 꽃은 싸리다.', poly: Z.poly, b: zb });
-  out.jumps.push(['야마나카 구역', gate[0] - 9, 0, gate[1], yawTo(1, 0), 55]);
+  out.jumps.push(['야마나카 구역', gate[0], 0, gate[1] - 9, yawTo(0, 1), 55]);
 }
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
