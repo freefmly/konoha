@@ -3,12 +3,13 @@
 // 구역·길·물길의 자리는 배치도(plan/plan.mjs)에서 뽑은 plan-data.js 가 원본이다.
 import { PLAN } from './plan-data.js';
 
-export const CLIFF = { z: -150, top: 60, half: 130, fall: 55 };   // 절벽 앞면 z, 꼭대기 높이, 평평한 반폭, 양옆 비탈 폭
+export const CLIFF = { z: -150, k: 1.8, top: 108, half: 234, fall: 100 };   // 절벽 앞면 z, 바위 배율(처음 빚은 크기의 몇 배), 꼭대기 높이, 평평한 반폭, 양옆 비탈 폭
+export const STAIR = { x0: 146, x1: 170 };   // 바위 꼭대기로 오르는 계단이 붙는 자리(x 범위)
 export const WALL = { cx: PLAN.wall.cx, cz: PLAN.wall.cz, r: PLAN.wall.r, gateZ: PLAN.wall.cz + PLAN.wall.r };   // 마을을 두른 담과 남쪽 정문
 
 // ── 아래는 옛 배치(담 반지름 185m 시절)의 집터·길. 새 배치로 옮길 때까지 건물 파일들이 읽으므로 남겨 둔다.
 export const LOT = {
-  hokage:   { x0: -30, x1: 30, z0: -138, z1: -70, cx: 0, cz: -104, front: 's' },   // 호카게 관저(둥근 본채 중심 cx,cz) — 새 배치에서도 이 자리
+  hokage:   { x0: -38, x1: 38, z0: -128, z1: -60, cx: 0, cz: -104, front: 's' },   // 호카게 관저(둥근 본채 중심 cx,cz) — 새 배치에서도 이 자리
   academy:  { x0: 40, x1: 96, z0: -124, z1: -64, front: 's' },                     // 닌자 아카데미(남쪽이 운동장·정문)
   naruto:   { x0: -64, x1: -38, z0: -32, z1: -5, front: 's' },                     // 나루토의 집(공동주택)
   ino:      { x0: -28, x1: -7, z0: 38, z1: 58, front: 'e' },                       // 이노의 집(야마나카 꽃집) — 큰길 서쪽, 동쪽을 봄

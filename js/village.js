@@ -4,7 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, mat4 } from './build.js';
 import { mat, M, weatherize } from './materials.js';
 import { signBoard } from './arch.js';
-import { CLIFF, WALL } from './layout.js';
+import { CLIFF, STAIR, WALL } from './layout.js';
 import { PLAN } from './plan-data.js';
 
 /* ---------- 땅 높이 ---------- */
@@ -84,7 +84,7 @@ function buildGround(scene, tintOn) {
   g.beginPath(); g.arc(px(PLAN.fan[0]), pz(PLAN.fan[1]), PLAN.forecourt * k, 0, Math.PI * 2); g.fill();   // 관저 앞마당
   g.beginPath(); g.arc(px(0), pz(WALL.gateZ + 7), 26 * k, 0, Math.PI * 2); g.fill();                        // 정문 앞마당
   g.fillRect(px(-7), pz(WALL.gateZ + 5), 14 * k, 90 * k);                                                    // 정문 밖 길
-  g.fillRect(px(78), pz(CLIFF.z), 44 * k, 14 * k); stroke([58, -122], [100, -142], 9);                       // 바위 오르는 계단 밑과 거기로 가는 길
+  g.fillRect(px(STAIR.x0 - 7), pz(CLIFF.z), (STAIR.x1 - STAIR.x0 + 14) * k, 14 * k); stroke([60, -124], [STAIR.x0 + 4, -141], 9);                       // 바위 오르는 계단 밑과 거기로 가는 길
   for (const b of PLAN.bridges) stroke(b[0], b[1], 8);
   const mask = new THREE.CanvasTexture(c);
   mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.anisotropy = 8;
@@ -146,7 +146,7 @@ function buildGround(scene, tintOn) {
   mk(WALL.cx - FAR, WALL.cz - FAR, X0, WALL.cz + FAR, 40, far); mk(X1, WALL.cz - FAR, WALL.cx + FAR, WALL.cz + FAR, 40, far);
   mk(X0, WALL.cz - FAR, X1, Z0, 40, far); mk(X0, Z1, X1, WALL.cz + FAR, 40, far);
   // 산 위. 산자락이 땅과 같은 높이로 겹치면 깜빡이므로, 산이 끝난 자리는 땅 밑으로 내린다
-  mk(-200, CLIFF.z - 180, 200, CLIFF.z, 4, (x, z) => { const m = mountainH(x, Math.min(z, CLIFF.z - 0.01)), l = lowH(x, z); return m > l + 0.3 ? m : l - 1.5; });
+  mk(-(CLIFF.half + CLIFF.fall + 12), CLIFF.z - 180, CLIFF.half + CLIFF.fall + 12, CLIFF.z, 4, (x, z) => { const m = mountainH(x, Math.min(z, CLIFF.z - 0.01)), l = lowH(x, z); return m > l + 0.3 ? m : l - 1.5; });
 }
 
 /* ---------- 물 ---------- */

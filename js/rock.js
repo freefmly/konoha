@@ -4,10 +4,12 @@ import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, stairs } from './build.js';
 import { mat, M, weatherize } from './materials.js';
 import { beamBetween, railing } from './arch.js';
-import { CLIFF } from './layout.js';
+import { CLIFF, STAIR } from './layout.js';
 import { mountainH } from './village.js';
 
 const NEG = -40;
+// 얼굴과 바위 굴곡은 처음 빚은 크기(꼭대기 60m)로 계산하고, 절벽을 뜰 때 K배로 키운다.
+const K = CLIFF.k, TOP0 = CLIFF.top / K;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 // 부드럽게 이어 붙이는 최댓값(k가 클수록 둥글게 섞인다)
@@ -74,7 +76,8 @@ const HOKAGE = [
     fans: [[8, -108, 108, 3.6, 2.3, 0, 0, 17], [7, -85, 85, 2.6, 1.8, 0, 1.1, 18]],
     lines: [[[-2.4, -1.4], [-4.7, -0.9]], [[-2.4, -2.4], [-4.8, -2.4]], [[-2.4, -3.4], [-4.5, -3.9]], [[2.4, -1.4], [4.7, -0.9]], [[2.4, -2.4], [4.8, -2.4]], [[2.4, -3.4], [4.5, -3.9]]] },
 ];
-export const HEAD_X = i => -60 + 20 * i, HEAD_Y = 37.5, HEAD_S = 1.42;
+const HX0 = i => -60 + 20 * i, HY0 = 37.5, HS0 = 1.42;                                  // 처음 크기에서의 얼굴 자리·크기
+export const HEAD_X = i => HX0(i) * K, HEAD_Y = HY0 * K, HEAD_S = HS0 * K;               // 마을 좌표(m)
 
 const hs = (i, s) => { const j = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return j - Math.floor(j); };
 // 매듭점 사이를 잇는 값. smooth면 부드럽게, 아니면 곧게(각진 윤곽).
@@ -204,8 +207,8 @@ function vn(x, y) {
 function rockDepth(x, y) {
   const gully = 1 - Math.abs(2 * vn(x * 0.09 + 5.2, y * 0.012) - 1);
   const ledge = vn(x * 0.03 + 9.1, y * 0.33);
-  let d = 0.055 * (CLIFF.top - y) + 1.5 * gully * gully + 0.8 * ledge + 0.7 * vn(x * 0.11, y * 0.11);
-  d *= 1 - sstep(74, 80, x) * sstep(124, 118, x);                  // 계단이 붙는 자리는 반반하게 깎는다
+  let d = 0.055 * (TOP0 - y) + 1.5 * gully * gully + 0.8 * ledge + 0.7 * vn(x * 0.11, y * 0.11);
+  d *= 1 - sstep((STAIR.x0 - 12) / K, (STAIR.x0 - 6) / K, x) * sstep((STAIR.x1 + 12) / K, (STAIR.x1 + 6) / K, x);                  // 계단이 붙는 자리는 반반하게 깎는다
   return d;
 }
 function cliffDepth(x, y) {
@@ -213,29 +216,29 @@ function cliffDepth(x, y) {
   const i0 = Math.floor((x + 60) / 20);
   for (const i of [i0, i0 + 1]) {
     if (i < 0 || i > 6) continue;
-    const u = (x - HEAD_X(i)) / HEAD_S, v = (y - HEAD_Y) / HEAD_S;
+    const u = (x - HX0(i)) / HS0, v = (y - HY0) / HS0;
     if (Math.abs(u) > 11.5 || v < -16.5 || v > 15.5) continue;
     h = Math.max(h, headDepth(HOKAGE[i], u, v));
     near = Math.max(near, sstep(1.25, 0.8, Math.hypot(u / 8.4, (v - 0.5) / 15)));       // 얼굴 둘레는 바위를 얕게 쳐냈다
   }
   d *= 1 - 0.5 * near;
-  if (h > NEG) d = smax(d, h * HEAD_S + 1.8 + 0.07 * (vn(x * 1.7, y * 1.7) - 0.5) + 0.1 * (vn(x * 0.55 + 3.0, y * 0.55) - 0.5), 1.0);   // 정으로 쪼은 자국
+  if (h > NEG) d = smax(d, h * HS0 + 1.8 + 0.07 * (vn(x * 1.7, y * 1.7) - 0.5) + 0.1 * (vn(x * 0.55 + 3.0, y * 0.55) - 0.5), 1.0);   // 정으로 쪼은 자국
   return d;
 }
 
 function buildCliff(scene, mobile) {
   // 얼굴이 있는 가운데는 촘촘하게, 바깥은 성기게 나눈 격자
-  const xs = [], ys = [], FINE = mobile ? 0.26 : 0.16, X1 = 77, Y0 = 13.5, Y1 = 59.2, W = CLIFF.half + CLIFF.fall + 6;
+  const xs = [], ys = [], FINE = mobile ? 0.26 : 0.16, X1 = 77, Y0 = 13.5, Y1 = 59.2, W = (CLIFF.half + CLIFF.fall + 6) / K;
   for (let x = -W; x < -X1; x += 1.5) xs.push(x);
   for (let x = -X1; x < X1; x += FINE) xs.push(x);
   for (let x = X1; x <= W + 0.01; x += 1.5) xs.push(x);
   for (let y = -1; y < Y0; y += 1.5) ys.push(y);
   for (let y = Y0; y < Y1; y += FINE) ys.push(y);
-  for (let y = Y1; y < CLIFF.top; y += 1.5) ys.push(y);
-  ys.push(CLIFF.top);
+  for (let y = Y1; y < TOP0; y += 1.5) ys.push(y);
+  ys.push(TOP0);
   const nx = xs.length, ny = ys.length, D = new Float32Array(nx * ny), Yv = new Float32Array(nx * ny);
   for (let i = 0; i < nx; i++) {
-    const top = mountainH(xs[i], CLIFF.z - 1);
+    const top = mountainH(xs[i] * K, CLIFF.z - 1) / K;
     for (let j = 0; j < ny; j++) {
       const y = Math.min(ys[j], top);
       Yv[j * nx + i] = y;
@@ -246,12 +249,12 @@ function buildCliff(scene, mobile) {
   const at = (i, j) => D[clamp(j, 0, ny - 1) * nx + clamp(i, 0, nx - 1)];
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const k = j * nx + i, x = xs[i], y = Yv[k], d = D[k];
-    pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = CLIFF.z + d;
+    pos[k * 3] = x * K; pos[k * 3 + 1] = y * K; pos[k * 3 + 2] = CLIFF.z + d * K;
     const i0 = Math.max(0, i - 1), i1 = Math.min(nx - 1, i + 1), j0 = Math.max(0, j - 1), j1 = Math.min(ny - 1, j + 1);
     const dx = (at(i1, j) - at(i0, j)) / Math.max(1e-3, xs[i1] - xs[i0]), dy = (at(i, j1) - at(i, j0)) / Math.max(1e-3, Yv[j1 * nx + i] - Yv[j0 * nx + i]);
     const l = 1 / Math.hypot(dx, dy, 1);
     nor[k * 3] = -dx * l; nor[k * 3 + 1] = -dy * l; nor[k * 3 + 2] = l;
-    uv[k * 2] = x + d * 0.8; uv[k * 2 + 1] = y + d * 0.6;                 // 튀어나온 옆면에서 무늬가 길게 늘어지지 않게
+    uv[k * 2] = (x + d * 0.8) * K; uv[k * 2 + 1] = (y + d * 0.6) * K;                 // 튀어나온 옆면에서 무늬가 길게 늘어지지 않게
     // 팬 곳은 어둡게, 도드라진 곳은 밝게(흐린 날에도 얼굴 윤곽이 읽힌다)
     const s = 3, avg = (at(i - s, j) + at(i + s, j) + at(i, j - s) + at(i, j + s)) / 4;
     const span = Math.max(xs[Math.min(nx - 1, i + s)] - xs[Math.max(0, i - s)], 0.5);
@@ -277,20 +280,22 @@ function buildCliff(scene, mobile) {
   mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
   scene.add(mesh);
   // 걸어서 뚫고 들어가지 못하게(아래로 갈수록 앞으로 나온 만큼 계단식으로 막는다)
-  const Wc = CLIFF.half + CLIFF.fall;
-  for (const [xa, xb] of [[-Wc, 78], [122, Wc]]) {
-    addCollider(xa, 0, CLIFF.z - 8, xb, 12, CLIFF.z + 4.6);
-    addCollider(xa, 12, CLIFF.z - 8, xb, 30, CLIFF.z + 3.0);
-    addCollider(xa, 30, CLIFF.z - 8, xb, 59.6, CLIFF.z + 0.6);
+  const Wc = CLIFF.half + CLIFF.fall, yTop = CLIFF.top - 0.7;
+  for (const [xa, xb] of [[-Wc, STAIR.x0 - 8], [STAIR.x1 + 8, Wc]]) {
+    addCollider(xa, 0, CLIFF.z - 8, xb, 12 * K, CLIFF.z + 4.6 * K);
+    addCollider(xa, 12 * K, CLIFF.z - 8, xb, 30 * K, CLIFF.z + 3.0 * K);
+    addCollider(xa, 30 * K, CLIFF.z - 8, xb, yTop, CLIFF.z + 0.6 * K);
   }
-  addCollider(78, 0, CLIFF.z - 8, 122, 59.6, CLIFF.z + 0.25);
+  addCollider(STAIR.x0 - 8, 0, CLIFF.z - 8, STAIR.x1 + 8, yTop, CLIFF.z + 0.25);
 }
 
-/* ---------- 바위 꼭대기로 오르는 계단(절벽 동쪽에 붙은 네 번 꺾이는 나무 계단) ---------- */
+/* ---------- 바위 꼭대기로 오르는 계단(절벽 동쪽에 붙은, 여러 번 꺾이는 나무 계단) ---------- */
+const NF = Math.round(CLIFF.top / 12), RISE = CLIFF.top / NF;      // 꺾이는 층 수, 한 층에 오르는 높이
 function buildStairs(scene) {
   const B = new Builder(), step = mat('planks', 0x8a6844), post = M.beam;
-  const zA0 = CLIFF.z + 0.4, zA1 = CLIFF.z + 2.1, zB0 = zA1, zB1 = CLIFF.z + 3.8, xW = 85, xE = 115, RISE = 15;
-  const flights = [[zB0, zB1, 1, 0], [zA0, zA1, -1, RISE], [zB0, zB1, 1, RISE * 2], [zA0, zA1, -1, RISE * 3]];   // [z 범위, 오르는 방향, 시작 높이]
+  const zA0 = CLIFF.z + 0.4, zA1 = CLIFF.z + 2.1, zB0 = zA1, zB1 = CLIFF.z + 3.8, xW = STAIR.x0, xE = STAIR.x1, NS = Math.round(RISE / 0.2);
+  const flights = [];                                                  // [z 범위, 오르는 방향, 시작 높이] — 바깥 줄과 절벽 쪽 줄을 번갈아 오른다
+  for (let i = 0; i < NF; i++) flights.push(i % 2 ? [zA0, zA1, -1, RISE * i] : [zB0, zB1, 1, RISE * i]);
   for (const [z0, z1, dir, y0] of flights) {
     const top = dir > 0 ? xE : xW, bot = dir > 0 ? xW : xE;
     stairs(B, step, 'x', top, -dir, y0, y0 + RISE, z0, z1, 0.4, 0.12);
@@ -299,8 +304,9 @@ function buildStairs(scene) {
     for (const z of [z0 + 0.05, z1 - 0.05]) {
       if (z < CLIFF.z + 0.6) continue;                                   // 절벽 쪽은 바위가 막아 준다
       for (const h of [1.05, 0.55]) beamBetween(B, post, new THREE.Vector3(bot, y0 + h, z), new THREE.Vector3(top, y0 + RISE + h, z), 0.07, 0.07);
-      for (let k = 0; k <= 75; k += 3) { const x = bot + (top - bot) * k / 75, y = y0 + RISE * k / 75; B.box(post, x - 0.035, y - 0.1, z - 0.035, x + 0.035, y + 1.05, z + 0.035, false); }
-      for (let k = 0; k < 25; k++) { const xa = bot + (top - bot) * k / 25, xb = bot + (top - bot) * (k + 1) / 25, y = y0 + RISE * k / 25; addCollider(Math.min(xa, xb), y, z - 0.05, Math.max(xa, xb), y + RISE / 25 + 1.1, z + 0.05); }
+      for (let k = 0; k <= NS; k += 3) { const x = bot + (top - bot) * k / NS, y = y0 + RISE * k / NS; B.box(post, x - 0.035, y - 0.1, z - 0.035, x + 0.035, y + 1.05, z + 0.035, false); }
+      const NC = Math.round(NS / 3);
+      for (let k = 0; k < NC; k++) { const xa = bot + (top - bot) * k / NC, xb = bot + (top - bot) * (k + 1) / NC, y = y0 + RISE * k / NC; addCollider(Math.min(xa, xb), y, z - 0.05, Math.max(xa, xb), y + RISE / NC + 1.1, z + 0.05); }
     }
   }
   // 까치발: 절벽에 박은 가로대와 그 밑의 빗대
@@ -309,40 +315,43 @@ function buildStairs(scene) {
     B.box(post, x - 0.08, y - 0.18, CLIFF.z - 0.3, x + 0.08, y, zOut, false);
     beamBetween(B, post, new THREE.Vector3(x, y - 0.1, zOut - 0.15), new THREE.Vector3(x, y - 0.1 - (zOut - CLIFF.z) * 0.9, CLIFF.z + 0.05), 0.12, 0.14);
   };
-  // 층계참
-  const landing = (x0, x1, y, open) => {
+  // 층계참(동쪽·서쪽 끝에 번갈아 놓인다)
+  const landing = (side, y) => {
+    const x0 = side === 'e' ? xE : xW - 3, x1 = x0 + 3;
     B.box(step, x0, y - 0.14, zA0, x1, y, zB1);
-    const xo = open === 'e' ? x1 : x0;                                     // 바깥쪽 끝
+    const xo = side === 'e' ? x1 : x0;                                     // 바깥쪽 끝
     railing(B, post, [[xo, zA0 + 0.05], [xo, zB1 - 0.05]], y, 1.05);
     railing(B, post, [[x0, zB1 - 0.05], [x1, zB1 - 0.05]], y, 1.05);
     for (const x of [x0 + 0.2, x1 - 0.2]) bracket(x, y - 0.14, zB1 - 0.1);
   };
-  landing(xE, xE + 3, RISE, 'e'); landing(xW - 3, xW, RISE * 2, 'w'); landing(xE, xE + 3, RISE * 3, 'e');
+  for (let i = 1; i < NF; i++) landing(i % 2 ? 'e' : 'w', RISE * i);
   // 맨 위 층계참은 바위 꼭대기와 이어진다
-  B.box(step, xW - 3, RISE * 4 - 0.14, CLIFF.z - 0.6, xW, RISE * 4, zB1);
-  railing(B, post, [[xW - 3, CLIFF.z + 0.3], [xW - 3, zB1 - 0.05], [xW, zB1 - 0.05]], RISE * 4, 1.05);
-  for (const x of [xW - 2.8, xW - 0.2]) bracket(x, RISE * 4 - 0.14, zB1 - 0.1);
+  const tx0 = NF % 2 ? xE : xW - 3, tx1 = tx0 + 3, yT = CLIFF.top, xo = NF % 2 ? tx1 : tx0, xi = NF % 2 ? tx0 : tx1;
+  B.box(step, tx0, yT - 0.14, CLIFF.z - 0.6, tx1, yT, zB1);
+  railing(B, post, [[xo, CLIFF.z + 0.3], [xo, zB1 - 0.05], [xi, zB1 - 0.05]], yT, 1.05);
+  for (const x of [tx0 + 0.2, tx1 - 0.2]) bracket(x, yT - 0.14, zB1 - 0.1);
   // 계단 밑 까치발
   for (const [z0, z1, dir, y0] of flights) for (let k = 1; k < 8; k++) {
     const x = xW + (xE - xW) * k / 8, y = y0 + RISE * (dir > 0 ? k / 8 : 1 - k / 8);
     bracket(x, y - 0.42, z1 - 0.02);
   }
   // 꼭대기 전망대 난간(계단 입구만 틔운다)
-  const yT = CLIFF.top, zr = CLIFF.z - 0.9;
-  railing(B, post, [[-124, zr], [xW - 3.2, zr]], yT, 1.1, { gap: 0.3 });
-  railing(B, post, [[xW + 0.2, zr], [124, zr]], yT, 1.1, { gap: 0.3 });
+  const zr = CLIFF.z - 0.9, xr = CLIFF.half - 6;
+  railing(B, post, [[-xr, zr], [tx0 - 0.2, zr]], yT, 1.1, { gap: 0.3 });
+  railing(B, post, [[tx1 + 0.2, zr], [xr, zr]], yT, 1.1, { gap: 0.3 });
   B.finish(scene);
 }
 
 export function build(scene, ctx) {
   buildCliff(scene, ctx && ctx.mobile);   // 폰에서는 격자를 성기게
   buildStairs(scene);
-  const places = HOKAGE.map((h, i) => ({ n: '호카게 바위 꼭대기', t: '발아래가 ' + h.name + '의 얼굴이다.', b: [HEAD_X(i) - 10, HEAD_X(i) + 10, CLIFF.z - 30, CLIFF.z + 1], y: [50, 90] }));
-  places.push({ n: '호카게 바위', t: '역대 호카게 일곱 사람의 얼굴. 왼쪽부터 하시라마, 토비라마, 히루젠, 미나토, 츠나데, 카카시, 나루토.', b: [-75, 75, CLIFF.z, CLIFF.z + 14], y: [0, 40] });
-  places.push({ n: '바위 오르는 계단', t: '절벽에 붙여 지은 나무 계단. 네 번 꺾어 오르면 호카게 바위 꼭대기다.', b: [80, 120, CLIFF.z, CLIFF.z + 5], y: [0, 70] });
-  places.push({ n: '호카게 바위 꼭대기', t: '마을이 한눈에 내려다보인다.', b: [-190, 190, CLIFF.z - 120, CLIFF.z + 1], y: [50, 90] });
+  const yTop = [CLIFF.top - 10, CLIFF.top + 30], Wc = CLIFF.half + CLIFF.fall;
+  const places = HOKAGE.map((h, i) => ({ n: '호카게 바위 꼭대기', t: '발아래가 ' + h.name + '의 얼굴이다.', b: [HEAD_X(i) - 10 * K, HEAD_X(i) + 10 * K, CLIFF.z - 30, CLIFF.z + 1], y: yTop }));
+  places.push({ n: '호카게 바위', t: '역대 호카게 일곱 사람의 얼굴. 왼쪽부터 하시라마, 토비라마, 히루젠, 미나토, 츠나데, 카카시, 나루토.', b: [-75 * K, 75 * K, CLIFF.z, CLIFF.z + 22], y: [0, 40] });
+  places.push({ n: '바위 오르는 계단', t: '절벽에 붙여 지은 나무 계단. 이리저리 꺾어 오르면 호카게 바위 꼭대기다.', b: [STAIR.x0 - 6, STAIR.x1 + 6, CLIFF.z, CLIFF.z + 5], y: [0, CLIFF.top + 10] });
+  places.push({ n: '호카게 바위 꼭대기', t: '마을이 한눈에 내려다보인다.', b: [-Wc, Wc, CLIFF.z - 120, CLIFF.z + 1], y: yTop });
   return {
     places,
-    jumps: [['호카게 바위 앞', 0, 0, -62, 0, 2], ['바위 꼭대기', 0, CLIFF.top, CLIFF.z - 6, Math.PI, 3], ['바위 오르는 계단', 84, 0, CLIFF.z + 8, 0, 4]],
+    jumps: [['호카게 바위 앞', 0, 0, -62, 0, 2], ['바위 꼭대기', 0, CLIFF.top, CLIFF.z - 6, Math.PI, 3], ['바위 오르는 계단', STAIR.x0 - 1, 0, CLIFF.z + 8, 0, 4]],
   };
 }

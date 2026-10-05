@@ -1,7 +1,8 @@
 // 호카게 관저 — 붉은 회벽의 둥근 본채(3층 + 옥상 마당과 탑), 양옆 둥근 별채, 현관 지붕과 돌계단.
 // 본채 중심 (0, -104). 정면은 남쪽(+z). 층 사이 계단은 본채 한가운데 계단실(곧은 계단 두 줄)에 있다.
+// 건물 몸체(벽·바닥·지붕·계단)는 아래 치수로 지은 뒤 본채 중심에서 S배로 키운다. 가구·난간·등불·실내 팻말은 사람 크기 그대로, 자리만 키운 건물에 맞춰 놓는다.
 import * as THREE from '../vendor/three.module.js';
-import { Builder, wall, stairs, tube, mergeGeos, mat4, rng, addCollider } from './build.js';
+import { Builder, wall, stairs, tube, mergeGeos, mat4, rng, addCollider, colliders, marks, rescale } from './build.js';
 import { mat, M, textMat, weatherize } from './materials.js';
 import { coneRoof, gableRoof, beamBetween, roundWall, roundWindow, roundRailing, railing, signBoard, lantern, doorUnit, windowUnit } from './arch.js';
 
@@ -12,7 +13,15 @@ const Y1 = 1, Y2 = 5, Y3 = 9, YR = 13;                // 1·2·3층 바닥, 옥�
 const ZN0 = -105.6, ZN1 = -104.05, ZS0 = -103.95, ZS1 = -102.4;   // 계단실의 북쪽 줄·남쪽 줄
 const AX = 20.5, AR = 5.5, ARI = 5.2, AY2 = 4.4, AYT = 7.8;        // 별채 중심 x(±), 반지름, 2층 바닥, 벽 윗선
 
+const S = 1.3;                                          // 건물 몸체를 키우는 배율
+const sx = x => CX + (x - CX) * S, sy = y => y * S, sz = z => CZ + (z - CZ) * S;      // 지은 치수의 자리 → 키운 뒤의 자리
+const SP = pts => pts.map(([x, z]) => [sx(x), sz(z)]);
+const DOOR = 2.3 * S;                                   // 키운 뒤의 문 높이
+
 let RED, TILE, PAPER, CERAMIC, GREEN, PETAL, REDP, CLOTHW, GLOWM, CORK, BOOK, BANDS, G;
+let BF, KEEP;                                           // 제 크기로 놓는 것들의 조립기, 키우지 않을 충돌 상자 번호
+// fn 안에서 등록한 충돌 상자는 이미 제자리·제 크기다(나중에 키우지 않는다)
+const fin = fn => { const n = colliders.length, r = fn(); for (let i = n; i < colliders.length; i++) KEEP.add(i); return r; };
 
 /* ---------- 재질과 되풀이해 쓰는 도형 ---------- */
 const bx = (w, h, d, x, y, z, ry = 0, rx = 0, rz = 0) => [new THREE.BoxGeometry(w, h, d), mat4(x, y, z, rx, ry, rz)];
@@ -182,15 +191,18 @@ function init() {
 
 /* ---------- 놓는 도구 ---------- */
 // 자리(ox,oy,oz)와 방향(ry: 90° 단위)을 가진 틀. 틀 안 좌표로 상자·도형을 놓는다(+z가 "앞").
-function frame(B, ox, oy, oz, ry = 0) {
+// 틀의 자리는 지은 치수로 적는다(키운 건물의 그 자리로 옮겨진다). 틀 안의 것은 제 크기 그대로다.
+function frame(B, ox, oy, oz, ry = 0) { return frameW(sx(ox), sy(oy), sz(oz), ry); }
+function frameW(ox, oy, oz, ry) {
   const c = Math.round(Math.cos(ry)), s = Math.round(Math.sin(ry));
   const W = (lx, lz) => [ox + lx * c + lz * s, oz - lx * s + lz * c];
   return {
     W, ry, oy,
-    box(m, x0, y0, z0, x1, y1, z1, col = false) { const a = W(x0, z0), b = W(x1, z1); B.box(m, a[0], oy + y0, a[1], b[0], oy + y1, b[1], col); },
-    put(m, g, x, y, z, r = 0, sc = 1, rx = 0, rz = 0) { const a = W(x, z); B.put(m, g, a[0], oy + y, a[1], ry + r, sc, rx, rz); },
+    box(m, x0, y0, z0, x1, y1, z1, col = false) { const a = W(x0, z0), b = W(x1, z1); fin(() => BF.box(m, a[0], oy + y0, a[1], b[0], oy + y1, b[1], col)); },
+    put(m, g, x, y, z, r = 0, sc = 1, rx = 0, rz = 0) { const a = W(x, z); BF.put(m, g, a[0], oy + y, a[1], ry + r, sc, rx, rz); },
     parts(list, x, y, z, r = 0, sc = 1) { for (const [m, g] of list) this.put(m, g, x, y, z, r, sc); },
-    solid(x0, y0, z0, x1, y1, z1) { const a = W(x0, z0), b = W(x1, z1); addCollider(a[0], oy + y0, a[1], b[0], oy + y1, b[1]); },
+    solid(x0, y0, z0, x1, y1, z1) { const a = W(x0, z0), b = W(x1, z1); fin(() => addCollider(a[0], oy + y0, a[1], b[0], oy + y1, b[1])); },
+    sub(lx, ly, lz, r = 0) { const a = W(lx, lz); return frameW(a[0], oy + ly, a[1], ry + r); },      // 이 틀 안의 한 자리에 놓는 딸린 틀
   };
 }
 
@@ -363,8 +375,8 @@ function bench(F, w, back = true) {
   if (back) for (const y of [0.62, 0.8]) F.box(M.beamLight, -w / 2, y, -0.22, w / 2, y + 0.1, -0.2);
   F.solid(-w / 2, 0, -0.22, w / 2, back ? 0.9 : 0.44, 0.2);
 }
-function chairAt(F, x, z, r, m = M.beamLight) { F.put(m, G.chair, x, 0, z, r); const a = F.W(x, z); addCollider(a[0] - 0.2, F.oy, a[1] - 0.2, a[0] + 0.2, F.oy + 0.9, a[1] + 0.2); }
-function plantAt(B, kind, x, y, z, r = 0, s = 1) { for (const [m, g] of G[kind]) B.put(m, g, x, y, z, r, s); addCollider(x - 0.2 * s, y, z - 0.2 * s, x + 0.2 * s, y + 0.9, z + 0.2 * s); }
+function chairAt(F, x, z, r, m = M.beamLight) { F.put(m, G.chair, x, 0, z, r); const a = F.W(x, z); fin(() => addCollider(a[0] - 0.2, F.oy, a[1] - 0.2, a[0] + 0.2, F.oy + 0.9, a[1] + 0.2)); }
+function plantAt(B, kind, x, y, z, r = 0, s = 1) { x = sx(x); y = sy(y); z = sz(z); for (const [m, g] of G[kind]) BF.put(m, g, x, y, z, r, s); fin(() => addCollider(x - 0.2 * s, y, z - 0.2 * s, x + 0.2 * s, y + 0.9, z + 0.2 * s)); }
 // 나무 궤짝: 널판 몸통에 모서리 각목과 띠
 function crate(F, x, y, z, s) {
   const a = x - s / 2, b = x + s / 2, c = z - s / 2, d = z + s / 2, t = 0.05;
@@ -393,7 +405,7 @@ function futon(F, x, y, z, R) {
   F.box(PAPER, x - 0.56, y + 0.15, z - 0.5, x + 0.56, y + 0.19, z - 0.28);
   F.put(PAPER, new THREE.SphereGeometry(1, 14, 10), x, y + 0.15, z - 0.75, 0, [0.24, 0.07, 0.14]);
 }
-function lamp(B, glows, x, yCeil, z) { lantern(B, x, yCeil - 0.5, z, { r: 0.28, h: 0.5, color: 0xf3dfae }); glows.push([x, yCeil - 0.5, z, 1.6]); }
+function lamp(B, glows, x, yCeil, z) { x = sx(x); z = sz(z); const y = sy(yCeil) - 0.5; fin(() => lantern(BF, x, y, z, { r: 0.28, h: 0.5, color: 0xf3dfae })); glows.push([x, y, z, 1.6]); }
 
 /* ---------- 본채: 벽·바닥·처마 ---------- */
 function shell(B) {
@@ -433,7 +445,7 @@ function shell(B) {
   // 2층 선의 기와 처마, 3층 선의 바깥 난간 복도, 옥상 처마
   skirt(B, CX, CZ, RO, 14.5, 5.6, 0.85, 48);
   ringDeck(B, M.floorDark, CX, CZ, RO, 14.9, Y3 - 0.2, Y3 + 0.01);
-  roundRailing(B, M.beam, CX, CZ, 14.75, Y3, 1.05, 0, TAU, { gap: 0.2 });
+  fin(() => roundRailing(BF, M.beam, CX, CZ, 14.75 * S, sy(Y3) + 0.013, 1.05, 0, TAU, { gap: 0.2 }));
   for (let i = 0; i < 24; i++) {   // 복도 밑 까치발
     const a = (i + 0.5) * TAU / 24, c = Math.cos(a), s = Math.sin(a), P = (r, y) => V3(CX + c * r, y, CZ + s * r);
     beamBetween(B, M.beam, P(RO, Y3 - 0.27), P(14.85, Y3 - 0.27), 0.12, 0.14);
@@ -453,12 +465,15 @@ function core(B) {
   stairs(B, M.floorDark, 'x', -2, 1, Y2, Y3, ZS0, ZS1, 0.35);      // 2→3층: 남쪽 줄, 서쪽으로
   stairs(B, M.floorDark, 'x', 2, -1, Y3, YR, ZN0, ZN1, 0.35);      // 3층→옥상 탑: 북쪽 줄, 동쪽으로
   for (const [xa, ya, xb, yb, z] of [[-4.65, Y1, 2, Y2, ZN1 - 0.07], [4.65, Y2, -2, Y3, ZS0 + 0.07], [-4.65, Y3, 2, YR, ZN1 - 0.07]]) {   // 벽에 붙인 손잡이
-    beamBetween(B, M.beam, V3(xa, ya + 0.95, z), V3(xb, yb + 0.95, z), 0.06, 0.06);
-    for (let i = 0; i <= 5; i++) { const t = i / 5; B.box(M.iron, xa + (xb - xa) * t - 0.015, ya + (yb - ya) * t + 0.86, z - 0.02, xa + (xb - xa) * t + 0.015, ya + (yb - ya) * t + 0.93, z + 0.07 * Math.sign(z - (ZN1 + ZS0) / 2), false); }
+    const zf = sz(z), dz = Math.sign(z - (ZN1 + ZS0) / 2);
+    beamBetween(BF, M.beam, V3(sx(xa), sy(ya) + 0.95, zf), V3(sx(xb), sy(yb) + 0.95, zf), 0.06, 0.06);
+    for (let i = 0; i <= 7; i++) { const t = i / 7, x = sx(xa + (xb - xa) * t), y = sy(ya + (yb - ya) * t); BF.box(M.iron, x - 0.015, y + 0.86, zf - 0.02, x + 0.015, y + 0.93, zf - 0.1 * dz, false); }
   }
-  railing(B, M.beam, [[-3.06, ZN0], [-3.06, ZN1]], Y2, 1.0);
-  railing(B, M.beam, [[3.06, ZS0], [3.06, ZS1]], Y3, 1.0);
-  railing(B, M.beam, [[2, ZN0 - 0.06], [-3.06, ZN0 - 0.06], [-3.06, ZN1 + 0.06], [2, ZN1 + 0.06]], YR, 1.0);
+  fin(() => {
+    railing(BF, M.beam, SP([[-3.06, ZN0], [-3.06, ZN1]]), sy(Y2), 1.0);
+    railing(BF, M.beam, SP([[3.06, ZS0], [3.06, ZS1]]), sy(Y3), 1.0);
+    railing(BF, M.beam, SP([[2, ZN0 - 0.06], [-3.06, ZN0 - 0.06], [-3.06, ZN1 + 0.06], [2, ZN1 + 0.06]]), sy(YR), 1.0);
+  });
   // 2·3층 남쪽 방(회의실·집무실)을 가르는 벽과 미닫이
   for (const [ya, yb] of [[Y2, Y3 - 0.2], [Y3, YR - 0.3]]) for (const s of [1, -1]) {
     const u0 = s > 0 ? 6.5 : -8.0, u1 = u0 + 1.5;
@@ -470,27 +485,28 @@ function core(B) {
 
 /* ---------- 1층: 현관 홀과 임무 접수처 ---------- */
 function floor1(B, R, glows) {
-  const F = frame(B, 0, Y1, -98.6, 0);
-  F.box(M.beam, -4.5, 0.98, -0.42, 4.5, 1.05, 0.46);
-  F.box(M.beamLight, -4.5, 0.1, 0.3, 4.5, 0.98, 0.36);
-  for (let x = -4.5; x <= 4.51; x += 0.75) F.box(M.beam, x - 0.04, 0, 0.36, x + 0.04, 0.98, 0.4);
-  F.box(M.beam, -4.5, 0, 0.26, 4.5, 0.1, 0.42);
-  for (const x of [-4.5, 4.44]) F.box(M.beamLight, x, 0, -0.42, x + 0.06, 0.98, 0.3);
-  F.box(M.beamLight, -4.44, 0.5, -0.38, 4.44, 0.53, 0.3);
-  F.solid(-4.5, 0, -0.42, 4.5, 1.05, 0.46);
+  const F = frame(B, 0, Y1, -98.6, 0), L = 4.5 * S;       // 접수 책상(반 길이 L)
+  F.box(M.beam, -L, 0.98, -0.42, L, 1.05, 0.46);
+  F.box(M.beamLight, -L, 0.1, 0.3, L, 0.98, 0.36);
+  for (let k = 0; k <= 16; k++) { const x = -L + k * L / 8; F.box(M.beam, x - 0.04, 0, 0.36, x + 0.04, 0.98, 0.4); }
+  F.box(M.beam, -L, 0, 0.26, L, 0.1, 0.42);
+  for (const x of [-L, L - 0.06]) F.box(M.beamLight, x, 0, -0.42, x + 0.06, 0.98, 0.3);
+  F.box(M.beamLight, -L + 0.06, 0.5, -0.38, L - 0.06, 0.53, 0.3);
+  F.solid(-L, 0, -0.42, L, 1.05, 0.46);
   ['A', 'B', 'C', 'D'].forEach((ch, i) => {   // 등급별 임무 두루마리 자리
-    const x = -3.3 + i * 2.2;
-    signBoard(B, ch, x - 0.55, Y1 + 1.17, -98.3, 0, 0.2, 0.2, { both: false, depth: 0.03, bg: '#efe6cf', color: '#b3261a', font: 'gothic' });
+    const x = (-3.3 + i * 2.2) * S;
+    { const a = F.W(x - 0.55, 0.3); signBoard(BF, ch, a[0], F.oy + 1.17, a[1], 0, 0.2, 0.2, { both: false, depth: 0.03, bg: '#efe6cf', color: '#b3261a', font: 'gothic' }); }
     scrollPile(F, x, 1.05, 0, 4 - (i & 1), R);
     paperStack(F, x + 0.6, 1.05, -0.05, 0.06 + R() * 0.16, R);
     chairAt(F, x, -1.05, 0);
   });
-  F.parts(G.vase, 4.1, 1.05, 0.1); F.parts(G.vase, -4.1, 1.05, 0.1, 1);
-  for (let i = 0; i < 4; i++) scrollPile(F, -3.6 + i * 2.4, 0.53, -0.05, 3, R);
-  signBoard(B, '任務受付', 0, Y1 + 3.15, -98.2, 0, 2.8, 0.62, { bg: '#e9dcc0' });
-  for (const x of [-1.2, 1.2]) B.box(M.iron, x - 0.012, Y1 + 3.46, -98.212, x + 0.012, Y2 - 0.2, -98.188, false);
+  F.parts(G.vase, L - 0.4, 1.05, 0.1); F.parts(G.vase, -L + 0.4, 1.05, 0.1, 1);
+  for (let i = 0; i < 4; i++) scrollPile(F, (-3.6 + i * 2.4) * S, 0.53, -0.05, 3, R);
+  { const a = F.W(0, 0.4);   // 천장에서 드리운 접수처 팻말
+    signBoard(BF, '任務受付', a[0], F.oy + 3.15, a[1], 0, 2.8, 0.62, { bg: '#e9dcc0' });
+    for (const x of [-1.2, 1.2]) BF.box(M.iron, x - 0.012, F.oy + 3.46, a[1] - 0.012, x + 0.012, sy(Y2 - 0.2), a[1] + 0.012, false); }
   // 접수처 뒤 벽의 임무 두루마리 서가
-  for (const x of [-2.32, 2.32]) rack(frame(B, x, Y1, ZS0, 0), 4.5, 2.7, 'scrolls', R);
+  for (const x of [-2.32, 2.32]) rack(frame(B, x, Y1, ZS0, 0), 4.5 * S, 2.9, 'scrolls', R);
   // 게시판(서쪽)
   const N = frame(B, -8.6, Y1, -98.6, PI / 2);
   for (const x of [-1.35, 1.35]) N.box(M.beam, x - 0.06, 0, -0.06, x + 0.06, 2.45, 0.06);
@@ -498,7 +514,7 @@ function floor1(B, R, glows) {
   for (const y of [0.8, 2.15]) N.box(M.beam, -1.35, y, -0.05, 1.35, y + 0.07, 0.05);
   N.box(M.beam, -1.5, 2.45, -0.2, 1.5, 2.52, 0.2);
   N.solid(-1.4, 0, -0.08, 1.4, 2.5, 0.08);
-  { const a = N.W(0, 0.07); signBoard(B, '任務掲示板', a[0], Y1 + 2.31, a[1], PI / 2, 1.5, 0.22, { both: false, depth: 0.03 }); }
+  { const a = N.W(0, 0.07); signBoard(BF, '任務掲示板', a[0], N.oy + 2.31, a[1], PI / 2, 1.5, 0.22, { both: false, depth: 0.03 }); }
   const notes = ['任務依頼', '手配書', '告示'].map(t => textMat(t, { w: 128, h: 180, bg: '#efe6cf', color: '#2a1d16', vertical: true, pad: 0.14 }));
   for (let i = 0; i < 15; i++) {
     const x = -1.08 + (i % 5) * 0.54 + (R() - 0.5) * 0.12, y = 1.12 + (i / 5 | 0) * 0.38 + (R() - 0.5) * 0.08;
@@ -510,53 +526,52 @@ function floor1(B, R, glows) {
   for (const s of [-1, 1]) { plantAt(B, 'plantB', s * 2.7, Y1, -92.5, s, 1.15); plantAt(B, 'plantA', s * 11.2, Y1, -101.6, s * 2); }
   // 북쪽: 쉬는 자리와 짐
   for (const x of [-2.4, 2.4]) bench(frame(B, x, Y1, ZN0 - 0.44, PI), 3.2);
-  const C = frame(B, 0, Y1, 0, 0);
-  crate(C, 3.0, 0, -104.85, 0.9); crate(C, 4.05, 0, -104.9, 0.8); crate(C, 3.2, 0.9, -104.9, 0.6);
-  crate(C, 6.5, 0, -113.2, 1.0); crate(C, 7.6, 0, -112.6, 0.8); crate(C, 6.7, 1.0, -113.1, 0.7);
-  for (const [x, z] of [[-6.6, -113.3], [-7.4, -112.7], [-5.8, -113.9]]) { C.parts(G.barrel, x, 0, z); C.solid(x - 0.3, 0, z - 0.3, x + 0.3, 0.84, z + 0.3); }
+  { const C = frame(B, 3.0, Y1, -104.85, 0); crate(C, 0, 0, 0, 0.9); crate(C, 1.05, 0, -0.05, 0.8); crate(C, 0.2, 0.9, -0.05, 0.6); }
+  { const C = frame(B, 6.5, Y1, -113.2, 0); crate(C, 0, 0, 0, 1.0); crate(C, 1.1, 0, 0.6, 0.8); crate(C, 0.2, 1.0, 0.1, 0.7); }
+  { const C = frame(B, -6.6, Y1, -113.3, 0); for (const [x, z] of [[0, 0], [-0.8, 0.6], [0.8, -0.6]]) { C.parts(G.barrel, x, 0, z); C.solid(x - 0.3, 0, z - 0.3, x + 0.3, 0.84, z + 0.3); } }
   plantAt(B, 'plantB', 0, Y1, -115.6, 2, 1.2);
-  signBoard(B, '二階 資料室・会議室', -4.76, Y1 + 2.5, -104.82, -PI / 2, 0.34, 1.5, { both: false, vertical: true, depth: 0.04 });
+  signBoard(BF, '二階 資料室・会議室', sx(-4.7) - 0.06, sy(Y1) + 2.5, sz(-104.82), -PI / 2, 0.34, 1.5, { both: false, vertical: true, depth: 0.04 });
   lamp(B, glows, -4.5, Y2 - 0.42, -95); lamp(B, glows, 4.5, Y2 - 0.42, -95); lamp(B, glows, 0, Y2 - 0.42, -110.5);
 }
 
 /* ---------- 2층: 회의실(남)과 자료실(북) ---------- */
 function floor2(B, R, glows, MAP) {
   const T = frame(B, 0, Y2, -96.6, 0);
-  table(T, 6.4, 1.6, 0.74);
-  for (let i = 0; i < 5; i++) { const x = -2.4 + i * 1.2; chairAt(T, x, 1.2, PI); chairAt(T, x, -1.2, 0); T.put(PAPER, G.cup, x + 0.2, 0.74, 0.55); T.put(PAPER, G.cup, x - 0.2, 0.74, -0.55); }
-  chairAt(T, 3.65, 0, -PI / 2); chairAt(T, -3.65, 0, PI / 2);
+  table(T, 6.4 * S, 1.6, 0.74);
+  for (let i = 0; i < 7; i++) { const x = (-3.6 + i * 1.2) * S * 0.86; chairAt(T, x, 1.2, PI); chairAt(T, x, -1.2, 0); T.put(PAPER, G.cup, x + 0.2, 0.74, 0.55); T.put(PAPER, G.cup, x - 0.2, 0.74, -0.55); }
+  chairAt(T, 3.2 * S + 0.45, 0, -PI / 2); chairAt(T, -3.2 * S - 0.45, 0, PI / 2);
   T.put(MAP, G.sheet, 0, 0.745, 0, 0, [1.5, 1.1, 1], -PI / 2);
   for (const s of [-1, 1]) { T.put(PAPER, G.scroll, s * 0.79, 0.777, 0, PI / 2, [3.6, 1, 1]); T.put(BANDS[0], G.scrollBand, s * 0.79, 0.777, 0, PI / 2, [3.2, 1, 1]); }
   teaSet(T, -2.2, 0.74, 0, 0); paperStack(T, 1.9, 0.74, 0.1, 0.08, R); paperStack(T, 2.3, 0.74, -0.2, 0.04, R); scrollPile(T, -1.4, 0.74, -0.3, 2, R);
   // 벽의 마을 전도
-  const z = ZS1 + 0.2;
-  B.box(M.beam, -1.75, Y2 + 0.95, z, 1.75, Y2 + 3.15, z + 0.04, false);
-  B.put(MAP, G.sheet, 0, Y2 + 2.05, z + 0.045, 0, [3.3, 2.0, 1]);
+  const z = ZS1 + 0.2, zf = sz(z), y2 = sy(Y2);
+  BF.box(M.beam, -1.75, y2 + 0.95, zf, 1.75, y2 + 3.15, zf + 0.04, false);
+  BF.put(MAP, G.sheet, 0, y2 + 2.05, zf + 0.045, 0, [3.3, 2.0, 1]);
   for (const s of [-1, 1]) { rack(frame(B, s * 10.3, Y2, z, 0), 2.6, 2.1, 'books', R); plantAt(B, 'plantA', s * 3.9, Y2, z + 0.4, s); plantAt(B, 'plantB', s * 5.2, Y2, -92.9, s * 2, 1.1); }
-  signBoard(B, '会議室', 7.25, Y2 + 2.62, ZS1 - 0.03, PI, 1.0, 0.3, { both: false, depth: 0.04 });
-  signBoard(B, '会議室', -7.25, Y2 + 2.62, ZS1 - 0.03, PI, 1.0, 0.3, { both: false, depth: 0.04 });
+  for (const s of [-1, 1]) signBoard(BF, '会議室', sx(s * 7.25), y2 + DOOR + 0.32, sz(ZS1) - 0.03, PI, 1.0, 0.3, { both: false, depth: 0.04 });
   // 자료실: 계단실 벽 서가, 맞등 서가 두 줄
-  for (const x of [-2.35, 2.35]) rack(frame(B, x, Y2, ZN0 - 0.2, PI), 4.6, 3.0, 'mix', R);
-  for (const [zz, w] of [[-109.3, 9], [-112.9, 6.5]]) for (const r of [0, PI]) rack(frame(B, 0, Y2, zz, r), w, 2.6, r ? (w > 8 ? 'scrolls' : 'books') : 'mix', R);
+  for (const x of [-2.35, 2.35]) rack(frame(B, x, Y2, ZN0 - 0.2, PI), 4.6 * S, 3.0, 'mix', R);
+  for (const [zz, w] of [[-109.3, 9], [-112.9, 6.5]]) for (const r of [0, PI]) rack(frame(B, 0, Y2, zz, r), w * S, 2.6, r ? (w > 8 ? 'scrolls' : 'books') : 'mix', R);
   rack(frame(B, 10.6, Y2, ZS1, PI), 1.8, 2.4, 'books', R);
-  signBoard(B, '資料室', 0, Y2 + 2.5, ZN0 - 0.2 - 0.48, PI, 1.0, 0.3, { both: false, depth: 0.04 });
-  // 사다리
-  for (const x of [5.9, 6.35]) beamBetween(B, M.beamLight, V3(x, Y2, -110.6), V3(x, Y2 + 2.7, -109.78), 0.05, 0.07);
-  for (let k = 1; k < 8; k++) beamBetween(B, M.beamLight, V3(5.9, Y2 + k * 0.33, -110.6 + k * 0.1), V3(6.35, Y2 + k * 0.33, -110.6 + k * 0.1), 0.035, 0.035);
+  signBoard(BF, '資料室', 0, y2 + 2.5, sz(ZN0 - 0.2) - 0.48, PI, 1.0, 0.3, { both: false, depth: 0.04 });
+  // 사다리(가운데 서가의 북쪽 면에 기대 놓았다)
+  { const zt = sz(-109.3) - 0.48, zb = zt - 0.82;
+    for (const x of [4.4, 4.85]) beamBetween(BF, M.beamLight, V3(x, y2, zb), V3(x, y2 + 2.7, zt), 0.05, 0.07);
+    for (let k = 1; k < 8; k++) beamBetween(BF, M.beamLight, V3(4.4, y2 + k * 0.33, zb + k * 0.1), V3(4.85, y2 + k * 0.33, zb + k * 0.1), 0.035, 0.035); }
   // 열람 책상(서쪽)
   const D = frame(B, -9.6, Y2, -105.2, PI / 2);
   desk(D, 1.7, 0.8); chairAt(D, 0, -0.75, 0);
   paperStack(D, -0.5, 0.76, 0, 0.12, R); scrollPile(D, 0.4, 0.76, 0.05, 3, R); D.parts(G.andon, 0.05, 0.76, 0.22, 0, 0.6);
-  { const a = D.W(0.05, 0.22); glows.push([a[0], Y2 + 0.95, a[1], 0.8]); }
+  { const a = D.W(0.05, 0.22); glows.push([a[0], D.oy + 0.95, a[1], 0.8]); }
   plantAt(B, 'plantA', -3.9, Y2, -104.8, 1);
-  const C = frame(B, 0, Y2, 0, 0); crate(C, -2.9, 0, -103.2, 0.8); crate(C, -3.8, 0, -103.1, 0.7);
+  const C = frame(B, -2.9, Y2, -103.2, 0); crate(C, 0, 0, 0, 0.8); crate(C, -0.9, 0, 0.1, 0.7);
   lamp(B, glows, -3.8, Y3 - 0.42, -96.6); lamp(B, glows, 3.8, Y3 - 0.42, -96.6); lamp(B, glows, 0, Y3 - 0.42, -107.5);
 }
 
 /* ---------- 3층: 호카게 집무실(남)과 복도(북) ---------- */
 function floor3(B, R, glows) {
   // 붉은 양탄자
-  disc(B, REDP, 0, Y3 + 0.012, -96.4, 0, 3.7, true, 48); disc(B, PAPER, 0, Y3 + 0.016, -96.4, 3.2, 3.36, true, 48);
+  disc(BF, REDP, 0, sy(Y3) + 0.012, sz(-96.4), 0, 3.7 * S, true, 48); disc(BF, PAPER, 0, sy(Y3) + 0.016, sz(-96.4), 3.2 * S, 3.36 * S, true, 48);
   const D = frame(B, 0, Y3, -96.2, PI);     // 책상은 북쪽(문)을 본다 — 호카게는 창을 등지고 앉는다
   desk(D, 3.4, 1.4);
   D.put(M.beam, G.kageChair, 0, 0, -1.2, 0); D.put(REDP, G.kageCushion, 0, 0, -1.2, 0); D.solid(-0.35, 0, -1.5, 0.35, 1.5, -0.9);
@@ -571,21 +586,21 @@ function floor3(B, R, glows) {
   D.box(M.beam, 2.42, 0, -1.28, 2.78, 0.05, -0.92); D.put(M.beam, new THREE.CylinderGeometry(0.03, 0.04, 1.25, 8), 2.6, 0.65, -1.1); D.put(M.beam, new THREE.SphereGeometry(0.1, 12, 8), 2.6, 1.27, -1.1);
   D.parts(G.hat, 2.6, 1.27, -1.1, 0, 1.25); D.solid(2.4, 0, -1.3, 2.8, 1.5, -0.9);
   // 역대 호카게 초상(계단실 남쪽 벽)
-  const z = ZS1 + 0.2;
+  const z = ZS1 + 0.2, zf = sz(z), y3 = sy(Y3);
   KAGE.forEach((k, i) => {
-    const x = -3.4 + i * 1.7, m = canvasMat(256, 320, (g, w, h) => drawKage(g, w, h, k, i));
-    B.box(M.beam, x - 0.5, Y3 + 1.55, z, x + 0.5, Y3 + 2.85, z + 0.05, false);
-    B.put(m, G.sheet, x, Y3 + 2.2, z + 0.056, 0, [0.88, 1.1, 1]);
+    const x = (-3.4 + i * 1.7) * S, m = canvasMat(256, 320, (g, w, h) => drawKage(g, w, h, k, i));
+    BF.box(M.beam, x - 0.5, y3 + 1.55, zf, x + 0.5, y3 + 2.85, zf + 0.05, false);
+    BF.put(m, G.sheet, x, y3 + 2.2, zf + 0.056, 0, [0.88, 1.1, 1]);
   });
-  signBoard(B, '火の意志', 0, Y3 + 3.2, z + 0.04, 0, 2.2, 0.42, { both: false, depth: 0.04 });
+  signBoard(BF, '火の意志', 0, y3 + 3.25, zf + 0.04, 0, 2.2, 0.42, { both: false, depth: 0.04 });
   for (const s of [-1, 1]) {
     rack(frame(B, s * 10.4, Y3, z, 0), 2.6, 2.4, 'mix', R);
     plantAt(B, 'plantB', s * 4.6, Y3, -92.6, s, 1.2); plantAt(B, 'plantA', s * 11.6, Y3, -99.6, s * 2); plantAt(B, 'plantA', s * 4.2, Y3, z + 0.45, s * 3, 0.9);
-    signBoard(B, '火影室', s * 7.25, Y3 + 2.62, ZS1 - 0.03, PI, 1.0, 0.3, { both: false, depth: 0.04 });
+    signBoard(BF, '火影室', sx(s * 7.25), y3 + DOOR + 0.32, sz(ZS1) - 0.03, PI, 1.0, 0.3, { both: false, depth: 0.04 });
   }
   // 손님 자리(서쪽): 낮은 탁자와 걸상 / 동쪽: 차 탁자
-  const S = frame(B, -7.6, Y3, -96.6, PI / 2);
-  table(S, 1.5, 0.7, 0.42); teaSet(S, 0, 0.42, 0, 4); bench(frame(B, -8.7, Y3, -96.6, PI / 2), 1.8); bench(frame(B, -6.5, Y3, -96.6, -PI / 2), 1.8);
+  const GS = frame(B, -7.6, Y3, -96.6, PI / 2);
+  table(GS, 1.5, 0.7, 0.42); teaSet(GS, 0, 0.42, 0, 4); bench(GS.sub(0, 0, -1.1, 0), 1.8); bench(GS.sub(0, 0, 1.1, PI), 1.8);
   const E = frame(B, 8.2, Y3, -96.4, -PI / 2);
   table(E, 1.3, 0.8, 0.72, M.beamLight); E.parts(G.vase, 0.35, 0.72, 0, 0, 1.3); scrollPile(E, -0.25, 0.72, 0, 3, R); chairAt(E, 0, -0.8, 0);
   // 북쪽 복도: 비서 책상, 걸상, 화분
@@ -599,7 +614,7 @@ function floor3(B, R, glows) {
 
 /* ---------- 옥상 마당과 탑 ---------- */
 function roofTop(B, glows) {
-  roundRailing(B, M.beam, CX, CZ, 12.4, YR, 1.1, 0, TAU, { gap: 0.2 });
+  fin(() => roundRailing(BF, M.beam, CX, CZ, 12.4 * S, sy(YR), 1.1, 0, TAU, { gap: 0.2 }));
   const door = { a0: PI / 2 - 0.18, a1: PI / 2 + 0.18, ys: [[YR, 15.3]] };
   ringWall(B, CX, CZ, 4.2, 4.5, YR, 16.2, slots(8, 0.2, [2]), 14.0, 15.4, [door], 2);
   roundDoorFrame(B, CX, CZ, 4.2, 4.5, PI / 2, 0.18, YR, 15.3);
@@ -629,8 +644,10 @@ function annex(B, s, R, glows) {
   // 계단(북쪽 벽을 따라 동쪽으로 오른다)
   wall(B, M.white, 'x', CZ - 4.0, CZ - 3.9, cx - 3.4, cx + 3.4, Y1, AYT - 0.2);
   stairs(B, M.floorDark, 'x', cx + 2.0, -1, Y1, AY2, CZ - 3.9, CZ - 2.6, 0.3);
-  stairRail(B, cx - 2.2, Y1 + 0.4, cx + 0.5, Y1 + 2.2, CZ - 2.56);
-  railing(B, M.beam, [[cx + 2.0, CZ - 2.55], [cx - 1.56, CZ - 2.55], [cx - 1.56, CZ - 3.9]], AY2, 1.0);
+  fin(() => {
+    stairRail(BF, sx(cx - 2.2), sy(Y1 + 0.4), sx(cx + 0.5), sy(Y1 + 2.2), sz(CZ - 2.56));
+    railing(BF, M.beam, SP([[cx + 2.0, CZ - 2.55], [cx - 1.56, CZ - 2.55], [cx - 1.56, CZ - 3.9]]), sy(AY2), 1.0);
+  });
   // 본채와 잇는 통로
   const x0 = s > 0 ? RO : -15.0, x1 = x0 + 2.0, wx0 = s > 0 ? 12.9 : -15.2, wx1 = wx0 + 2.3;
   B.box(M.floor, x0, 0, CZ - 1.2, x1, Y1, CZ + 1.2);
@@ -648,17 +665,17 @@ function annex(B, s, R, glows) {
     // 1층 대기실: 찻상을 사이에 둔 걸상
     const T = frame(B, cx + 1.0, Y1, CZ + 2.0, 0);
     table(T, 1.5, 0.7, 0.42); teaSet(T, -0.2, 0.42, 0, 4); T.parts(G.vase, 0.5, 0.42, 0.05);
-    bench(frame(B, cx + 1.0, Y1, CZ + 0.95, 0), 2.0, false); bench(frame(B, cx + 1.0, Y1, CZ + 3.2, PI), 2.2);
+    bench(T.sub(0, 0, -1.05, 0), 2.0, false); bench(T.sub(0, 0, 1.2, PI), 2.2);
     bench(frame(B, cx + 4.1, Y1, CZ - 0.2, -PI / 2), 2.0);
     plantAt(B, 'plantB', cx - 2.6, Y1, CZ + 3.2, 1, 1.1); plantAt(B, 'plantA', cx + 3.6, Y1, CZ + 2.3, 2); plantAt(B, 'plantA', cx - 3.9, Y1, CZ - 1.9, 3, 0.9);
-    signBoard(B, '待合室', cx - ARI + 0.1, Y1 + 2.75, CZ, PI / 2, 1.0, 0.3, { both: false, depth: 0.04 });
+    signBoard(BF, '待合室', sx(cx - ARI) + 0.1, sy(Y1) + DOOR + 0.45, CZ, PI / 2, 1.0, 0.3, { both: false, depth: 0.04 });
     // 2층 숙직실: 이부자리 둘, 개켜 둔 이불, 앉은뱅이 책상과 사방등
     futon(F2, -1.6, 0, 1.9, R); futon(F2, -0.2, 0, 1.9, R);
     for (let k = 0; k < 4; k++) F2.box(k % 2 ? BOOK[1] : PAPER, 2.5, k * 0.13, 2.0 + k * 0.01, 3.5, k * 0.13 + 0.12, 2.9 - k * 0.02);
     F2.solid(2.5, 0, 2.0, 3.5, 0.52, 2.9);
     const L = frame(B, cx + 2.9, AY2, CZ - 0.2, -PI / 2);
-    table(L, 1.1, 0.6, 0.34); scrollPile(L, -0.2, 0.34, 0, 2, R); L.put(PAPER, G.cup, 0.3, 0.34, 0.1); F2.box(REDP, 2.0, 0, -0.5, 2.5, 0.07, 0.1);
-    F2.parts(G.andon, -3.2, 0, 0.4); glows.push([cx - 3.2, AY2 + 0.3, CZ + 0.4, 0.9]);
+    table(L, 1.1, 0.6, 0.34); scrollPile(L, -0.2, 0.34, 0, 2, R); L.put(PAPER, G.cup, 0.3, 0.34, 0.1); L.box(REDP, -0.3, 0, 0.4, 0.3, 0.07, 0.9);
+    F2.parts(G.andon, -3.2, 0, 0.4); { const a = F2.W(-3.2, 0.4); glows.push([a[0], F2.oy + 0.3, a[1], 0.9]); }
     rack(frame(B, cx - 1.0, AY2, CZ - 2.3, 0), 1.0, 1.3, 'books', R);
     plantAt(B, 'plantA', cx + 3.4, AY2, CZ - 1.9, 1, 0.9);
   } else {
@@ -668,14 +685,14 @@ function annex(B, s, R, glows) {
     crate(F1, 1.2, 0, 0.9, 1.0); crate(F1, 0.1, 0, 1.0, 0.9); crate(F1, 0.7, 1.0, 0.95, 0.8); crate(F1, -1.1, 0, -1.2, 0.9);
     for (const [x, z] of [[-2.4, -1.7], [-3.1, -1.4], [-2.9, -2.1], [2.6, 2.6]]) { F1.parts(G.barrel, x, 0, z); F1.solid(x - 0.3, 0, z - 0.3, x + 0.3, 0.84, z + 0.3); }
     F1.parts(G.barrel, -2.8, 0.84, -1.75, 1, 0.8);
-    signBoard(B, '倉庫', cx + ARI - 0.1, Y1 + 2.75, CZ, -PI / 2, 0.8, 0.3, { both: false, depth: 0.04 });
+    signBoard(BF, '倉庫', sx(cx + ARI) - 0.1, sy(Y1) + DOOR + 0.45, CZ, -PI / 2, 0.8, 0.3, { both: false, depth: 0.04 });
     // 2층 문서 정리실: 책상 둘과 서가
     for (const x of [-1.7, 1.5]) {
       const D = frame(B, cx + x, AY2, CZ + 0.9, 0);
       desk(D, 1.7, 0.8); chairAt(D, 0, -0.75, 0); paperStack(D, -0.55, 0.76, 0, 0.1 + R() * 0.3, R); paperStack(D, 0.55, 0.76, 0.1, 0.08 + R() * 0.2, R); scrollPile(D, 0.05, 0.76, 0.1, 2, R);
     }
     rack(frame(B, cx, AY2, CZ + 4.1, PI), 3.6, 2.2, 'mix', R); rack(frame(B, cx - 1.2, AY2, CZ - 2.3, 0), 1.6, 1.3, 'books', R);
-    F2.parts(G.andon, 3.6, 0, 0.2); glows.push([cx + 3.6, AY2 + 0.3, CZ + 0.2, 0.9]);
+    F2.parts(G.andon, 3.6, 0, 0.2); { const a = F2.W(3.6, 0.2); glows.push([a[0], F2.oy + 0.3, a[1], 0.9]); }
     plantAt(B, 'plantB', cx - 3.9, AY2, CZ + 0.4, 1, 1.0);
   }
 }
@@ -686,12 +703,11 @@ function front(B, glows) {
   for (const s of [-1, 1]) B.box(M.stone, s * 11, -0.3, -85.8, s * 11.35, 0.14, -70.6);                // 마당 가장자리 돌
   B.box(M.stone, -3.6, 0, -91.3, 3.6, Y1, -87.4);
   stairs(B, M.stone, 'z', -87.4, 1, 0, Y1, -3.6, 3.6, 0.4);
-  const P = frame(B, 0, 0, 0, 0);
   for (const s of [-1, 1]) {
     B.box(M.stone, s * 3.6, 0, -87.7, s * 4.4, 1.15, -85.5);                                           // 소맷돌과 그 위 돌등롱
-    P.parts(G.toro, s * 4.0, 1.15, -86.3); glows.push([s * 4.0, 2.47, -86.3, 1.3]);
-    P.parts(G.toro, s * 9.2, 0.04, -78, 0, 1.25); P.solid(s * 9.2 - 0.4, 0, -78.4, s * 9.2 + 0.4, 2.4, -77.6); glows.push([s * 9.2, 1.7, -78, 1.5]);
-    railing(B, M.beam, [[s * 3.5, -90.85], [s * 3.5, -87.75]], Y1, 1.0);
+    { const P = frame(B, s * 4.0, 1.15, -86.3, 0); P.parts(G.toro, 0, 0, 0); glows.push([P.W(0, 0)[0], P.oy + 1.32, P.W(0, 0)[1], 1.3]); }
+    { const P = frame(B, s * 9.2, 0.04, -78, 0); P.parts(G.toro, 0, 0, 0, 0, 1.25); P.solid(-0.4, 0, -0.4, 0.4, 2.4, 0.4); glows.push([P.W(0, 0)[0], P.oy + 1.66, P.W(0, 0)[1], 1.5]); }
+    fin(() => railing(BF, M.beam, SP([[s * 3.5, -90.85], [s * 3.5, -87.75]]), sy(Y1), 1.0));
     for (const z of [-87.75, -90.5]) { B.box(M.beam, s * 3.0 - 0.11, Y1, z - 0.11, s * 3.0 + 0.11, 3.5, z + 0.11); B.box(M.stone, s * 3.0 - 0.18, Y1, z - 0.18, s * 3.0 + 0.18, Y1 + 0.12, z + 0.18, false); }
     B.box(M.beam, s * 3.0 - 0.09, 3.3, -91.1, s * 3.0 + 0.09, 3.5, -87.6, false);
     // 문설주와 안으로 열린 문짝
@@ -701,7 +717,7 @@ function front(B, glows) {
     for (const y of [Y1 + 0.02, 2.1, 3.22]) B.box(M.beam, x - 0.045, y, -92.95, x + 0.045, y + 0.14, -91.5, false);
     for (const z of [-92.95, -91.62]) B.box(M.beam, x - 0.045, Y1 + 0.02, z, x + 0.045, 3.36, z + 0.12, false);
     B.put(M.iron, new THREE.TorusGeometry(0.07, 0.012, 6, 14), x - s * 0.05, 2.0, -92.75, PI / 2);
-    lantern(B, s * 1.9, 2.93, -87.75, { text: '火' }); glows.push([s * 1.9, 2.93, -87.75, 1.2]);
+    fin(() => lantern(BF, sx(s * 1.9), sy(3.3) - 0.37, sz(-87.75), { text: '火' })); glows.push([sx(s * 1.9), sy(3.3) - 0.37, sz(-87.75), 1.2]);
     // 깃발(노보리)
     const bx0 = s * 6.6, bz = -84.6;
     B.put(M.beam, new THREE.CylinderGeometry(0.035, 0.045, 5.2, 8), bx0, 2.6, bz); addCollider(bx0 - 0.06, 0, bz - 0.06, bx0 + 0.06, 5.2, bz + 0.06);
@@ -718,14 +734,22 @@ function front(B, glows) {
 
 export async function build(scene, ctx) {
   init();
-  const B = new Builder(), R = rng(7701), glows = [];
+  const B = new Builder(), R = rng(7701), glows = [], from = marks();
+  BF = new Builder(); KEEP = new Set();
   const MAP = canvasMat(512, 384, drawMap);
   shell(B); core(B);
   floor1(B, R, glows); floor2(B, R, glows, MAP); floor3(B, R, glows); roofTop(B, glows);
   annex(B, 1, R, glows); annex(B, -1, R, glows);
   front(B, glows);
-  B.finish(scene);
-  return {
+  // 몸체를 본채 중심에서 S배로 키운다. 벽·기와 무늬는 늘어나지 않게 무늬 좌표도 같이 키운다(글씨·그림은 그대로).
+  const grow = new THREE.Matrix4().makeTranslation(CX, 0, CZ).multiply(new THREE.Matrix4().makeScale(S, S, S)).multiply(new THREE.Matrix4().makeTranslation(-CX, 0, -CZ));
+  for (const mesh of B.finish(scene).children) {
+    mesh.geometry.applyMatrix4(grow);
+    if (mesh.material.map && mesh.material.map.wrapS === THREE.RepeatWrapping) { const uv = mesh.geometry.attributes.uv.array; for (let i = 0; i < uv.length; i++) uv[i] *= S; }
+  }
+  rescale(from, S, CX, CZ, KEEP);
+  BF.finish(scene);
+  const out = {
     places: [
       { n: '호카게 관저 앞마당', t: '붉은 둥근 관저 앞 판석 마당. 돌계단 위 현관 지붕 아래로 들어간다.', b: [-12, 12, -91, -70], y: [0, 4] },
       { n: '현관 홀 · 임무 접수처', t: 'A·B·C·D 등급 임무 두루마리를 내어 주는 긴 접수 책상. 서쪽엔 임무 게시판, 뒤쪽 계단으로 2층에 오른다.', b: [-13, 13, -117, -91], y: [Y1, Y2 - 0.1] },
@@ -745,4 +769,9 @@ export async function build(scene, ctx) {
     lights: [[0, 4.2, -96.5, 22, 24], [0, 8.2, -99, 20, 24], [0, 12.0, -98.5, 22, 24], [AX, 3.6, CZ + 0.6, 12, 14]],
     glows, skip: [],
   };
+  // 자리 이름·바로 가기·등불도 키운 건물의 자리로
+  for (const p of out.places) { p.b = [sx(p.b[0]), sx(p.b[1]), sz(p.b[2]), sz(p.b[3])]; p.y = p.y.map(sy); }
+  out.jumps = out.jumps.map(([n, x, y, z, yaw, k]) => [n, sx(x), sy(y), sz(z), yaw, k]);
+  out.lights = out.lights.map(([x, y, z, power, far]) => [sx(x), sy(y), sz(z), power * S * S, far * S]);
+  return out;
 }

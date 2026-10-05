@@ -65,6 +65,23 @@ export function roofAt(x, z, limit) {
   return best;
 }
 
+// 지금까지 등록된 충돌 상자·지붕면의 개수(이 뒤에 등록되는 것만 골라 키울 때 쓴다)
+export const marks = () => [colliders.length, roofs.length];
+// from 뒤에 등록된 충돌 상자·지붕면을 (px, pz)를 중심으로 S배 키운다. keep에 든 번호의 충돌 상자는 그대로 둔다.
+export function rescale(from, S, px, pz, keep) {
+  for (let i = from[0]; i < colliders.length; i++) {
+    if (keep && keep.has(i)) continue;
+    const c = colliders[i];
+    c[0] = px + (c[0] - px) * S; c[3] = px + (c[3] - px) * S; c[2] = pz + (c[2] - pz) * S; c[5] = pz + (c[5] - pz) * S; c[1] *= S; c[4] *= S;
+  }
+  for (let i = from[1]; i < roofs.length; i++) {
+    const r = roofs[i], f = r[4];
+    r[0] = px + (r[0] - px) * S; r[2] = px + (r[2] - px) * S; r[1] = pz + (r[1] - pz) * S; r[3] = pz + (r[3] - pz) * S;
+    r[4] = (x, z) => S * f(px + (x - px) / S, pz + (z - pz) / S);
+  }
+  grid = null; roofGrid = null;
+}
+
 /* ---------- 조립기 ---------- */
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _nm = new THREE.Matrix3();
 

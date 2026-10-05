@@ -103,7 +103,7 @@ export const GREEN = [
   
 ];
 export const ROADSIDE = { x0: 131, x1: 199, off: 4.5, w: 4, step: 6.2 };   // 큰길 양쪽 가로수 줄: 나무 고리 밖(x0)부터 첫 둥근 길(x1)까지, 길 가장자리에서 폭 w
-export const ROCK = [[57, 216], [57, 320], [50, 342], [30, 358], [-4, 352], [-16, 268], [-4, 184], [30, 178], [50, 194]];
+export const ROCK = [[57, 189], [57, 345], [50, 378], [30, 402], [-4, 393], [-16, 267], [-4, 141], [30, 132], [50, 156]];
 export const PLAZA = [[446, 226], [522, 236], [522, 266], [446, 266]];   // 정문 안 마당
 export const PONDS = [[463, 322, 11, 9], [398, 344, 10, 7], [460, 238, 7, 6]];   // 작은 못: 나카 강이 끝나는 못, 공원 못, 냇물이 끝나는 못 [x, y, rx, ry]
 export const BROOK = [[330, 22], [334, 60], [322, 96]];                          // 제3 훈련장의 냇물
@@ -260,7 +260,7 @@ s += BRIDGES.map((b, i) => line(b, i < 2 ? 4.5 : 3.2, '#7a5230')).join('') + `</
 // 담, 정문, 바위, 관저
 s += `<circle cx="${C.x}" cy="${C.y}" r="${C.r}" fill="none" stroke="#111" stroke-width="4.5"/><rect x="519" y="259" width="12" height="22" fill="#b33" stroke="#111" stroke-width="1.2"/>`;
 s += `<polygon points="${P(ROCK)}" fill="#cbb89a" stroke="#8a775c" stroke-width="1.5"/>`;
-for (let i = 0; i < 7; i++) s += `<ellipse cx="49" cy="${232 + i * 12}" rx="5.5" ry="5" fill="#b09b7c" stroke="#7a6850" stroke-width="0.8"/>`;
+for (let i = 0; i < 7; i++) s += `<ellipse cx="49" cy="${226.8 + i * 14.4}" rx="5.5" ry="6.4" fill="#b09b7c" stroke="#7a6850" stroke-width="0.8"/>`;
 s += `<circle cx="${FAN.x}" cy="${FAN.y}" r="12" fill="#ef9a1f" stroke="#8a4b00" stroke-width="1.5"/><circle cx="${FAN.x}" cy="${FAN.y}" r="6.5" fill="#ffc94d" stroke="#8a4b00" stroke-width="0.8"/>`;
 
 // 번호
