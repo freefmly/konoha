@@ -155,3 +155,15 @@ body.touch .sheet footer { margin-top: 12px; padding-top: 10px; }
 }
 @keyframes turn { 0%, 25% { transform: rotate(0); } 60%, 100% { transform: rotate(90deg); } }
 .sheet footer.touch-only { display: none; }
+
+/* 하늘에서 보기 */
+.sheet .skyenter { width: 100%; margin-top: 8px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 3px; background: rgba(255, 255, 255, .35); cursor: pointer; font: 700 15px var(--serif); letter-spacing: .04em; color: var(--ink); transition: background .12s; }
+.sheet .skyenter:hover { background: rgba(255, 255, 255, .7); }
+#skyBar { position: absolute; left: 50%; bottom: 24px; translate: -50% 0; display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: rgba(29, 26, 22, .74); color: var(--paper); border-radius: 3px; font-size: 12px; white-space: nowrap; }
+#skyBar b { font: 800 14px var(--serif); }
+#skyBar em { font-style: normal; font-variant-numeric: tabular-nums; padding: 2px 8px; background: var(--red); border-radius: 3px; font-weight: 700; }
+#skyBar kbd { display: inline-block; margin: 0 2px 0 8px; padding: 1px 6px; border: 1px solid rgba(239, 229, 207, .45); border-radius: 3px; font: 600 11px inherit; }
+#skyBar kbd + kbd { margin-left: 0; }
+#hud.sky .aim, #hud.sky #charge { display: none; }
+body.touch #skyBar { bottom: auto; top: calc(env(safe-area-inset-top) + 58px); left: auto; right: calc(env(safe-area-inset-right) + 12px); translate: none; padding: 6px 10px; }
+body.touch #btnSky.on { background: var(--red); color: var(--paper); }

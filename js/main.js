@@ -86,6 +86,7 @@ async function init() {
 
   /* ---------- 화면 ---------- */
   const ui = { menu: $('#menu'), hud: $('#hud'), place: $('#placeName'), text: $('#placeText') };
+  let lastPlace = undefined;
   let started = false, weatherType = 'clear', windLevel = 1;
   const WIND = ['잔잔', '산들', '강풍'];
   const setWeather = (type, instant) => {
@@ -126,10 +127,18 @@ async function init() {
   $('#jumpBtns').innerHTML = jumps.map((j, i) => `<button data-jump="${i}">${j[0]}</button>`).join('');
   const enter = () => { sound.start(); started = true; player.lock(); };
   $('#jumpBtns').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; const j = jumps[b.dataset.jump]; player.place(j[1], j[2], j[3], j[4]); enter(); });
-  $('#enterBtn').addEventListener('click', enter);
+  $('#enterBtn').addEventListener('click', () => { player.setSky(false); enter(); });
+  $('#skyBtn').addEventListener('click', () => { player.setSky(true); enter(); });
   const muteBtn = $('#muteBtn');
   const setMute = m => { sound.setMuted(m); muteBtn.classList.toggle('on', !m); muteBtn.textContent = m ? '소리 꺼짐' : '소리 켜짐'; };
   muteBtn.addEventListener('click', () => setMute(!sound.muted));
+  // 하늘에서 보기: 멀리까지 또렷하게 보이도록 보는 범위를 넓히고(가까운 면은 밀어 깊이 구분을 지킨다) 안개를 걷는다
+  const NEAR = camera.near;
+  player.onSky = on => {
+    camera.near = on ? 2 : NEAR; camera.far = on ? 4200 : 1600; camera.updateProjectionMatrix();
+    ui.hud.classList.toggle('sky', on); $('#skyBar').classList.toggle('hidden', !on); $('#btnSky').classList.toggle('on', on);
+    lastPlace = undefined;
+  };
   player.onLock = locked => {
     ui.menu.classList.toggle('hidden', locked); ui.hud.classList.toggle('hidden', !locked);
     $('#enterBtn').textContent = started ? '계속 걷기' : '마을로 들어가기';
@@ -142,6 +151,7 @@ async function init() {
     if (e.code === 'KeyM') setMute(!sound.muted);
     if (e.code === 'KeyB') setWind((windLevel + 1) % 3);
     if (e.code === 'KeyC') setStyle(!toonOn);
+    if (e.code === 'KeyV') player.setSky(!player.sky);
   });
   // 화면 크기 맞추기. 폰은 홈 화면에서 열거나 돌릴 때 처음 알려 주는 크기가 틀릴 때가 있어, 직접 재서 모든 겹에 똑같이 적용하고 매 장면마다 바뀌었는지 다시 본다.
   let viewW = 0, viewH = 0;
@@ -188,11 +198,12 @@ async function init() {
     const tap = (sel, fn) => $(sel).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); });
     // 뛰기 단추: 누르고 있는 동안 힘을 모으고, 떼면 뛴다
     const jb = $('#btnJump'), jumpEnd = () => { player.jumpHeld = false; };
-    jb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); player.jumpHeld = true; });
+    jb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (player.sky) player.skyStep(); else player.jumpHeld = true; });   // 하늘에서는 누를 때마다 높이를 바꾼다
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) jb.addEventListener(ev, jumpEnd);
     tap('#btnWeather', () => setWeather(WEATHERS[(WEATHERS.findIndex(w => w[0] === weatherType) + 1) % WEATHERS.length][0]));
     tap('#btnWind', () => setWind((windLevel + 1) % 3));
     tap('#btnStyle', () => setStyle(!toonOn));
+    tap('#btnSky', () => player.setSky(!player.sky));
     tap('#btnMenu', () => { endMove(); lookId = null; player.unlock(); });
     // 화면이 끌려 움직이거나 두 손가락으로 커지지 않게
     for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault());
@@ -214,6 +225,8 @@ async function init() {
     ui.menu.classList.add('hidden'); ui.hud.classList.remove('hidden'); started = true;
     if (Q.get('full')) { weather.snowAcc = weatherType === 'snow' ? 1 : 0; weather.wetAcc = weatherType === 'rain' ? 1 : 0; }
     if (Q.get('nohud')) ui.hud.classList.add('hidden');
+    // 확인용: &sky=1 이면 그 자리(x,y,z)에 눈을 띄운 하늘 보기로 시작한다
+    if (Q.get('sky')) { player.setSky(true); player.skyPos.set(v[0], v[1], v[2]); player.yaw = v[3] || 0; player.pitch = v[4] || 0; player.sync(); }
   }
   // 걷기 시험용 주소: &walk=방향:초[:달리기];… — 그 방향(yaw)을 보고 앞으로 걷게 한 뒤 선 자리를 콘솔에 적는다(한꺼번에 계산)
   if (Q.get('walk')) {
@@ -235,7 +248,7 @@ async function init() {
   /* ---------- 돌리기 ---------- */
   const clock = new THREE.Clock();
   const chargeEl = $('#charge'); let lastCharge = -1;
-  let hudT = 0, lampT = 0, lastPlace = undefined, orbit = 0, indoor = 0, fpsN = 0, fpsT = 0, lastDraw = 0;
+  let hudT = 0, lampT = 0, orbit = 0, indoor = 0, fpsN = 0, fpsT = 0, lastDraw = 0;
   const area = q => (q.b[1] - q.b[0]) * (q.b[3] - q.b[2]);
   places.sort((a, b) => area(a) - area(b));     // 좁은 자리(방)가 넓은 자리(마을)보다 먼저
   // 가까운 등불 여섯 개만 켠다
@@ -280,6 +293,7 @@ async function init() {
     if (player.charge !== lastCharge) { lastCharge = player.charge; chargeEl.style.setProperty('--c', lastCharge); chargeEl.classList.toggle('on', lastCharge > 0); chargeEl.classList.toggle('full', lastCharge >= 1); }
     const wdt = Q.get('freeze') ? 0 : dt;   // 확인용: 날씨·바람의 시간을 멈춘다(두 장을 찍어 깜빡이는 면을 찾을 때)
     weather.update(wdt, camera);
+    if (player.sky && started) scene.fog.density *= 0.3;   // 하늘에서는 안개를 걷어 마을 끝까지 보이게
     for (const f of ticks) f(weather.t, wdt);
     if (Q.get('freeze')) weather.leaves.visible = false;
     const p = camera.position;
@@ -290,7 +304,8 @@ async function init() {
     hudT -= dt;
     if (hudT <= 0 && started) {
       hudT = 0.2;
-      const fy = player.pos.y;
+      const fy = player.sky ? -99 : player.pos.y;   // 하늘에서는 방(높이가 정해진 자리) 이름은 띄우지 않는다
+      if (player.sky) $('#skyAlt').textContent = '높이 ' + Math.round(player.skyHeight()) + 'm';
       const pl = places.find(q => p.x >= q.b[0] && p.x <= q.b[1] && p.z >= q.b[2] && p.z <= q.b[3] && (!q.y || (fy >= q.y[0] - 0.3 && fy < q.y[1])) && (!q.poly || inPoly(p.x, p.z, q.poly))) || null;   // poly가 있으면 그 다각형 안일 때만
       if (pl !== lastPlace) {
         lastPlace = pl;

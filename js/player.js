@@ -1,4 +1,5 @@
 // 걷는 사람 — 1인칭 시점. WASD로 걷고, Shift로 달리고, Space로 뛴다(길게 누르면 힘을 모아 지붕 높이까지). 벽에 막히고 계단을 오르고 지붕을 밟는다.
+// 하늘에서 보기(sky): 몸은 그 자리에 두고 눈만 하늘로 올라가 마을을 내려다보며 날아다닌다. 끝내면 내려다보던 자리에 내려선다.
 import * as THREE from '../vendor/three.module.js';
 import { collidersNear, roofAt } from './build.js';
 import { WALL } from './layout.js';
@@ -6,6 +7,8 @@ import { WALL } from './layout.js';
 const RAD = 0.34, HEIGHT = 1.75, EYE = 1.62, STEP = 0.5, WALK = 4.6, RUN = 9.5, JUMP = 6.4, GRAV = 20;
 // 모아 뛰기: HOLD초 넘게 누르고 있으면 힘이 모이기 시작해 CHARGE초 만에 가득 찬다. 가득 모으면 LEAP_H(m)까지 솟는다.
 const HOLD = 0.14, CHARGE = 0.9, JUMP_H = JUMP * JUMP / (2 * GRAV), LEAP_H = 13.5;
+// 하늘에서 보기: 가장 낮은·높은 높이(m), 손가락으로 차례로 고르는 높이들, 마을 밖으로 나갈 수 있는 거리
+const SKY_LO = 6, SKY_HI = 900, SKY_STEPS = [70, 160, 340, 650], SKY_OUT = 320;
 
 export class Player {
   constructor(camera, dom, terrain) {
@@ -15,6 +18,8 @@ export class Player {
     this.keys = {}; this.near = [];
     this.touchMode = false; this.touch = { x: 0, z: 0, run: false }; this.jumpQueued = false;   // 터치: 조이스틱 기울기, 달리기, 뛰기 예약
     this.jumpHeld = false; this.hold = 0; this.charge = 0; this.dip = 0;   // 뛰기 단추를 누르고 있는가, 누른 시간, 모인 힘(0~1), 착지 때 무릎 굽힘
+    this.sky = false; this.skyPos = new THREE.Vector3(); this.skyVel = new THREE.Vector3();   // 하늘에서 보기: 켜졌는가, 눈의 자리, 나는 속도
+    addEventListener('wheel', e => { if (this.sky && this.locked) this.skyVel.y -= Math.sign(e.deltaY) * Math.max(14, this.skyHeight() * 0.9); }, { passive: true });   // 휠: 높이
     addEventListener('keydown', e => { this.keys[e.code] = true; if (this.locked && ['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault(); });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
@@ -38,8 +43,49 @@ export class Player {
     this.pitch = THREE.MathUtils.clamp(this.pitch - dy * sens, -1.5, 1.5);
   }
 
+  // 하늘에서 보기를 켜고 끈다. 켤 때는 서 있던 자리가 내려다보이게 뒤로 물러나 떠오르고, 끌 때는 화면 한가운데로 보던 땅에 내려선다.
+  setSky(on) {
+    if (on === this.sky) return;
+    this.sky = on; this.skyVel.set(0, 0, 0); this.vel.set(0, 0, 0); this.hold = 0; this.charge = 0;
+    if (on) {
+      this.pitch = -0.8;
+      this.skyPos.set(this.pos.x + Math.sin(this.yaw) * 150, this.pos.y + 160, this.pos.z + Math.cos(this.yaw) * 150);
+    } else {
+      const h = this.skyHeight(), reach = this.pitch < -0.12 ? Math.min(900, h / Math.tan(-this.pitch)) : 0;   // 내려다보던 자리까지의 거리
+      const x = this.skyPos.x - Math.sin(this.yaw) * reach, z = this.skyPos.z - Math.cos(this.yaw) * reach;
+      this.pos.set(x, Math.max(this.terrain(x, z), 0) + 0.05, z); this.eyeY = this.pos.y; this.pitch = 0; this.grounded = false;
+      for (let i = 0; i < 80 && this.blocked(this.pos.x, this.pos.z, this.pos.y); i++) this.pos.z += 0.5;   // 벽 속에 내려섰으면 빠져나올 때까지 비켜선다
+    }
+    this.sync(); if (this.onSky) this.onSky(on);
+  }
+  skyHeight() { return this.skyPos.y - Math.max(0, this.terrain(this.skyPos.x, this.skyPos.z)); }
+  // 손가락용: 높이를 차례로 바꾼다
+  skyStep() { const h = this.skyHeight(), i = SKY_STEPS.findIndex(s => s > h + 5); this.skyVel.y = 0; this.skyPos.y += SKY_STEPS[i < 0 ? 0 : i] - h; }
+  // 하늘에서: WASD로 보는 쪽 기준 앞뒤좌우, Space·E 오르기, Q 내리기, Shift 빠르게. 높이 날수록 빨리 난다.
+  skyUpdate(dt) {
+    const k = this.keys, p = this.skyPos, v = this.skyVel;
+    let fx = 0, fz = 0, fy = 0;
+    if (this.locked) {
+      if (k.KeyW || k.ArrowUp) fz -= 1; if (k.KeyS || k.ArrowDown) fz += 1;
+      if (k.KeyA || k.ArrowLeft) fx -= 1; if (k.KeyD || k.ArrowRight) fx += 1;
+      if (k.Space || k.KeyE) fy += 1; if (k.KeyQ) fy -= 1;
+      fx += this.touch.x; fz += this.touch.z;
+    }
+    const h = this.skyHeight(), fast = k.ShiftLeft || k.ShiftRight || this.touch.run, sp = Math.max(18, h * 0.75) * (fast ? 2.6 : 1);
+    const len = Math.max(1, Math.hypot(fx, fz)), s = Math.sin(this.yaw), c = Math.cos(this.yaw), a = 1 - Math.exp(-dt * 7);
+    v.x += ((fx * c + fz * s) / len * sp - v.x) * a; v.z += ((-fx * s + fz * c) / len * sp - v.z) * a;
+    v.y += (fy * Math.max(14, h * 0.7) * (fast ? 2 : 1) - v.y) * (1 - Math.exp(-dt * (fy ? 7 : 4)));
+    p.x += v.x * dt; p.y += v.y * dt; p.z += v.z * dt;
+    const lim = WALL.r + SKY_OUT, ox = p.x - WALL.cx, oz = p.z - WALL.cz, d = Math.hypot(ox, oz);
+    if (d > lim) { p.x = WALL.cx + ox * lim / d; p.z = WALL.cz + oz * lim / d; }
+    const g = Math.max(0, this.terrain(p.x, p.z));
+    if (p.y < g + SKY_LO) { p.y = g + SKY_LO; v.y = Math.max(0, v.y); }
+    if (p.y > g + SKY_HI) { p.y = g + SKY_HI; v.y = Math.min(0, v.y); }
+    this.sync();
+  }
+
   place(x, y, z, yaw = this.yaw, pitch = 0) {
-    this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = pitch; this.eyeY = y; this.sync();
+    this.sky = false; this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = pitch; this.eyeY = y; this.sync();
   }
 
   // 그 자리에 설 수 있는 가장 높은 바닥(발에서 한 단 높이 이내)
@@ -64,6 +110,7 @@ export class Player {
   }
 
   update(dt) {
+    if (this.sky) return this.skyUpdate(dt);
     const k = this.keys, p = this.pos, v = this.vel;
     let fx = 0, fz = 0;
     if (this.locked) {
@@ -122,7 +169,7 @@ export class Player {
   }
 
   sync(bob = 0) {
-    this.cam.position.set(this.pos.x, this.eyeY + EYE + bob, this.pos.z);
+    if (this.sky) this.cam.position.copy(this.skyPos); else this.cam.position.set(this.pos.x, this.eyeY + EYE + bob, this.pos.z);
     this.cam.rotation.set(this.pitch, this.yaw, 0, 'YXZ');
   }
 }

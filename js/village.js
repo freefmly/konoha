@@ -139,7 +139,12 @@ function buildGround(scene, tintOn) {
   };
   // 마을 바닥과 담 밖 언덕. 물길 둘레는 촘촘하게 떠야 강둑이 매끈하므로 마을 안은 3m 칸으로 뜬다
   const low = (x, z) => { const h = lowH(x, z); return h > 0.01 ? h : -BED * carve(x, z); };
-  mk(WALL.cx - 720, CLIFF.z - 180, WALL.cx + 720, WALL.gateZ + 120, 3, low);
+  const X0 = WALL.cx - 720, X1 = WALL.cx + 720, Z0 = CLIFF.z - 180, Z1 = WALL.gateZ + 120, FAR = 2600;
+  mk(X0, Z0, X1, Z1, 3, low);
+  // 먼 땅: 하늘에서 내려다봐도 땅끝이 보이지 않게, 마을 둘레를 성긴 칸으로 멀리까지 잇는다
+  const far = (x, z) => Math.max(lowH(x, z), mountainH(x, z));
+  mk(WALL.cx - FAR, WALL.cz - FAR, X0, WALL.cz + FAR, 40, far); mk(X1, WALL.cz - FAR, WALL.cx + FAR, WALL.cz + FAR, 40, far);
+  mk(X0, WALL.cz - FAR, X1, Z0, 40, far); mk(X0, Z1, X1, WALL.cz + FAR, 40, far);
   // 산 위. 산자락이 땅과 같은 높이로 겹치면 깜빡이므로, 산이 끝난 자리는 땅 밑으로 내린다
   mk(-200, CLIFF.z - 180, 200, CLIFF.z, 4, (x, z) => { const m = mountainH(x, Math.min(z, CLIFF.z - 0.01)), l = lowH(x, z); return m > l + 0.3 ? m : l - 1.5; });
 }

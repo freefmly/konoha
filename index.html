@@ -40,6 +40,7 @@
         <p class="lede">호카게 바위 아래 마을을 걸어서 둘러봅니다. 관저·아카데미·이치라쿠 라멘, 나루토·사쿠라·이노의 집은 안으로 들어가 층마다 올라가 볼 수 있습니다.</p>
 
         <button id="enterBtn" class="enter">마을로 들어가기</button>
+        <button id="skyBtn" class="skyenter">하늘에서 둘러보기</button>
 
         <section>
           <h2>날씨</h2>
@@ -72,12 +73,14 @@
           <span><kbd>더 멀리 밀기</kbd> 달리기</span>
           <span><kbd>화면 오른쪽</kbd> 끌어서 둘러보기</span>
           <span><kbd>↑ 단추</kbd> 뛰기 · 길게 눌러 모아 뛰기</span>
+          <span><kbd>하늘</kbd> 하늘에서 보기 · ↑ 단추로 높이</span>
         </footer>
         <footer class="pc-only">
           <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 걷기</span>
           <span><kbd>마우스</kbd> 둘러보기</span>
           <span><kbd>Shift</kbd> 달리기</span>
           <span><kbd>Space</kbd> 뛰기 · 길게 눌러 모아 뛰기</span>
+          <span><kbd>V</kbd> 하늘에서 보기</span>
           <span><kbd>1</kbd>–<kbd>4</kbd> 날씨</span>
           <span><kbd>B</kbd> 바람</span>
           <span><kbd>C</kbd> 화풍</span>
@@ -99,6 +102,7 @@
         <button id="btnWeather">맑음</button>
         <button id="btnWind">바람 산들</button>
         <button id="btnStyle">실사</button>
+        <button id="btnSky">하늘</button>
         <button id="btnMenu" aria-label="메뉴"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
       </div>
     </div>
@@ -112,6 +116,11 @@
       <span><i>화풍</i><b id="styleNow"></b></span>
     </div>
     <div class="aim"></div>
+    <!-- 하늘에서 보는 동안: 높이와 조작 -->
+    <div id="skyBar" class="hidden">
+      <b>하늘에서 보기</b><em id="skyAlt"></em>
+      <span class="pc-only"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 날기 <kbd>Space</kbd> 오르기 <kbd>Q</kbd> 내리기 <kbd>휠</kbd> 높이 <kbd>Shift</kbd> 빠르게 <kbd>V</kbd> 보던 자리에 내려서기</span>
+    </div>
     <!-- 모아 뛰기: 힘이 모이는 만큼 차오르는 띠 -->
     <div id="charge"><i></i></div>
   </div>
