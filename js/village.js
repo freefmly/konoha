@@ -2,7 +2,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, mat4, rng, tube, wall, stairs } from './build.js';
 import { mat, M, weatherize } from './materials.js';
-import { LOT, ROADS, CLIFF, WALL } from './layout.js';
+import { LOT, ROADS, CLIFF, WALL, UCHIHA } from './layout.js';
 
 /* ---------- 땅 높이 ---------- */
 const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -37,6 +37,7 @@ function buildGround(scene) {
   for (const [x0, z0, x1, z1] of ROADS) g.fillRect(px(x0), pz(z0), px(x1) - px(x0), pz(z1) - pz(z0));
   // 집터 둘레·마당
   for (const L of Object.values(LOT)) g.fillRect(px(L.x0), pz(L.z0), px(L.x1) - px(L.x0), pz(L.z1) - pz(L.z0));
+  for (const [x0, z0, x1, z1] of UCHIHA.dirt) g.fillRect(px(x0), pz(z0), px(x1) - px(x0), pz(z1) - pz(z0));   // 우치하 구역의 길과 마당
   g.beginPath(); g.arc(px(0), pz(182), 26 / size * S, 0, Math.PI * 2); g.fill();          // 정문 앞마당
   g.fillRect(px(-7), pz(180), px(7) - px(-7), pz(262) - pz(180));                            // 정문 밖 길
   g.fillRect(px(78), pz(-150), px(122) - px(78), pz(-138) - pz(-150));                       // 바위 오르는 계단 밑
@@ -51,13 +52,18 @@ function buildGround(scene) {
       .replace('#include <common>', '#include <common>\nuniform sampler2D uMask, uGrass;')
       .replace('#include <map_fragment>', `
         vec2 gUv = vWPos.xz;
-        vec4 gDirt = texture2D(map, gUv / 5.0);
-        vec4 gGrass = texture2D(uGrass, gUv / 3.0);
-        gGrass.rgb = (gGrass.rgb * 0.62 + vec3(0.055, 0.05, 0.02)) * (0.62 + 0.5 * wNoise(gUv * 0.045) + 0.28 * wNoise(gUv * 0.011 + 5.0));
-        gGrass.rgb = mix(gGrass.rgb, gGrass.rgb * vec3(1.25, 1.12, 0.7), smoothstep(0.55, 0.8, wNoise(gUv * 0.027 + 11.0)));   // 볕에 바랜 누런 자리
+        // 만화 화풍(uToon)일 때는 풀잎·잔돌 무늬를 평균 색으로 뭉개고, 얼룩과 길 가장자리를 또렷한 두 색으로 끊는다
+        float gLod = uToon * 12.0;
+        vec4 gDirt = texture2D(map, gUv / 5.0, gLod);
+        vec4 gGrass = texture2D(uGrass, gUv / 3.0, gLod);
+        float gTone = 0.62 + 0.5 * wNoise(gUv * 0.045) + 0.28 * wNoise(gUv * 0.011 + 5.0);
+        gTone = mix(gTone, mix(0.9, 1.2, smoothstep(0.99, 1.01, gTone)), uToon);
+        gGrass.rgb = (gGrass.rgb * 0.62 + vec3(0.055, 0.05, 0.02)) * gTone;
+        float gSun = wNoise(gUv * 0.027 + 11.0);
+        gGrass.rgb = mix(gGrass.rgb, gGrass.rgb * vec3(1.25, 1.12, 0.7), mix(smoothstep(0.55, 0.8, gSun), smoothstep(0.67, 0.69, gSun), uToon));   // 볕에 바랜 누런 자리
         float gM = texture2D(uMask, (gUv - vec2(0.0, -10.0)) / ${size.toFixed(1)} + 0.5).r;
-        gM = smoothstep(0.38, 0.62, gM + (wFbm(gUv * 0.8) - 0.5) * 0.5);
-        vec3 gRock = vec3(0.56, 0.50, 0.41) * (0.7 + 0.5 * wFbm(gUv * 0.35));
+        gM = smoothstep(0.38 + 0.1 * uToon, 0.62 - 0.1 * uToon, gM + (wFbm(gUv * 0.8) - 0.5) * 0.5 * (1.0 - 0.6 * uToon));
+        vec3 gRock = vec3(0.56, 0.50, 0.41) * mix(0.7 + 0.5 * wFbm(gUv * 0.35), 0.95, uToon);
         vec4 gCol = mix(gGrass, gDirt, gM);
         gCol.rgb = mix(gCol.rgb, gRock, smoothstep(0.82, 0.6, vWNor.y));          // 가파른 비탈은 바위가 드러난다
         diffuseColor *= gCol;`);

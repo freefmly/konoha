@@ -79,7 +79,7 @@ export class Cover {
 /* ---------- 하늘 ---------- */
 const SKY_FRAG = /* glsl */`
 uniform vec3 uSun, uTop, uHor, uFogCol;
-uniform float uCov, uDark, uTime, uFlash, uSunPow;
+uniform float uCov, uDark, uTime, uFlash, uSunPow, uToon;
 varying vec3 vDir;
 float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
@@ -97,6 +97,9 @@ void main(){
   float e0 = 0.9 - uCov * 1.0;
   float dens = smoothstep(e0, e0 + 0.32, n * 0.82 + nb * 0.18);
   float thick = smoothstep(0.25, 1.0, dens * (0.55 + 0.6 * nb));
+  // 만화 화풍: 구름 가장자리를 또렷이 끊고, 밝은 면과 그늘 두 색으로만 칠한다
+  dens = mix(dens, smoothstep(0.40, 0.47, dens), uToon);
+  thick = mix(thick, 0.85 * smoothstep(0.50, 0.55, thick), uToon);
   vec3 lit = mix(vec3(1.0), uHor * 1.15, 0.25) * (1.0 - uDark * 0.72);
   vec3 shade = mix(vec3(0.62, 0.65, 0.72), vec3(0.16, 0.17, 0.2), uDark);
   vec3 cloud = mix(lit, shade, thick) + uSunPow * vec3(1.0, 0.9, 0.75) * pow(sd, 6.0) * 0.5 * (1.0 - thick);
@@ -159,7 +162,7 @@ export class Weather {
 
     this.skyU = {
       uSun: { value: this.sunDir }, uTop: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uFogCol: { value: new THREE.Color() },
-      uCov: { value: 0.2 }, uDark: { value: 0 }, uTime: { value: 0 }, uFlash: { value: 0 }, uSunPow: { value: 1 },
+      uCov: { value: 0.2 }, uDark: { value: 0 }, uTime: { value: 0 }, uFlash: { value: 0 }, uSunPow: { value: 1 }, uToon: W.uToon,
     };
     const skyMat = () => new THREE.ShaderMaterial({
       uniforms: this.skyU, side: THREE.BackSide, depthWrite: false, fog: false,

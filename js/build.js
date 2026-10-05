@@ -45,6 +45,26 @@ export function collidersNear(x0, z0, x1, z1, out) {
   return out;
 }
 
+/* ---------- 지붕면: 밟고 설 수 있는 비스듬한 바닥 ----------
+   충돌 상자는 네모뿐이라 기운 지붕을 담지 못한다. 지붕은 "그 자리의 높이를 돌려주는 함수"로 따로 적어 둔다.
+   얇은 한 장짜리 바닥이라 밑에서는 그냥 지나가고(처마 밑을 걷거나 뛰어올라 통과), 위에서 내려올 때만 받쳐 준다. */
+const roofs = [];   // [x0, z0, x1, z1, (x, z) → 높이(면 밖이면 -Infinity)]
+let roofGrid = null;
+export function addRoof(x0, z0, x1, z1, fn) { roofs.push([x0, z0, x1, z1, fn]); roofGrid = null; }
+// (x, z)에서 limit 높이 이하인 지붕면 가운데 가장 높은 것. 없으면 -Infinity.
+export function roofAt(x, z, limit) {
+  if (!roofGrid) {
+    roofGrid = new Map();
+    for (const r of roofs) for (let gx = Math.floor(r[0] / CELL); gx <= Math.floor(r[2] / CELL); gx++) for (let gz = Math.floor(r[1] / CELL); gz <= Math.floor(r[3] / CELL); gz++) {
+      const key = gx * 4096 + gz; let a = roofGrid.get(key); if (!a) roofGrid.set(key, a = []); a.push(r);
+    }
+  }
+  const a = roofGrid.get(Math.floor(x / CELL) * 4096 + Math.floor(z / CELL));
+  let best = -Infinity;
+  if (a) for (const r of a) { if (x < r[0] || x > r[2] || z < r[1] || z > r[3]) continue; const h = r[4](x, z); if (h <= limit && h > best) best = h; }
+  return best;
+}
+
 /* ---------- 조립기 ---------- */
 const _v = new THREE.Vector3(), _n = new THREE.Vector3(), _nm = new THREE.Matrix3();
 

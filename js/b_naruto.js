@@ -2,7 +2,7 @@
 // 남쪽 바깥 계단과 복도(난간)로 층을 오르고, 동쪽 바깥 계단으로 옥상에 오른다.
 import * as THREE from '../vendor/three.module.js';
 import { Builder, wall, stairs, tube, mat4, rng, addCollider } from './build.js';
-import { mat, M, textMat } from './materials.js';
+import { mat, M, textMat, toonize } from './materials.js';
 import { tilePanel, beamBetween, gableRoof, coneRoof, roundWall, roundWindow, windowUnit, doorUnit, boxWalls, railing, signBoard } from './arch.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -23,7 +23,7 @@ function pic(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-  return new THREE.MeshStandardMaterial({ map: t, roughness: 0.85 });
+  return toonize(new THREE.MeshStandardMaterial({ map: t, roughness: 0.85 }));
 }
 // 나뭇잎 표식: 소용돌이에서 뾰족한 잎끝으로 이어진다
 function leafMark(g, cx, cy, s, col) {

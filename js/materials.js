@@ -7,7 +7,54 @@ export const W = {
   uSnow: { value: 0 }, uWet: { value: 0 }, uRain: { value: 0 }, uTime: { value: 0 },
   uWind: { value: 0.3 }, uWindDir: { value: new THREE.Vector2(0.8, 0.6) },
   uCover: { value: null }, uCoverRect: { value: new THREE.Vector4(0, 0, 1, 0) },
+  uToon: { value: 0 },   // 화풍: 0 실사 · 1 만화
 };
+
+/* ---------- 만화 화풍 ----------
+   재질을 바꿔 끼우지 않고 같은 재질 안에 "만화로 칠하는 법"을 함께 심어 두고 uToon 값으로 그 자리에서 오간다.
+   만화일 때: 빛을 밝은 면/그늘 두 단계로 끊고, 반짝임과 잔 굴곡을 없애고, 무늬를 평평한 색으로 정리한다. 먹선은 toon.js가 긋는다.
+   flat = 무늬(나뭇결·돌 이음매)를 평균 색 + 짙은 줄만 남기고 정리, noLine = 먹선을 긋지 않을 것(잎·풀) */
+function inkShader(sh, { flat = false, noLine = false } = {}) {
+  sh.uniforms.uToon = W.uToon;
+  let f = sh.fragmentShader
+    .replace('#include <common>', '#include <common>\nuniform float uToon;')
+    .replace('#include <color_fragment>', `#include <color_fragment>
+        if (uToon > 0.5) { float kL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = max(mix(vec3(kL), diffuseColor.rgb, 1.18), 0.0); }`)
+    .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+        metalnessFactor *= 1.0 - uToon;`)
+    .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        normal = normalize(mix(normal, nonPerturbedNormal, uToon));`)
+    .replace('#include <lights_physical_pars_fragment>', `#include <lights_physical_pars_fragment>
+        void RE_Direct_Ink(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
+          if (uToon < 0.5) { RE_Direct_Physical(directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight); return; }
+          float kBand = smoothstep(0.10, 0.16, dot(geometryNormal, directLight.direction));   // 볕 든 면과 그늘의 경계를 칼같이
+          reflectedLight.directDiffuse += directLight.color * kBand * 0.8 * BRDF_Lambert(material.diffuseColor);
+        }
+        #undef RE_Direct
+        #define RE_Direct RE_Direct_Ink`)
+    .replace('#include <opaque_fragment>', `
+        if (uToon > 0.5) outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse * 1.3 + totalEmissiveRadiance;
+        #include <opaque_fragment>`);
+  if (flat) f = f.replace('#include <map_fragment>', `
+        #ifdef USE_MAP
+          vec4 sampledDiffuseColor = texture2D(map, vMapUv);
+          if (uToon > 0.5) {
+            vec3 kAvg = texture2D(map, vMapUv, 12.0).rgb;   // 가장 뭉갠 단계 = 무늬 전체의 평균 색
+            float kR = dot(sampledDiffuseColor.rgb, vec3(0.3, 0.59, 0.11)) / max(dot(kAvg, vec3(0.3, 0.59, 0.11)), 0.01);
+            sampledDiffuseColor.rgb = mix(kAvg, sampledDiffuseColor.rgb, 0.16) * mix(0.7, 1.0, smoothstep(0.6, 0.8, kR));
+          }
+          diffuseColor *= sampledDiffuseColor;
+        #endif`);
+  if (noLine) f = f.replace('#include <dithering_fragment>', `#include <dithering_fragment>
+        gl_FragColor.a = 1.0 - uToon;`);
+  sh.fragmentShader = f;
+}
+// 날씨를 심지 않는 재질(유리·물·빛나는 간판)에 화풍만 심는다
+export function toonize(mat, opts = {}) {
+  mat.onBeforeCompile = sh => inkShader(sh, opts);
+  mat.customProgramCacheKey = () => 'ink' + (opts.flat ? 'f' : '') + (opts.noLine ? 'n' : '');
+  return mat;
+}
 
 const FRAG_HEAD = /* glsl */`
 uniform float uSnow, uWet, uRain, uTime;
@@ -64,11 +111,12 @@ const SWAY = {
 };
 
 // 재질에 날씨 반응을 심는다. puddles=true면 평평한 곳에 빗물이 고인다. sway는 'tree' | 'leaf' | 'cloth'.
-export function weatherize(mat, { puddles = false, sway = null, extra = null } = {}) {
+export function weatherize(mat, { puddles = false, sway = null, extra = null, flat = false, noLine = false } = {}) {
   mat.defines = Object.assign(mat.defines || {}, puddles ? { W_PUDDLE: '' } : {}, sway === 'leaf' ? { W_LEAF: '' } : {});
   const swayCode = sway ? SWAY[sway === 'leaf' ? 'tree' : sway] : '';
   mat.onBeforeCompile = sh => {
     Object.assign(sh.uniforms, W);
+    inkShader(sh, { flat, noLine });
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nuniform float uTime, uWind; uniform vec2 uWindDir;\nvarying vec3 vWPos;\nvarying vec3 vWNor;')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -94,6 +142,7 @@ export function weatherize(mat, { puddles = false, sway = null, extra = null } =
         float wUp = smoothstep(0.3, 0.75, wNy);
         // 얕게 쌓인 눈: 다 쌓여도 얇은 데는 밑바닥이 비친다
         float wSnow = wExpo * wUp * smoothstep(0.05, 0.55, uSnow * 1.02 - wFbm(vWPos.xz * 0.9) * 0.9 - (1.0 - wUp) * 0.4);
+        wSnow = mix(wSnow, smoothstep(0.42, 0.5, wSnow), uToon);   // 만화: 눈 덮인 자리와 맨바닥의 경계가 또렷하다
         float wWetF = wExpo * uWet * mix(0.5, 1.0, wUp) * (1.0 - wSnow);
         float wPud = 0.0;
         #ifdef W_PUDDLE
@@ -101,7 +150,7 @@ export function weatherize(mat, { puddles = false, sway = null, extra = null } =
           wPud = wExpo * smoothstep(0.985, 1.0, wNy) * smoothstep(wTh, wTh + 0.06, wFbm(vWPos.xz * 0.23 + 31.0)) * (1.0 - wSnow);
         #endif
         diffuseColor.rgb *= mix(1.0, 0.6, wWetF);
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.03, 0.035, 0.04), wPud * 0.9);
+        diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.03, 0.035, 0.04), vec3(0.26, 0.33, 0.42), uToon), wPud * 0.9);   // 만화: 웅덩이는 반사 대신 하늘빛으로 칠한다
         diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.78, 0.84, 0.93), vec3(0.95, 0.97, 1.0), wFbm(vWPos.xz * 0.31 + 9.0)) * (0.94 + 0.06 * wNoise(vWPos.xz * 9.0)), wSnow);`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = mix(roughnessFactor, roughnessFactor * 0.45, wWetF);
@@ -123,7 +172,7 @@ export function weatherize(mat, { puddles = false, sway = null, extra = null } =
         }`);
     if (extra) extra(sh);
   };
-  mat.customProgramCacheKey = () => (puddles ? 'p' : '') + (sway || '') + (extra ? extra.key || 'x' : '');
+  mat.customProgramCacheKey = () => (puddles ? 'p' : '') + (sway || '') + (extra ? extra.key || 'x' : '') + (flat ? 'f' : '') + (noLine ? 'n' : '');
   return mat;
 }
 
@@ -370,7 +419,7 @@ export function mat(kind, color = 0xffffff, opts = {}) {
   if (kind === 'paper') { o.emissive = new THREE.Color(color); o.emissiveIntensity = 0.22; }
   if (kind === 'glow') { o.emissive = new THREE.Color(opts.emissive ?? color); o.emissiveIntensity = opts.power ?? 1.6; }
   if (opts.emissive !== undefined && kind !== 'glow') { o.emissive = new THREE.Color(opts.emissive); o.emissiveIntensity = opts.power ?? 1; }
-  m = weatherize(new THREE.MeshStandardMaterial(o), { puddles: opts.puddles ?? K.puddles ?? false, sway: K.sway || null });
+  m = weatherize(new THREE.MeshStandardMaterial(o), { puddles: opts.puddles ?? K.puddles ?? false, sway: K.sway || null, flat: !!K.tex, noLine: kind === 'leaf' });
   if (opts.noShadow || kind === 'glow') m.userData.noShadow = true;
   MATS.set(key, m);
   return m;
@@ -420,9 +469,9 @@ export function textMat(text, opts = {}, kind = 'board') {
 /* ---------- 자주 쓰는 재질 ---------- */
 export const M = {};
 export function createMaterials() {
-  M.glass = new THREE.MeshStandardMaterial({ color: 0xa9cbd6, roughness: 0.06, metalness: 0, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+  M.glass = toonize(new THREE.MeshStandardMaterial({ color: 0xa9cbd6, roughness: 0.06, metalness: 0, transparent: true, opacity: 0.3, side: THREE.DoubleSide }));
   M.glass.userData.noShadow = true;
-  M.water = new THREE.MeshStandardMaterial({ color: 0x2a5a66, roughness: 0.05, transparent: true, opacity: 0.82 });
+  M.water = toonize(new THREE.MeshStandardMaterial({ color: 0x2a5a66, roughness: 0.05, transparent: true, opacity: 0.82 }));
   M.water.userData.noShadow = true;
   M.beam = mat('wood', 0x5a3b28);            // 짙은 기둥·보
   M.beamLight = mat('wood', 0xb98a58);       // 밝은 나무

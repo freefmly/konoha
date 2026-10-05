@@ -1,8 +1,10 @@
 // 건축 부품 — 기와지붕(맞배·우진각·원뿔), 둥근 벽과 바닥, 창·문틀, 난간, 포렴, 간판, 등롱.
 // 모든 각도는 a → (cx + r·cos a, cz + r·sin a). a=0 동(+x), a=π/2 남(+z), a=π 서, a=-π/2 북.
 import * as THREE from '../vendor/three.module.js';
-import { addCollider, mat4, tube, wall } from './build.js';
-import { mat, M, textMat } from './materials.js';
+import { addCollider, addRoof, mat4, tube, wall } from './build.js';
+
+const TILE_TOP = 0.09;   // 기와 두께만큼 밟는 면을 올린다
+import { mat, M, textMat, toonize } from './materials.js';
 
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -127,6 +129,9 @@ export function gableRoof(B, m, x0, z0, x1, z1, yEave, rise, opts = {}) {
     for (const a of [aL, aR]) beamBetween(B, wood, P(a, yE - 0.02, eaveB), P(a, yR - 0.02, bm), 0.05, 0.2);
   }
   ridgeLine(B, m, P(aL - 0.04, yR + 0.02, bm), P(aR + 0.04, yR + 0.02, bm));
+  // 밟는 면: 용마루에서 양쪽 처마로 내려가는 두 경사
+  if (sw) addRoof(b0 - over, aL, b1 + over, aR, x => yR + TILE_TOP - Math.abs(x - bm) * slope);
+  else addRoof(aL, b0 - over, aR, b1 + over, (x, z) => yR + TILE_TOP - Math.abs(z - bm) * slope);
   if (gable) for (const [a, th] of [[a0, 0.2], [a1 - 0.2, 0.2]]) {   // 각기둥은 작은 쪽 → 큰 쪽으로 밀어야 면이 뒤집히지 않는다
     // 박공벽의 빗면은 지붕 밑널보다 확실히 아래에 둔다(밑널과 거의 한 면이면 깜빡인다)
     const poly = [[b0 + 0.12, yEave], [b1 - 0.12, yEave], [bm, yR - 0.03 - 0.12 * slope]];
@@ -153,6 +158,7 @@ export function hipRoof(B, m, x0, z0, x1, z1, yEave, rise, opts = {}) {
     tilePanel(B, m, s.o.clone().setY(yE + 0.05), s.U, Vv, s.w, len, v => [v * cosT, s.w - v * cosT], detail, lip);
     beamBetween(B, wood, s.o, s.o.clone().addScaledVector(s.U, s.w), 0.07, 0.14);
   }
+  addRoof(X0, Z0, X1, Z1, (x, z) => yE + TILE_TOP + slope * Math.min(x - X0, X1 - x, z - Z0, Z1 - z));   // 밟는 면: 네 처마에서 가운데로 오르는 경사
   // 밑면 널
   const g = new THREE.PlaneGeometry(wx, wz); g.rotateX(Math.PI / 2); B.geo(wood, g, mat4((X0 + X1) / 2, yEave - 0.02, (Z0 + Z1) / 2));
   if (rafters) {
@@ -190,6 +196,13 @@ export function coneRoof(B, m, cx, cz, r, yEave, rise, opts = {}) {
     const wTop = rTop * Math.sin(Math.PI / seg);
     tilePanel(B, m, p1, U, Vv, w, plen, v => { const t = v / plen, h = hw + (wTop - hw) * t; return [hw - h, hw + h]; }, detail, lip);
   }
+  // 밟는 면: 처마에서 꼭대기로 오르는 원뿔(가운데가 뚫린 고리 지붕은 고리 부분만)
+  addRoof(cx - r, cz - r, cx + r, cz + r, (x, z) => {
+    const d = Math.hypot(x - cx, z - cz);
+    if (d > r) return -Infinity;
+    if (d < rTop) return cap && rTop > 0.05 ? yEave + rise + 0.1 : -Infinity;
+    return yEave + TILE_TOP + rise * (r - d) / (r - rTop);
+  });
   if (soffit) { const g = new THREE.RingGeometry(Math.max(0.01, r * 0.5), r, seg); g.rotateX(Math.PI / 2); B.geo(wood, g, mat4(cx, yEave - 0.02, cz)); }
   // 처마 끝 테
   const rim = []; for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; rim.push(V3(cx + Math.cos(a) * r, yEave - 0.03, cz + Math.sin(a) * r)); }
@@ -459,7 +472,7 @@ function glowText(text, color, ink) {
   g.font = `900 ${cell}px "Yu Mincho", "MS Mincho", serif`;
   for (const cxp of [64, 192]) chars.forEach((ch, i) => g.fillText(ch, cxp, 64 - (chars.length - 1) * cell / 2 + i * cell));
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  m = new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.85, roughness: 0.7 });
+  m = toonize(new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.85, roughness: 0.7 }));
   m.userData.noShadow = true;
   GLOW.set(key, m);
   return m;

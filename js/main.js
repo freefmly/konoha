@@ -1,8 +1,9 @@
 // 나뭇잎 마을 — 시작점. 재질·지형·건물을 차례로 만들고, 걷기·날씨·소리를 돌린다.
 import * as THREE from '../vendor/three.module.js';
-import { createMaterials } from './materials.js';
+import { createMaterials, W } from './materials.js';
 import { Cover, Weather, WEATHERS } from './weather.js';
 import { Sound } from './audio.js';
+import { Toon } from './toon.js';
 import { Player } from './player.js';
 import { LOT } from './layout.js';
 import { buildVillage, terrainH } from './village.js';
@@ -17,7 +18,7 @@ document.body.classList.toggle('touch', TOUCH);
 // 따로 짓는 건물들. 하나가 고장 나도 나머지는 뜨게 하나씩 불러온다.
 const BUILDINGS = [
   ['hokage', '호카게 관저를 올리는 중…'], ['academy', '닌자 아카데미를 짓는 중…'],
-  ['naruto', '나루토의 집을 짓는 중…'], ['homes', '사쿠라와 이노의 집을 짓는 중…'], ['ichiraku', '이치라쿠 라멘의 국물을 끓이는 중…'],
+  ['naruto', '나루토의 집을 짓는 중…'], ['homes', '사쿠라와 이노의 집을 짓는 중…'], ['ichiraku', '이치라쿠 라멘의 국물을 끓이는 중…'], ['uchiha', '우치하 일족의 거리를 세우는 중…'],
 ];
 
 async function init() {
@@ -97,6 +98,25 @@ async function init() {
     document.querySelectorAll('[data-wind]').forEach(b => b.classList.toggle('on', +b.dataset.wind === lv));
     $('#windNow').textContent = WIND[lv]; $('#btnWind').textContent = '바람 ' + WIND[lv];
   };
+  // 화풍: 실사 ↔ 만화. 재질은 그대로 두고 칠하는 법(W.uToon)만 바꾼다. 만화는 먹선을 긋느라 한 번 거쳐 그린다(toon.js).
+  let toon = null, toonOn = false;
+  const STYLE = ['실사', '만화'];
+  const applyStyle = on => {
+    toonOn = on; W.uToon.value = on ? 1 : 0; weather.envDirty = 2;
+    if (on && !toon) toon = new Toon(renderer, { samples: TOUCH ? 2 : 4 });
+    document.querySelectorAll('[data-style]').forEach(b => b.classList.toggle('on', (b.dataset.style === '1') === on));
+    $('#styleNow').textContent = $('#btnStyle').textContent = STYLE[+on];
+    try { localStorage.setItem('konoha.style', on ? '1' : '0'); } catch (e) { /* 저장이 막힌 창이면 그냥 넘어간다 */ }
+  };
+  const setStyle = on => {
+    if (on === toonOn) return;
+    if (!on || toon) return applyStyle(on);
+    // 처음 만화로 바꿀 때는 칠하는 법을 새로 준비하느라 잠깐 멈춘다 → 알림을 먼저 띄우고 바꾼다
+    $('#styleNote').classList.remove('hidden');
+    setTimeout(() => { applyStyle(true); requestAnimationFrame(() => requestAnimationFrame(() => $('#styleNote').classList.add('hidden'))); }, 40);
+  };
+  $('#styleBtns').innerHTML = STYLE.map((n, i) => `<button data-style="${i}">${n}</button>`).join('');
+  $('#styleBtns').addEventListener('click', e => { const b = e.target.closest('[data-style]'); if (b) setStyle(b.dataset.style === '1'); });
   const WX_NAME = { clear: '맑은 날', cloudy: '구름 낀 날', rain: '비 오는 날', snow: '눈 오는 날' };
   $('#weatherBtns').innerHTML = WEATHERS.map(([k], i) => `<button data-weather="${k}"><i class="wx wx-${k}"></i><span>${WX_NAME[k]}</span><kbd>${i + 1}</kbd></button>`).join('');
   $('#weatherBtns').addEventListener('click', e => { const b = e.target.closest('[data-weather]'); if (b) setWeather(b.dataset.weather); });
@@ -121,6 +141,7 @@ async function init() {
     if (i >= 0) setWeather(WEATHERS[i][0]);
     if (e.code === 'KeyM') setMute(!sound.muted);
     if (e.code === 'KeyB') setWind((windLevel + 1) % 3);
+    if (e.code === 'KeyC') setStyle(!toonOn);
   });
   // 화면 크기 맞추기. 폰은 홈 화면에서 열거나 돌릴 때 처음 알려 주는 크기가 틀릴 때가 있어, 직접 재서 모든 겹에 똑같이 적용하고 매 장면마다 바뀌었는지 다시 본다.
   let viewW = 0, viewH = 0;
@@ -165,9 +186,13 @@ async function init() {
     const up = e => { if (e.pointerId === moveId) endMove(); if (e.pointerId === lookId) lookId = null; };
     pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up);
     const tap = (sel, fn) => $(sel).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); });
-    tap('#btnJump', () => { player.jumpQueued = true; });
+    // 뛰기 단추: 누르고 있는 동안 힘을 모으고, 떼면 뛴다
+    const jb = $('#btnJump'), jumpEnd = () => { player.jumpHeld = false; };
+    jb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); player.jumpHeld = true; });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) jb.addEventListener(ev, jumpEnd);
     tap('#btnWeather', () => setWeather(WEATHERS[(WEATHERS.findIndex(w => w[0] === weatherType) + 1) % WEATHERS.length][0]));
     tap('#btnWind', () => setWind((windLevel + 1) % 3));
+    tap('#btnStyle', () => setStyle(!toonOn));
     tap('#btnMenu', () => { endMove(); lookId = null; player.unlock(); });
     // 화면이 끌려 움직이거나 두 손가락으로 커지지 않게
     for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault());
@@ -176,6 +201,10 @@ async function init() {
   }
   setWeather(Q.get('w') || 'clear', true);
   setWind(Q.get('wind') ? +Q.get('wind') : 1);
+  // 화풍은 지난번에 고른 것을 기억한다. 확인용으로 ?toon=1 / ?toon=0 으로 강제할 수 있다.
+  let savedStyle = null;
+  try { savedStyle = localStorage.getItem('konoha.style'); } catch (e) { /* 기억이 없으면 실사로 */ }
+  applyStyle((Q.get('toon') ?? savedStyle) === '1');
 
   // 확인용 주소: ?shot=x,y,z,yaw,pitch&w=rain&full=1 — 메뉴 없이 그 자리·그 날씨로 바로 본다. &fly=1이면 중력 없이 그 자리에 뜬다.
   const shot = Q.get('shot');
@@ -190,7 +219,10 @@ async function init() {
   if (Q.get('walk')) {
     player.locked = true;
     Q.get('walk').split(';').map(l => l.split(':').map(Number)).forEach((leg, i) => {
-      player.yaw = leg[0]; player.keys = { KeyW: true, ShiftLeft: !!leg[2] };
+      player.yaw = leg[0];
+      // 넷째 값이 있으면 그 초만큼 뛰기를 누르고 있다가 떼고(모아 뛰기) 걷기 시작한다
+      if (leg[3]) { player.keys = { Space: true }; for (let n = 0; n < leg[3] * 60; n++) player.update(1 / 60); }
+      player.keys = { KeyW: true, ShiftLeft: !!leg[2] };
       for (let n = 0; n < leg[1] * 60; n++) player.update(1 / 60);
       console.log('WALK', i, player.pos.x.toFixed(2), player.pos.y.toFixed(2), player.pos.z.toFixed(2), '실내', cover.enclosure(player.pos.x, player.pos.y + 1.62, player.pos.z).toFixed(2));
     });
@@ -202,9 +234,27 @@ async function init() {
 
   /* ---------- 돌리기 ---------- */
   const clock = new THREE.Clock();
+  const chargeEl = $('#charge'); let lastCharge = -1;
   let hudT = 0, lampT = 0, lastPlace = undefined, orbit = 0, indoor = 0, fpsN = 0, fpsT = 0, lastDraw = 0;
   const area = q => (q.b[1] - q.b[0]) * (q.b[3] - q.b[2]);
   places.sort((a, b) => area(a) - area(b));     // 좁은 자리(방)가 넓은 자리(마을)보다 먼저
+  // 가까운 등불 여섯 개만 켠다
+  const placeLamps = p => {
+    const near = lights.map(l => [l, (l[0] - p.x) ** 2 + (l[1] - p.y) ** 2 * 4 + (l[2] - p.z) ** 2]).sort((a, b) => a[1] - b[1]);
+    lamps.forEach((L, i) => {
+      const l = near[i] && near[i][1] < 45 * 45 ? near[i][0] : null;
+      if (l) { L.position.set(l[0], l[1], l[2]); L.intensity = l[3] ?? 14; L.distance = l[4] ?? 16; } else L.intensity = 0;
+    });
+  };
+  // 촬영 모드(?film=1): 화면을 돌리는 대신 js/film.js가 장면 목록대로 한 장씩 그려 내보낸다
+  if (Q.get('film')) {
+    ui.menu.classList.add('hidden');
+    const style = on => { if (on && !toon) toon = new Toon(renderer, { samples: 4 }); toonOn = on; W.uToon.value = on ? 1 : 0; };
+    style(false);
+    (await import('./film.js')).run({ renderer, scene, camera, weather, player, setWeather, style, placeLamps,
+      tick: (t, dt) => { for (const f of ticks) f(t, dt); }, draw: () => (toonOn ? toon.render(scene, camera) : renderer.render(scene, camera)) });
+    return;
+  }
   function frame() {
     requestAnimationFrame(frame);
     if (innerWidth !== viewW || innerHeight !== viewH) fit();
@@ -227,6 +277,7 @@ async function init() {
       camera.position.set(Math.sin(orbit) * 70, 46 + Math.sin(orbit * 0.6) * 6, 120 + Math.cos(orbit * 0.8) * 30);
       camera.lookAt(Math.sin(orbit) * 10, 26, -150);
     }
+    if (player.charge !== lastCharge) { lastCharge = player.charge; chargeEl.style.setProperty('--c', lastCharge); chargeEl.classList.toggle('on', lastCharge > 0); chargeEl.classList.toggle('full', lastCharge >= 1); }
     const wdt = Q.get('freeze') ? 0 : dt;   // 확인용: 날씨·바람의 시간을 멈춘다(두 장을 찍어 깜빡이는 면을 찾을 때)
     weather.update(wdt, camera);
     for (const f of ticks) f(weather.t, wdt);
@@ -235,14 +286,7 @@ async function init() {
     indoor += (cover.enclosure(p.x, p.y, p.z) - indoor) * (1 - Math.exp(-dt * 5));
     sound.update(weather.cur.rain, 0.015 + weather.windNow * 0.11, indoor);
     lampT -= dt;
-    if (lampT <= 0) {   // 가까운 등불 여섯 개만 켠다
-      lampT = 0.25;
-      const near = lights.map(l => [l, (l[0] - p.x) ** 2 + (l[1] - p.y) ** 2 * 4 + (l[2] - p.z) ** 2]).sort((a, b) => a[1] - b[1]);
-      lamps.forEach((L, i) => {
-        const l = near[i] && near[i][1] < 45 * 45 ? near[i][0] : null;
-        if (l) { L.position.set(l[0], l[1], l[2]); L.intensity = l[3] ?? 14; L.distance = l[4] ?? 16; } else L.intensity = 0;
-      });
-    }
+    if (lampT <= 0) { lampT = 0.25; placeLamps(p); }
     hudT -= dt;
     if (hudT <= 0 && started) {
       hudT = 0.2;
@@ -254,7 +298,7 @@ async function init() {
         $('#placeCard').classList.remove('flash'); void $('#placeCard').offsetWidth; $('#placeCard').classList.add('flash');
       }
     }
-    renderer.render(scene, camera);
+    if (toonOn) toon.render(scene, camera); else renderer.render(scene, camera);
   }
   frame();
   if (Q.get('stats')) setTimeout(() => {   // 확인용: 그린 삼각형 수와 한 장 그리는 데 걸린 시간

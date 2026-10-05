@@ -4,7 +4,7 @@ import { Builder, addCollider, mat4, rng, tube, wall } from './build.js';
 import { mat, M, textMat } from './materials.js';
 import { gableRoof, hipRoof, coneRoof, tilePanel, beamBetween, roundWall, railing, noren, signBoard, lantern } from './arch.js';
 import { bushGeometry } from './flora.js';
-import { LOT, ROADS, CLIFF, WALL } from './layout.js';
+import { LOT, ROADS, CLIFF, WALL, UCHIHA } from './layout.js';
 
 export const RECTS = [];   // 지은 집의 자리(나무 심을 때 피한다)
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -28,7 +28,7 @@ function face(B, ox, oy, oz, ry) {
   return f;
 }
 
-function makeKit() {
+export function makeKit() {
   const K = {};
   K.dark = mat('plain', 0x26323a, { rough: 0.18, metal: 0.25 });      // 안이 어두운 유리창
   K.wood = M.beam; K.woodL = M.beamLight;
@@ -107,7 +107,7 @@ function waterTank(B, K, x, y, z, s = 1) {
 }
 
 /* ---------- 네모 집 ---------- */
-function boxHouse(B, K, s, R, glows) {
+export function boxHouse(B, K, s, R, glows) {
   const { x0, z0, x1, z1, front } = s, floors = s.floors, H = floors * 3.0 + 0.3;
   const wm = mat('plaster', WALLS[s.wall]), tile = mat('tile', ROOFS[s.roof]);
   B.box(wm, x0, 0, z0, x1, H, z1);
@@ -235,15 +235,17 @@ function planHouses(R, mobile) {
     const w = Math.min(rect[2] - rect[0], rect[3] - rect[1]);
     const round = w > 7 && Math.abs((rect[2] - rect[0]) - (rect[3] - rect[1])) < 2.5 && R() < 0.3;
     const kindR = R();
-    out.push({
+    // 우치하 구역에 걸친 집은 난수는 그대로 쓰되 세우지 않는다(다른 집들의 모습이 바뀌지 않게)
+    const s = { gone: rect[0] < UCHIHA.x1 + 0.5 && rect[2] > UCHIHA.x0 - 0.5 && rect[1] < UCHIHA.z1 + 0.5 && rect[3] > UCHIHA.z0 - 0.5 };
+    out.push(Object.assign(s, {
       rect, x0: rect[0], z0: rect[1], x1: rect[2], z1: rect[3], front, round,
       floors: round ? 2 + Math.floor(R() * 2.4) : 1 + Math.floor(R() * 2.3) + (mainSt && R() < 0.5 ? 1 : 0),
       wall: Math.floor(R() * WALLS.length), roof: Math.floor(R() * ROOFS.length),
       roofKind: round ? (R() < 0.35 ? 'flat' : 'cone') : kindR < 0.5 ? 'gable' : kindR < 0.78 ? 'hip' : 'flat',
       shop: R() < (mainSt ? 0.75 : 0.3) ? SHOPS[shopI++ % SHOPS.length] : null,
       seed: Math.floor(R() * 1e6),
-    });
-    RECTS.push(rect);
+    }));
+    rect.gone = s.gone; RECTS.push(rect);
     return true;
   };
   ROADS.forEach((rd, ri) => {
@@ -291,7 +293,9 @@ function buildWall(scene, K, glows) {
   }
   const ridge = []; for (let i = 0; i <= N; i++) { const a = a0 + (a1 - a0) * i / N; ridge.push(V(WALL.cx + Math.cos(a) * r, 9.95, WALL.cz + Math.sin(a) * r)); }
   B.geo(tile, tube(ridge, 0.16, 8, true));
-  { const g = new THREE.RingGeometry(r - 1.75, r + 1.75, 150, 1, a0, a1 - a0); g.rotateX(Math.PI / 2); B.geo(K.wood, g, mat4(WALL.cx, 8.98, WALL.cz)); }
+  // 기와 밑널: 정문 자리는 비운다(이어 두면 문루 앞으로 튀어나와 "忍" 판을 가로지른다). 끝은 붉은 기둥 속에 묻힌다
+  const gp = 7.3 / r;
+  for (const [p, q] of [[a0, Math.PI / 2 - gp], [Math.PI / 2 + gp, a1]]) { const g = new THREE.RingGeometry(r - 1.75, r + 1.75, 75, 1, p, q - p); g.rotateX(Math.PI / 2); B.geo(K.wood, g, mat4(WALL.cx, 8.98, WALL.cz)); }
 
   // 정문: 붉은 기둥과 문루 지붕, 활짝 열린 초록 문짝(あ·ん)
   const gz = WALL.gateZ, gx = 6.2;
@@ -383,6 +387,7 @@ function buildProps(scene, K, R) {
     if (R() > 0.3) continue;
     const x = R() < 0.5 ? r[0] - 0.57 : r[2] + 0.57, z = r[1] + 1 + R() * (r[3] - r[1] - 2);
     if (ROADS.some(d => x > d[0] - 0.4 && x < d[2] + 0.4 && z > d[1] - 0.4 && z < d[3] + 0.4)) continue;
+    if (r.gone) { R(); R(); continue; }   // 우치하 구역에 걸려 세우지 않은 집: 난수 차례만 맞춘다
     barrel(x, z); if (R() < 0.6) barrel(x, z + 0.68); if (R() < 0.5) crate(x, z - 0.8, 0.6);
   }
   B.finish(scene);
@@ -390,7 +395,7 @@ function buildProps(scene, K, R) {
 
 export async function build(scene, ctx) {
   const R = rng(777), K = makeKit(), glows = [];
-  const plan = planHouses(R, ctx.mobile);
+  const plan = planHouses(R, ctx.mobile).filter(s => !s.gone);
   // 방향별로 묶어 한 덩어리씩 만든다(등 뒤의 집은 그리지 않게)
   const SECT = 12, groups = Array.from({ length: SECT }, () => []);
   for (const s of plan) {

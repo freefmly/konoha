@@ -272,7 +272,7 @@ function buildCliff(scene, mobile) {
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
   const t = mat('rock');
-  const m = weatherize(new THREE.MeshStandardMaterial({ color: 0xd6b07c, map: t.map, normalMap: t.normalMap, roughness: 0.93, vertexColors: true }));
+  const m = weatherize(new THREE.MeshStandardMaterial({ color: 0xd6b07c, map: t.map, normalMap: t.normalMap, roughness: 0.93, vertexColors: true }), { flat: true });
   const mesh = new THREE.Mesh(g, m);
   mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
   scene.add(mesh);

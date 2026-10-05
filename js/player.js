@@ -1,8 +1,10 @@
-// 걷는 사람 — 1인칭 시점. WASD로 걷고, Shift로 달리고, Space로 뛴다. 벽에 막히고 계단을 오른다.
+// 걷는 사람 — 1인칭 시점. WASD로 걷고, Shift로 달리고, Space로 뛴다(길게 누르면 힘을 모아 지붕 높이까지). 벽에 막히고 계단을 오르고 지붕을 밟는다.
 import * as THREE from '../vendor/three.module.js';
-import { collidersNear } from './build.js';
+import { collidersNear, roofAt } from './build.js';
 
 const RAD = 0.34, HEIGHT = 1.75, EYE = 1.62, STEP = 0.5, WALK = 4.6, RUN = 9.5, JUMP = 6.4, GRAV = 20;
+// 모아 뛰기: HOLD초 넘게 누르고 있으면 힘이 모이기 시작해 CHARGE초 만에 가득 찬다. 가득 모으면 LEAP_H(m)까지 솟는다.
+const HOLD = 0.14, CHARGE = 0.9, JUMP_H = JUMP * JUMP / (2 * GRAV), LEAP_H = 13.5;
 
 export class Player {
   constructor(camera, dom, terrain) {
@@ -11,6 +13,7 @@ export class Player {
     this.yaw = 0; this.pitch = 0; this.eyeY = 0; this.grounded = false; this.locked = false; this.bob = 0;
     this.keys = {}; this.near = [];
     this.touchMode = false; this.touch = { x: 0, z: 0, run: false }; this.jumpQueued = false;   // 터치: 조이스틱 기울기, 달리기, 뛰기 예약
+    this.jumpHeld = false; this.hold = 0; this.charge = 0; this.dip = 0;   // 뛰기 단추를 누르고 있는가, 누른 시간, 모인 힘(0~1), 착지 때 무릎 굽힘
     addEventListener('keydown', e => { this.keys[e.code] = true; if (this.locked && ['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault(); });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
@@ -43,7 +46,8 @@ export class Player {
     let g = this.terrain(x, z);
     const r = RAD * 0.8;
     for (const c of collidersNear(x - r, z - r, x + r, z + r, this.near)) if (c[4] <= feet + STEP + 0.01 && c[4] > g) g = c[4];
-    return g;
+    const rh = roofAt(x, z, feet + STEP + 0.01);   // 기와지붕
+    return rh > g ? rh : g;
   }
 
   blocked(x, z, feet) {
@@ -72,7 +76,15 @@ export class Player {
     const wx = (fx * c + fz * s) / len * sp, wz = (-fx * s + fz * c) / len * sp;
     const a = 1 - Math.exp(-dt * (this.grounded ? 12 : 2.5));
     v.x += (wx - v.x) * a; v.z += (wz - v.z) * a;
-    if (this.locked && (k.Space || this.jumpQueued) && this.grounded) { v.y = JUMP; this.grounded = false; }
+    // 뛰기: 단추를 떼는 순간 뛴다. 짧게 누르면 보통 뛰기, 누르고 있으면 힘이 모여 더 높이 솟는다.
+    const held = this.locked && (k.Space || this.jumpHeld);
+    if (held && this.grounded) this.hold += dt;
+    else {
+      if (this.locked && !held && this.hold > 0 && this.grounded) { v.y = Math.sqrt(2 * GRAV * (JUMP_H + (LEAP_H - JUMP_H) * this.charge)); this.grounded = false; }
+      this.hold = 0;
+    }
+    this.charge = Math.min(1, Math.max(0, (this.hold - HOLD) / CHARGE));
+    if (this.locked && this.jumpQueued && this.grounded) { v.y = JUMP; this.grounded = false; }
     this.jumpQueued = false;
     v.y -= GRAV * dt;
 
@@ -91,7 +103,10 @@ export class Player {
       for (const cc of collidersNear(p.x - RAD * 0.8, p.z - RAD * 0.8, p.x + RAD * 0.8, p.z + RAD * 0.8, this.near))
         if (cc[1] >= p.y + HEIGHT - 0.05 && cc[1] < ny + HEIGHT) { ny = cc[1] - HEIGHT; v.y = 0; }
     }
-    if (ny <= g || (this.grounded && v.y <= 0 && p.y - g <= STEP && p.y >= g)) { p.y = g; v.y = 0; this.grounded = true; }
+    if (ny <= g || (this.grounded && v.y <= 0 && p.y - g <= STEP && p.y >= g)) {
+      if (!this.grounded && v.y < -9) this.dip = Math.min(0.42, -v.y * 0.02);   // 높은 데서 내려서면 무릎을 굽혀 받아 낸다(다치지 않는다)
+      p.y = g; v.y = 0; this.grounded = true;
+    }
     else { p.y = ny; this.grounded = false; }
     if (p.y < -60) this.place(0, 0, 150, 0);
 
@@ -100,7 +115,8 @@ export class Player {
     if (Math.abs(p.y - this.eyeY) > 1.2) this.eyeY = p.y;
     const speed = Math.hypot(v.x, v.z);
     if (this.grounded && speed > 0.5) this.bob += dt * speed * 1.55;
-    this.sync(this.grounded ? Math.sin(this.bob * 2) * 0.028 * Math.min(1, speed / WALK) : 0);
+    this.dip *= Math.exp(-dt * 7);
+    this.sync((this.grounded ? Math.sin(this.bob * 2) * 0.028 * Math.min(1, speed / WALK) : 0) - this.dip - this.charge * 0.16);   // 힘을 모으는 동안 몸을 낮춘다
   }
 
   sync(bob = 0) {

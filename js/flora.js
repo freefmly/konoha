@@ -2,7 +2,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { tube, mergeGeos, rng, addCollider, mat4 } from './build.js';
 import { mat, M } from './materials.js';
-import { LOT, ROADS, CLIFF, WALL } from './layout.js';
+import { LOT, ROADS, CLIFF, WALL, inUchiha } from './layout.js';
 import { terrainH } from './village.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -140,7 +140,8 @@ export async function build(scene, ctx) {
 
   // 마을 안 나무: 집과 길 사이 빈 땅에
   const bigM = [[], [], []];
-  const addBig = (x, z, s, k = Math.floor(R() * 3)) => { bigM[k].push(place(x, z, s)); const r = 0.5 * s; addCollider(x - r, 0, z - r, x + r, 6, z + r); };
+  // 우치하 구역 안에 떨어진 나무·덤불·풀은 난수만 쓰고 심지 않는다(다른 나무들의 자리가 바뀌지 않게)
+  const addBig = (x, z, s, k = Math.floor(R() * 3)) => { const m = place(x, z, s); if (inUchiha(x, z, 2)) return; bigM[k].push(m); const r = 0.5 * s; addCollider(x - r, 0, z - r, x + r, 6, z + r); };
   let tries = 0;
   const spots = [];
   while (spots.length < (MB ? 20 : 38) && tries++ < 6000) {
@@ -197,7 +198,7 @@ export async function build(scene, ctx) {
     if (!inVillage(x, z) || !free(x, z, 0.9)) continue;
     const nearWall = rects.some(r => inRect(x, z, r, 2.6)) || ROADS.some(r => inRect(x, z, r, 3));
     if (!nearWall && R() < 0.8) continue;
-    bushM[nb % 2].push(place(x, z, 0.8 + R() * 0.7)); nb++;
+    const bm = place(x, z, 0.8 + R() * 0.7); if (!inUchiha(x, z, 1)) bushM[nb % 2].push(bm); nb++;
   }
   const twig = mat('bark', 0x6e5a40);
   bush.forEach((g, i) => { if (!bushM[i].length) return; instanced(scene, g.wood, twig, bushM[i], false); instanced(scene, g.leaves, mat('leaf', greens[i + 1]), bushM[i]); });
@@ -205,10 +206,11 @@ export async function build(scene, ctx) {
   // 풀포기: 풀밭 여기저기
   const tuft = tuftGeometry(3), tuftM = [];
   tries = 0;
-  while (tuftM.length < (MB ? 700 : 2600) && tries++ < 30000) {
+  let nTuft = 0;
+  while (nTuft < (MB ? 700 : 2600) && tries++ < 30000) {
     const x = (R() - 0.5) * 360, z = WALL.cz + (R() - 0.5) * 360;
     if (!inVillage(x, z) || !free(x, z, 0.5)) continue;
-    tuftM.push(place(x, z, 0.8 + R() * 1.1));
+    const tm = place(x, z, 0.8 + R() * 1.1); nTuft++; if (!inUchiha(x, z, 0.5)) tuftM.push(tm);
   }
   instanced(scene, tuft, mat('leaf', 0x5c9a3a), tuftM, false);
 
