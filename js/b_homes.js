@@ -1,4 +1,4 @@
-// 사쿠라의 집(하루노 집안의 2층 살림집)과 이노의 집(야마나카 꽃집) — 두 채를 여기서 함께 짓는다.
+// 사쿠라의 집(하루노 집안의 2층 살림집), 이노의 집(야마나카 꽃집), 쵸지의 집(아키미치 집안의 살림집) — 가구와 꾸밈 도구를 함께 쓴다.
 import * as THREE from '../vendor/three.module.js';
 import { Builder, wall, stairs, tube, mergeGeos, mat4, rng, addCollider } from './build.js';
 import { mat, M, textMat } from './materials.js';
@@ -711,6 +711,188 @@ function buildSakura(B, R, out) {
   out.lights.push([36, 2.6, 69.5, 15, 17], [42.4, 2.6, 68.5, 14, 15], [36.2, 5.5, 72.4, 14, 15], [39.6, 5.5, 66, 13, 15]);
 }
 
+/* ============================ 쵸지의 집 ============================
+   아키미치 집안의 2층 살림집(집 좌표: x 0~16, z 0~13, 남쪽이 앞). 아버지 쵸자가 일족의 우두머리라 여느 집보다 크고, 무엇보다 식당과 부엌이 넓다.
+   1층: 큰 식당(긴 식탁·다다미 자리) | 부엌 | 현관과 계단 / 2층: 쵸지의 방 | 부모의 다다미방 | 복도. 집 안 꾸밈은 원작에 없어 일족의 특징에서 지어냈다. */
+function buildChoji(B, R, out) {
+  const X0 = 0, X1 = 16, Z0 = 0, Z1 = 13, T = 0.2, F1 = 0.4, F2 = 3.4, CE = 6.1, TOP = 6.2, wl = P.cream;
+  const { glows } = out;
+  const yel = mat('plain', 0xe8b83a), orange = mat('plain', 0xd9722a);
+  // 아키미치 문장(원 안에 세로줄 셋과 엇갈린 빗금)
+  const crest = textMat('   ', { w: 256, h: 256, bg: '#f3ead6', color: '#f3ead6', draw: (g, w, h) => {
+    g.strokeStyle = '#1a1410'; g.lineWidth = 24; g.beginPath(); g.arc(w / 2, h / 2, 104, 0, 7); g.stroke();
+    g.save(); g.beginPath(); g.arc(w / 2, h / 2, 104, 0, 7); g.clip(); g.lineWidth = 22;
+    for (const [a, b, c, d] of [[128, 10, 128, 246], [62, 46, 62, 210], [194, 46, 194, 210], [62, 46, 194, 210], [194, 46, 62, 210]]) { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); }
+    g.restore();
+  } });
+  // 바깥벽(아래위층 한 번에)과 창
+  side(B, wl, 'x', Z0, Z0 + T, X0, X1, 0, TOP, -1, [[2, 4.5, 1.3, 2.7], [2, 4.5, 4.3, 5.7], [6, 8.5, 1.3, 2.7], [6, 8.5, 4.3, 5.7], [11.5, 13.5, 1.5, 2.6], [11.5, 13.5, 4.3, 5.7]]);
+  side(B, wl, 'x', Z1 - T, Z1, X0, X1, 0, TOP, 1, [[1.4, 3.8, 1.3, 2.7], [1.4, 3.8, 4.3, 5.7], [5.6, 8, 1.3, 2.7], [5.6, 8, 4.3, 5.7], [11.5, 12.7, 0, 2.4, 'd'], [11.5, 12.7, 4.3, 5.7]]);
+  side(B, wl, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, TOP, -1, [[2, 4, 1.3, 2.7], [2, 4, 4.3, 5.7], [7.6, 10, 1.3, 2.7], [7.6, 10, 4.3, 5.7]]);
+  side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
+  trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
+  for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
+  gableRoof(B, P.roofS, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+
+  // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
+  B.box(M.floor, X0 + T, 0, Z0 + T, 10, F1, Z1 - T); B.box(M.floor, 10, 0, Z0 + T, X1 - T, F1, 11.5);
+  B.box(M.pave, 10, 0, 11.5, X1 - T, 0.12, Z1 - T); B.box(M.beam, 10, 0.12, 11.47, X1 - T, F1 + 0.025, 11.53, false);
+  B.box(M.pave, 11.1, 0, Z1 - T - 0.02, 13.1, 0.135, 14.2);
+  B.box(M.floor, X0 + T, 3.2, Z0 + T, 14.4, F2, Z1 - T); B.box(M.floor, 14.4, 3.2, Z0 + T, X1 - T, F2, 6.4); B.box(M.floor, 14.4, 3.2, 10.9, X1 - T, F2, Z1 - T);
+  B.box(M.beamLight, X0 + T, CE, Z0 + T, X1 - T, TOP, Z1 - T);
+  // 1층 칸막이: 식당 | 부엌·현관, 부엌 | 현관. 계단은 동쪽 벽을 따라 북으로 오른다
+  wall(B, M.white, 'z', 9.8, 10, Z0 + T, Z1 - T, F1, 3.2, [{ u0: 2.2, u1: 5.2, ys: [[F1, 2.7]] }, { u0: 8.6, u1: 10, ys: [[F1, 2.6]] }]);
+  wall(B, M.white, 'x', 6.2, 6.4, 10, X1 - T, F1, 3.2, [{ u0: 11, u1: 12.3, ys: [[F1, 2.6]] }]);
+  doorUnit(B, 'z', 9.8, 10, 2.2, 5.2, F1, 2.7, { leaf: null }); doorUnit(B, 'z', 9.8, 10, 8.6, 10, F1, 2.6, { leaf: null }); doorUnit(B, 'x', 6.2, 6.4, 11, 12.3, F1, 2.6, { leaf: null });
+  B.box(M.white, 14.25, F1, 6.4, 14.4, 3.2, 10.6);
+  stairs(B, M.floor, 'z', 6.4, 1, F1, F2, 14.4, X1 - T, 0.3);
+  beamBetween(B, M.beam, V3(14.46, F1 + 1.1, 10.5), V3(14.46, F2 + 0.9, 6.5), 0.05, 0.06);
+  railing(B, M.beamLight, [[14.3, 6.5], [14.3, 10.95], [X1 - T, 10.95]], F2, 1.0);
+  // 2층 칸막이: 쵸지의 방(남서) | 부모의 다다미방(북서) | 복도(동)
+  wall(B, M.white, 'z', 9.8, 10, Z0 + T, Z1 - T, F2, CE, [{ u0: 2.4, u1: 3.8, ys: [[F2, 5.6]] }, { u0: 8.2, u1: 9.5, ys: [[F2, 5.6]] }]);
+  wall(B, M.white, 'x', 5.8, 6, X0 + T, 9.8, F2, CE);
+  doorUnit(B, 'z', 9.8, 10, 8.2, 9.5, F2, 5.6, { leaf: 'swing', inward: -1 });
+  doorUnit(B, 'z', 9.8, 10, 2.4, 3.8, F2, 5.6, { leaf: 'slide', inward: -1, paper: true });
+  // 현관문과 포렴(食), 문 위 눈썹지붕, 벽의 문장
+  doorUnit(B, 'x', Z1 - T, Z1, 11.5, 12.7, 0.12, 2.4, { leaf: 'swing', inward: -1 });
+  noren(B, 'x', Z1 + 0.14, 11.5, 12.7, 2.36, 0.62, ' 食 ', { color: '#b5303a' });
+  const pv = V3(0, 0.45, -1.2).normalize();
+  tilePanel(B, P.roofS, V3(10.8, 2.65, 14.2), V3(1, 0, 0), pv, 2.6, Math.hypot(0.45, 1.2));
+  beamBetween(B, M.beam, V3(12.1, 2.6, 14.2), V3(12.1, 3.05, 13), 2.6, 0.04);
+  beamBetween(B, M.beam, V3(10.8, 2.58, 14.2), V3(13.4, 2.58, 14.2), 0.07, 0.12);
+  for (const x of [10.95, 13.25]) { beamBetween(B, M.beam, V3(x, 2.1, 13.02), V3(x, 2.56, 14.1), 0.07, 0.09); B.box(M.beam, x - 0.035, 2.0, Z1, x + 0.035, 3.0, Z1 + 0.06, false); }
+  B.geo(M.beam, cyl(0.52, 0.52, 0.05, 28).rotateX(PI / 2), mat4(9.6, 1.95, Z1 + 0.03)); B.geo(crest, new THREE.CircleGeometry(0.47, 28), mat4(9.6, 1.95, Z1 + 0.058));
+
+  /* 1층 식당: 여덟이 앉는 긴 식탁에 그릇이 그득하다 */
+  {
+    const L = local(B, 5, F1, 4.3, 0);
+    table(L, 3.6, 1.25);
+    for (const u of [-1.3, -0.45, 0.45, 1.3]) { chair(local(B, 5 + u, F1, 4.3 - 0.95, 0), P.red); chair(local(B, 5 + u, F1, 4.3 + 0.95, 2), P.red); }
+    for (let i = 0; i < 8; i++) {   // 자리마다 밥그릇과 접시, 가운데에는 큰 접시들
+      const u = [-1.3, -0.45, 0.45, 1.3][i % 4], v = i < 4 ? -0.4 : 0.4;
+      L.put(P.porcelain, G.bowl, u - 0.12, 0.74, v); L.put(P.white, G.ball, u - 0.12, 0.79, v, 0, 0.05); L.put(P.porcelain, G.plate, u + 0.14, 0.74, v, 0, 0.8);
+    }
+    for (let i = 0; i < 5; i++) { const u = -1.4 + i * 0.7; L.put(P.blue, G.plate, u, 0.74, 0, 0, 1.25); for (let k = 0; k < 5; k++) L.put([orange, P.terra, yel, P.green, P.red][(i + k) % 5], G.ball, u + Math.cos(k * 1.26) * 0.07, 0.775, Math.sin(k * 1.26) * 0.07, 0, 0.032); }
+    L.put(M.beamLight, cyl(0.2, 0.17, 0.2, 14), 1.72, 0.84, 0); L.put(M.beam, cyl(0.21, 0.21, 0.03, 14), 1.72, 0.955, 0);   // 밥통
+    teaSet(L, -1.72, 0.74, 0, 2);
+    B.box(M.tatami, 0.6, F1, 8.2, 6.6, F1 + 0.03, 12.5, false);                    // 다다미 자리와 둥근 밥상
+    const T2 = local(B, 3.6, F1 + 0.03, 10.4, 0);
+    lowTable(T2, 0.7); teaSet(T2, -0.2, 0.34, 0.1, 3);
+    T2.put(P.terra, G.bowl, 0.25, 0.34, -0.1, 0, 1.8); for (let k = 0; k < 6; k++) T2.put(yel, G.ball, 0.25 + Math.cos(k) * 0.05, 0.4, -0.1 + Math.sin(k) * 0.05, 0, 0.03);   // 과자 그릇
+    [[0, -1.05, P.red], [0, 1.05, orange], [-1.05, 0, P.red], [1.05, 0, orange]].forEach(([u, v, m], i) => T2.put(m, G.zabuton, u, 0.04, v, i * 0.2, 1.15));
+    tansu(local(B, X0 + T, F1, 6.6, 1), 1.6, 0.45, 0.82, 3);
+    photo(B, teamPhoto('    ', [[0.2, 0.44, '#2a2420', '#5a6b4a', 'tail'], [0.45, 0.5, '#9a5a32', '#b5303a', 'big'], [0.72, 0.46, '#e8c860', '#6a4a8a', 'pony']]), 0.42, F1 + 0.98, 6.4, PI / 2, 0.3, 0.22, 0.2);
+    bookcase(local(B, 9.8, F1, 6.6, 3), 1.5, 0.34, 1.8, ['books', 'pots', 'books', 'vases'], R);
+    kakejiku(B, '食', 5, F1 + 1.75, Z0 + T + 0.01, 0, 0.42, 1.0, P.red);
+    potOf(B, F.broad, 0.7, F1, 12.3, 1.8); addCollider(0.5, F1, 12.1, 0.9, F1 + 0.8, 12.5);
+    lamp(B, 3.6, 3.2, 4.3, glows); lamp(B, 6.6, 3.2, 4.3, glows); lamp(B, 3.6, 3.2, 10.4, glows);
+  }
+  /* 부엌: 개수대와 화구, 냉장고 둘, 쌀자루 무지 */
+  {
+    cabinet(local(B, 10.85, F1, Z0 + T, 0), 1.3, 0.6, 0.85, 2, P.steel);
+    sinkUnit(local(B, 12.5, F1, Z0 + T, 0), 2.0, 0.6, 0.85);
+    cabinet(local(B, 14.35, F1, Z0 + T, 0), 1.7, 0.6, 0.85, 3, P.steel, true);
+    B.box(P.steel, 15.2, F1 + 0.81, Z0 + T, X1 - T, F1 + 0.85, 0.8, false); B.box(M.beamLight, 15.2, F1, Z0 + T, X1 - T, F1 + 0.81, 0.8, false);
+    const E = local(B, X1 - T, F1, 2.4, 3);
+    cabinet(E, 3.0, 0.6, 0.85, 4, P.steel);
+    stove(E, -0.6, 0.85, 0.3); stove(E, 0.5, 0.85, 0.3);
+    E.box(P.steel, -1.0, 1.85, 0, 0.9, 2.0, 0.5); E.box(P.steel, -0.4, 2.0, 0, 0.3, 2.8, 0.3);        // 연기 덮개
+    E.box(M.iron, -1.3, 1.72, 0.02, 1.3, 1.76, 0.05);                                                  // 걸이 봉에 건 국자·그릇
+    for (let i = 0; i < 5; i++) { E.box(M.iron, -1.1 + i * 0.5, 1.42, 0.03, -1.09 + i * 0.5, 1.72, 0.04); E.put(P.steel, i % 2 ? G.plate : G.bowl, -1.095 + i * 0.5, 1.4, 0.05, 0, 0.6, PI / 2); }
+    const N = local(B, 10.85, F1, Z0 + T, 0);                                                          // 벽 선반의 그릇
+    for (const y of [1.45, 1.8]) { N.box(M.beam, -0.6, y - 0.03, 0, 0.6, y, 0.26); for (const u of [-0.5, 0.5]) N.box(M.beam, u - 0.015, y - 0.16, 0, u + 0.015, y - 0.03, 0.2); }
+    for (let i = 0; i < 4; i++) { for (let j = 0; j < 5; j++) N.put(P.porcelain, G.bowl, -0.42 + i * 0.28, 1.45 + j * 0.022, 0.13); N.put(i % 2 ? P.blue : P.porcelain, G.cup, -0.45 + i * 0.3, 1.8, 0.12, 0, 1.2); }
+    N.put(P.white, lathe([[0, 0], [0.16, 0], [0.17, 0.16], [0.13, 0.26], [0.04, 0.28], [0, 0.28]], 12), -0.3, 0.85, 0.3);   // 큰 밥솥
+    fridge(local(B, 13.3, F1, 6.2, 2), 0.85, 0.7, 1.8); fridge(local(B, 14.3, F1, 6.2, 2), 0.85, 0.7, 1.8);
+    for (let i = 0; i < 5; i++) B.put(P.kraft, G.sack, 15.2, F1 + 0.1 + (i >> 1) * 0.2, 4.6 + (i % 2) * 0.5 + (i === 4 ? 0.25 : 0), PI / 2);   // 쌀자루
+    addCollider(14.8, F1, 4.3, 15.7, F1 + 0.7, 5.5);
+    lamp(B, 12.8, 3.2, 3.2, glows);
+  }
+  /* 현관과 복도 */
+  {
+    const S = local(B, X1 - T, 0.12, 12.2, 3);
+    cabinet(S, 1.0, 0.38, 0.9, 2);
+    [[11.0, 11.85, 0.1, P.blue, 1.35], [10.6, 11.9, -0.1, P.red, 1.1], [13.3, 11.9, -0.2, orange, 1.2]].forEach(([x, z, r, m, s]) => { for (const k of [-1, 1]) B.put(m, G.sandal, x + k * 0.08 * s, 0.12, z, PI + r + k * 0.06, s); });
+    B.geo(M.beamLight, cyl(0.03, 0.03, 2.3, 8), mat4(10.3, 1.25, 12.55, 0, 0, 0.12));                 // 문간에 세워 둔 봉
+    lamp(B, 12.3, 3.2, 9.2, glows, 0.45);
+  }
+  /* 2층 — 쵸지의 방: 침대와 책상, 과자 봉지가 여기저기 */
+  {
+    bed(local(B, 1.5, F2, 6.78, 1), 1.35, 2.0, P.green);
+    const nt = local(B, 3.0, F2, 6.0, 0);
+    tansu(nt, 0.5, 0.42, 0.5, 2);
+    photo(B, teamPhoto('     ', [[0.16, 0.5, '#2a2420', '#5a6b4a', 'tail'], [0.38, 0.52, '#9a5a32', '#b5303a', 'big'], [0.6, 0.5, '#e8c860', '#6a4a8a', 'pony'], [0.84, 0.36, '#2a2420', '#4a6a48', 'spiky']]), 3.0, F2 + 0.63, 6.2, 0, 0.32, 0.24, 0.22);
+    bookcase(local(B, 5.2, F2, 6.0, 0), 1.6, 0.34, 1.9, ['books', 'rolls', 'books', 'scrolls', 'books'], R);
+    wardrobe(local(B, 9.8, F2, 7.0, 3), 1.5, 0.6, 2.0);
+    const D = local(B, 0.62, F2, 9.9, 1);
+    desk(D, 1.5, 0.65); chair(local(B, 1.4, F2, 9.9, 3), P.red);
+    // 과자 봉지: 책상 위, 침대 옆, 깔개 위
+    const bag = (x, y, z, ry, m, s = 1) => B.put(m, G.sack, x, y + 0.09 * s, z, ry, [0.36 * s, 0.9 * s, 0.6 * s]);
+    bag(0.5, F2 + 0.74, 9.6, 0.4, yel, 0.9); bag(0.55, F2 + 0.74, 10.3, -0.3, P.red, 0.9);
+    [[2.5, 7.9, 0.2, yel], [2.8, 8.3, 1.1, P.red], [2.4, 8.5, 2.0, orange], [5.3, 9.9, 0.7, yel], [6.3, 10.6, 2.6, P.red]].forEach(([x, z, r, m]) => bag(x, F2, z, r, m));
+    B.put(P.green, G.tableTop, 5.8, F2 + 0.004, 10.2, 0, [1.3, 0.3, 1.3]); B.put(P.white, G.tableTop, 5.8, F2 + 0.005, 10.2, 0, [1.05, 0.32, 1.05]);   // 둥근 깔개
+    { const Lt = local(B, 5.8, F2 + 0.006, 10.2, 0); lowTable(Lt, 0.5, 0.32);
+      Lt.put(P.terra, G.bowl, 0, 0.32, 0, 0, 2.2); for (let k = 0; k < 9; k++) Lt.put(yel, G.disc, Math.cos(k * 0.7) * 0.07, 0.37 + k * 0.006, Math.sin(k * 0.7) * 0.07, k, 0.045, 0.3);   // 감자칩 그릇
+      Lt.put(P.porcelain, G.cup, 0.3, 0.32, -0.15); }
+    B.put(P.red, G.zabuton, 4.8, F2 + 0.06, 10.6, 0.4, 1.15); B.put(orange, G.zabuton, 6.8, F2 + 0.06, 9.8, 1.1, 1.15);
+    // 벽에 건 봉과 닌자 조끼 걸이
+    B.geo(M.beamLight, cyl(0.028, 0.028, 2.3, 8).rotateX(PI / 2), mat4(9.74, F2 + 1.75, 11.2)); for (const z of [10.3, 12.1]) B.box(M.beam, 9.68, F2 + 1.68, z - 0.02, 9.8, F2 + 1.72, z + 0.02, false);
+    B.geo(crest, new THREE.PlaneGeometry(0.7, 0.7), mat4(7.6, F2 + 1.7, 6.012));
+    potOf(B, F.broad, 0.6, F2, 12.4, 1.5); addCollider(0.4, F2, 12.2, 0.8, F2 + 0.7, 12.6);
+    lamp(B, 5, CE, 9.6, glows);
+  }
+  /* 2층 — 부모의 다다미방: 개어 둔 이부자리, 쵸자의 붉은 갑옷 걸이 */
+  {
+    B.box(M.tatami, X0 + T, F2, Z0 + T, 9.8, F2 + 0.02, 5.8, false);
+    const T2 = local(B, 4.4, F2 + 0.02, 3, 0);
+    lowTable(T2, 0.55); teaSet(T2, 0, 0.34, 0, 2);
+    T2.put(P.red, G.zabuton, -0.95, 0.04, 0, 0, 1.2); T2.put(orange, G.zabuton, 0.95, 0.04, 0, 0, 1.2);
+    tansu(local(B, 2.2, F2, 5.8, 2), 1.4, 0.45, 1.05, 4);
+    for (let i = 0; i < 4; i++) B.put(i % 2 ? P.red : P.white, G.futon, 8.4, F2 + 0.1 + i * 0.15, 0.95, 0, 1.1);
+    B.put(P.white, G.pillow, 8.4, F2 + 0.72, 0.95, 0.2); addCollider(7.5, F2, 0.4, 9.3, F2 + 0.7, 1.5);
+    kakejiku(B, '秋道', 5.25, F2 + 1.55, Z0 + T + 0.01, 0, 0.36, 1.1);
+    // 갑옷 걸이: 나무 틀에 붉은 가슴판과 어깨판, 허리 밧줄
+    { const A = local(B, 0.75, F2, 1.0, 1);
+      A.box(M.beam, -0.03, 0, -0.03, 0.03, 1.5, 0.03); A.box(M.beam, -0.3, 0, -0.2, 0.3, 0.05, 0.2); A.box(M.beam, -0.42, 1.38, -0.025, 0.42, 1.44, 0.025);
+      A.box(P.red, -0.36, 0.72, -0.17, 0.36, 1.38, 0.17); A.box(P.black, -0.37, 0.98, -0.175, 0.37, 1.02, 0.175); A.box(P.black, -0.37, 1.2, -0.175, 0.37, 1.24, 0.175);
+      for (const s of [-1, 1]) A.box(P.red, s * 0.52 - 0.14, 1.12, -0.19, s * 0.52 + 0.14, 1.46, 0.19);
+      A.box(P.kraft, -0.38, 0.62, -0.19, 0.38, 0.72, 0.19); A.put(crest, new THREE.CircleGeometry(0.13, 20), 0, 1.1, 0.176);
+      A.col(-0.6, 0, -0.25, 0.6, 1.5, 0.25); }
+    lamp(B, 4.4, CE, 3, glows);
+  }
+  /* 2층 복도 */
+  {
+    cabinet(local(B, 12.5, F2, Z0 + T, 0), 1.4, 0.4, 0.8, 2);
+    vaseOf(B, R, [F.sun, F.sun, F.cosW], 12.5, F2 + 0.8, 0.4, 3, 1.1, P.terra);
+    potOf(B, F.fern, 10.5, F2, 12.3, 1.6); addCollider(10.3, F2, 12.1, 10.7, F2 + 0.6, 12.5);
+    lamp(B, 12.3, CE, 4, glows);
+  }
+
+  /* 마당: 낮은 돌담과 대문 기둥·문패, 디딤돌, 봉 치는 말뚝, 텃밭 */
+  const gx0 = -3.6, gx1 = 19.6, gz0 = -3.6, gz1 = 19.2;
+  for (const [a, b, c, d] of [[gx0, gz0, gx0 + 0.3, gz1], [gx1 - 0.3, gz0, gx1, gz1], [gx0, gz0, gx1, gz0 + 0.3], [gx0, gz1 - 0.3, 11.0, gz1], [13.2, gz1 - 0.3, gx1, gz1]]) {
+    B.box(M.stone, a, 0, b, c, 0.85, d); B.box(M.concrete, a - 0.04, 0.85, b - 0.04, c + 0.04, 0.93, d + 0.04, false);
+  }
+  for (const x of [10.89, 13.31]) { B.box(M.beam, x - 0.14, 0, gz1 - 0.36, x + 0.14, 1.75, gz1 + 0.06); B.prism(P.roofS, 'z', [[x - 0.2, 1.75], [x + 0.2, 1.75], [x, 1.9]], gz1 - 0.42, gz1 + 0.12); }
+  signBoard(B, '秋道', 10.89, 1.25, gz1 + 0.085, 0, 0.13, 0.36, { vertical: true, both: false, depth: 0.03 });
+  for (let i = 0; i < 6; i++) B.put(M.pave, G.stone, 12.1 + (i % 2 ? 0.14 : -0.12), 0, 18.3 - i * 0.78, i * 1.3, [1 + (i % 3) * 0.12, 1, 0.9 + (i % 2) * 0.2]);
+  for (const x of [3.2, 5.6]) { B.geo(M.beam, cyl(0.16, 0.18, 1.9, 12), mat4(x, 0.95, 16.4)); for (const y of [0.8, 1.2, 1.6]) B.geo(P.kraft, new THREE.TorusGeometry(0.175, 0.03, 5, 14).rotateX(PI / 2), mat4(x, y, 16.4)); addCollider(x - 0.2, 0, 16.2, x + 0.2, 1.9, 16.6); }   // 봉 치는 말뚝
+  B.box(P.soil, 14.4, 0, 14.6, 18.8, 0.07, 18.2, false);                                              // 텃밭
+  for (let i = 0; i < 24; i++) putF(B, i % 3 ? F.fern : F.broad, 14.8 + (i % 6) * 0.72, 0.06, 15.0 + Math.floor(i / 6) * 0.95, R() * 6, 0.5 + R() * 0.2);
+
+  out.places.push(
+    { n: '쵸지의 집', t: '아키미치 집안의 2층 살림집. 아버지 쵸자가 일족의 우두머리다. 포렴에 먹을 식(食) 자.', b: [gx0, gx1, gz0, gz1] },
+    { n: '쵸지네 현관', t: '신을 벗고 마루로 올라선다. 문간에 봉이 세워져 있다.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
+    { n: '쵸지네 식당', t: '여덟이 둘러앉는 긴 식탁. 이 집에서는 밥상이 곧 집의 한가운데다.', b: [0.2, 9.8, 0.2, 12.8], y: [0, 3.2] },
+    { n: '쵸지네 부엌', t: '화구 넷에 냉장고 둘, 구석에는 쌀자루.', b: [10, 15.8, 0.2, 6.2], y: [0, 3.2] },
+    { n: '쵸지의 방', t: '과자 봉지가 여기저기 놓인 방. 머리맡에는 10반 사진, 벽에는 봉.', b: [0.2, 9.8, 6, 12.8], y: [F2, TOP] },
+    { n: '쵸지네 다다미방', t: '쵸지의 부모가 쓰는 방. 구석에 쵸자의 붉은 갑옷이 걸려 있다.', b: [0.2, 9.8, 0.2, 5.8], y: [F2, TOP] },
+    { n: '쵸지네 2층 복도', t: '계단을 오르면 왼쪽 안쪽이 쵸지의 방이다.', b: [10, 15.8, 0.2, 12.8], y: [F2, TOP] },
+  );
+  out.jumps.push(['쵸지의 집 앞', 12.1, 0, 18.4, 0, 55], ['쵸지의 방', 7.2, F2, 11.2, 0.9, 56]);
+  out.lights.push([5, 2.6, 6.5, 16, 18], [12.6, 2.6, 4.5, 14, 15], [5, 5.5, 9.4, 14, 15], [4.6, 5.5, 3, 13, 15]);
+}
+
 /* ============================ 이노의 집 — 야마나카 꽃집 ============================ */
 function buildIno(B, R, out) {
   const X0 = -25, X1 = -11, Z0 = 41, Z1 = 55, T = 0.2, F1 = 0.2, F2 = 3.2, CE = 5.9, TOP = 6.0, wl = M.white;
@@ -914,6 +1096,7 @@ export function build(scene, ctx) {
   const B = new Builder();
   if (!ctx.which || ctx.which === 'sakura') buildSakura(B, rng(4101), out);
   if (!ctx.which || ctx.which === 'ino') buildIno(B, rng(4102), out);
+  if (ctx.which === 'choji') buildChoji(B, rng(4103), out);
   B.finish(scene);
   return out;
 }
