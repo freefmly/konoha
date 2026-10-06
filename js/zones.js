@@ -24,11 +24,15 @@ const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 const segDist = (x, z, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz))); return Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t); };
 const yawTo = (vx, vz) => Math.atan2(-vx, -vz);          // 그 방향을 보는 눈길
 // 제 좌표(벽이 축에 나란한 좌표)로 지은 것을 마을의 제자리에 돌려 놓는다
+// 짓는 동안 등불 빛무리 목록(GLOWS)에 바로 넣은 자리는 제 좌표라서, 놓은 뒤에 마을 좌표로 바꿔 준다(안 바꾸면 빛무리가 마을 원점 — 관저 앞 큰길 — 에 떠 있게 된다).
+let GLOWS = null;
 function put(scene, at, make) {
-  const holder = new THREE.Group(), from = marks(), B = new Builder();
+  const holder = new THREE.Group(), from = marks(), B = new Builder(), g0 = GLOWS ? GLOWS.length : 0;
   const res = make(B) || null;
   B.finish(holder);
-  return settle(scene, holder, from, at, res);
+  const out = settle(scene, holder, from, at, res);
+  if (GLOWS) { const cs = Math.cos(at.ry || 0), sn = Math.sin(at.ry || 0); for (let i = g0; i < GLOWS.length; i++) { const g = GLOWS[i], dx = g[0] - (at.ox || 0), dz = g[2] - (at.oz || 0); GLOWS[i] = [at.x + dx * cs + dz * sn, g[1], at.z - dx * sn + dz * cs, ...g.slice(3)]; } }
+  return out;
 }
 
 /* ============================ 우치하 구역 ============================
@@ -1096,6 +1100,7 @@ const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q 
 
 export async function build(scene, ctx) {
   const out = { places: [], jumps: [], glows: [], ticks: [], eye: ctx.camera };
+  GLOWS = out.glows;
   await ctx.say('우치하 일족의 구역에 담을 두르는 중…');
   uchiha(scene, out);
   await ctx.say('나라 일족의 사슴을 풀어놓는 중…');
