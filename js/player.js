@@ -176,8 +176,9 @@ export class Player {
     if (p.y < -60) this.place(0, 0, WALL.gateZ - 25, 0);
 
     // 눈높이는 부드럽게 따라가서 계단에서 화면이 덜컥거리지 않는다
-    this.eyeY += (p.y - this.eyeY) * (1 - Math.exp(-dt * 16));
-    if (Math.abs(p.y - this.eyeY) > 1.2) this.eyeY = p.y;
+    // 공중에서는 바짝 따라간다 — 느슨하게 따라가면 높이 뛰었다 떨어질 때 눈이 발보다 1m 넘게 뒤처지고, 그 순간 한꺼번에 따라붙어 화면이 툭 끊겼다
+    this.eyeY += (p.y - this.eyeY) * (1 - Math.exp(-dt * (this.grounded ? 16 : 70)));
+    const lag = p.y - this.eyeY; if (Math.abs(lag) > 0.6) this.eyeY = p.y - Math.sign(lag) * 0.6;      // 뒤처짐은 0.6m까지만(한꺼번에 따라붙지 않고 그 거리를 지킨다)
     const speed = Math.hypot(v.x, v.z);
     if (this.grounded && speed > 0.5) this.bob += dt * speed * 1.55;
     this.dip *= Math.exp(-dt * 7);
