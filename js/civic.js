@@ -8,6 +8,7 @@ import { treeGeometry, bushGeometry } from './flora.js';
 import { uchihaKit } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
 import { LOTS, OPEN } from './zones.js';
+import { inPoly } from './village.js';
 
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
 const zone = n => PLAN.zones.find(z => z.n === n);
@@ -656,6 +657,141 @@ function intel(scene, out) {
   out.places.push({ n: '정보부 터', t: '큰길 서쪽, 관저 바로 아래의 자리.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
   out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights);
 }
+/* ============================ 묘지 ============================
+   마을 변두리, 관저 서쪽의 묘지. 마을 사람들이 묻히는 곳.
+   원작(나루토 위키)에 적힌 것: 앞쪽에 "불의 의지"를 나타내는 조형물이 서 있고 그 받침에 "火影"이 새겨져 있다는 것,
+   아스마·린·사쿠모·단·하야테·네지의 무덤이 여기 있다는 것, 아카데미 학생들이 비석을 닦고 꽃을 간다는 것.
+   조형물의 빛깔과 세부 모양, 낮은 돌담과 길의 짜임새, 석등·물 긷는 곳·긴 의자·나무, 이름난 무덤의 자리는 지어낸 것이다.
+   위령비(순직한 닌자의 이름을 새긴 돌)는 여기가 아니라 제3 훈련장 옆에 있는 것이라 두지 않았다. */
+function cemetery(scene, out) {
+  const Z = zone(30), P0 = Z.poly, cg = [P0.reduce((s, p) => s + p[0], 0) / P0.length, P0.reduce((s, p) => s + p[1], 0) / P0.length];
+  const W = P0.map(q => { const l = Math.hypot(cg[0] - q[0], cg[1] - q[1]); return [q[0] + (cg[0] - q[0]) / l * 3.5, q[1] + (cg[1] - q[1]) / l * 3.5]; });   // 담이 서는 줄(길에서 조금 들여서)
+  const G = W[16], dl = Math.hypot(cg[0] - G[0], cg[1] - G[1]), d = [(cg[0] - G[0]) / dl, (cg[1] - G[1]) / dl];     // 문: 관저 쪽 변의 한가운데. d = 문에서 묘지 안으로
+  const at = { x: G[0], z: G[1], ry: Math.atan2(d[0], d[1]) }, cs = Math.cos(at.ry), sn = Math.sin(at.ry);
+  const toL = q => { const dx = q[0] - G[0], dz = q[1] - G[1]; return [dx * cs - dz * sn, dx * sn + dz * cs]; };
+  const PL = W.map(toL), NP = PL.length;                                                                              // 제 좌표로 옮긴 담 줄
+  const edge = (x, z) => { let m = 1e9; for (let i = 0; i < NP; i++) { const a = PL[i], b = PL[(i + 1) % NP], vx = b[0] - a[0], vz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * vx + (z - a[1]) * vz) / (vx * vx + vz * vz))); m = Math.min(m, Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t)); } return m; };
+  const inside = (x, z, pad) => inPoly(x, z, PL) && edge(x, z) > pad;
+  const R = rngOf(3030), STONE = mat('stone', 0xb9b2a2), STONED = mat('stone', 0x8f897c), FLAME = mat('metal', 0x9a3b22, { rough: 0.55 }), MOSS = mat('leaf', 0x4f7a3a);
+  const CROSS = [58, 94, 130];
+  const res = put(scene, at, (B, holder) => {
+    // 낮은 돌담: 문 자리만 비운다
+    for (let i = 0; i < NP; i++) {
+      const a = PL[i], b = PL[(i + 1) % NP], L = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L;
+      let s0 = null;
+      for (let s = 0; s <= L + 0.5; s += 0.5) {
+        const x = a[0] + ux * s, z = a[1] + uz * s, stop = s > L || Math.hypot(x, z) < 3.4;
+        if (!stop && s0 === null) s0 = s;
+        if (stop && s0 !== null) {
+          const e = Math.min(L, s - 0.5) + (s > L ? 0.2 : 0), p0 = V(a[0] + ux * s0, 0.5, a[1] + uz * s0), p1 = V(a[0] + ux * e, 0.5, a[1] + uz * e);
+          beamBetween(B, STONE, p0, p1, 0.42, 1.0); beamBetween(B, STONED, p0.clone().setY(1.05), p1.clone().setY(1.05), 0.56, 0.1);
+          for (let t = s0; t < e; t += 0.5) { const xa = a[0] + ux * t, za = a[1] + uz * t, xb = a[0] + ux * Math.min(e, t + 0.5), zb = a[1] + uz * Math.min(e, t + 0.5); addCollider(Math.min(xa, xb) - 0.2, 0, Math.min(za, zb) - 0.2, Math.max(xa, xb) + 0.2, 1.1, Math.max(za, zb) + 0.2); }
+          s0 = null;
+        }
+      }
+    }
+    // 문기둥
+    for (const s of [-1, 1]) {
+      const q = PL[16 + s], l = Math.hypot(q[0], q[1]), x = q[0] / l * 3.3, z = q[1] / l * 3.3;
+      B.box(STONE, x - 0.45, 0, z - 0.45, x + 0.45, 2.3, z + 0.45); B.box(STONED, x - 0.58, 2.3, z - 0.58, x + 0.58, 2.48, z + 0.58, false);
+      B.geo(STONED, new THREE.ConeGeometry(0.6, 0.5, 4).rotateY(PI / 4), mat4(x, 2.73, z));
+      if (s < 0) signBoard(B, '木ノ葉墓地', x, 1.35, z - 0.48, PI, 0.34, 1.5, { vertical: true, both: false, bg: '#c9c2b2', frame: STONED });
+    }
+    // 길: 문에서 안쪽 끝까지 곧은 길, 가로지르는 길 셋, 조형물 둘레의 둥근 마당
+    let zEnd = 10; while (inside(0, zEnd + 1, 6)) zEnd += 1;
+    B.box(M.pave, -1.8, 0, -3.5, 1.8, 0.035, zEnd, false);
+    for (const cz of CROSS) { let x0 = 0, x1 = 0; while (inside(x0 - 1, cz, 6)) x0 -= 1; while (inside(x1 + 1, cz, 6)) x1 += 1; B.box(M.pave, x0, 0, cz - 1.2, x1, 0.036, cz + 1.2, false); }
+    B.geo(M.pave, new THREE.CircleGeometry(7.5, 56).rotateX(-PI / 2), mat4(0, 0.04, 16), [15, 15]);
+
+    // "불의 의지" 조형물: 여덟모 받침 위에 타오르는 불꽃. 받침 앞에 火影
+    {
+      const cz = 16;
+      B.geo(STONED, cyl(2.5, 2.7, 0.3, 8), mat4(0, 0.15, cz, 0, PI / 8, 0)); B.geo(STONE, cyl(1.9, 2.1, 0.35, 8), mat4(0, 0.475, cz, 0, PI / 8, 0));
+      B.geo(STONE, cyl(1.25, 1.4, 1.0, 8), mat4(0, 1.15, cz, 0, PI / 8, 0)); B.geo(STONED, cyl(1.4, 1.3, 0.14, 8), mat4(0, 1.72, cz, 0, PI / 8, 0));
+      B.geo(textMat('火影', { w: 512, h: 256, bg: '#c9c2b2', color: '#1f1b18' }), new THREE.PlaneGeometry(0.88, 0.5), mat4(0, 1.15, cz - 1.24, -0.134, PI, 0));   // 받침의 기운 면에 맞춰 눕힌다
+      const flame = (x, z, h, r, lean, ph) => {
+        const pts = []; for (let i = 0; i <= 26; i++) { const t = i / 26; pts.push(V(x + lean * t * t * 1.2 + 0.28 * r * Math.sin(t * 5 + ph) * t, 1.75 + h * t, z + 0.22 * r * Math.sin(t * 4 + ph + 1) * t)); }
+        B.geo(FLAME, tube(pts, t => Math.max(0.012, r * Math.pow(Math.sin(PI * Math.pow(t, 0.5)), 0.8) * (1 - 0.3 * t)), 14, true));
+      };
+      flame(0, cz, 4.0, 1.0, 0, 0); flame(-0.75, cz + 0.1, 2.5, 0.6, -0.5, 1.7); flame(0.8, cz - 0.1, 2.9, 0.62, 0.45, 3.1); flame(0.05, cz - 0.55, 1.9, 0.5, 0.05, 4.4); flame(-0.1, cz + 0.6, 2.2, 0.5, -0.1, 5.5);
+      addCollider(-2.4, 0, cz - 2.4, 2.4, 0.3, cz + 2.4); addCollider(-1.8, 0, cz - 1.8, 1.8, 0.65, cz + 1.8); addCollider(-1.2, 0, cz - 1.2, 1.2, 5.5, cz + 1.2);
+      for (const s of [-1, 1]) { B.geo(STONED, cyl(0.16, 0.2, 0.3, 10), mat4(s * 0.8, 0.8, cz - 1.75)); for (let k = 0; k < 5; k++) B.geo(mat('plain', [0xf2efe6, 0xe9c765][k % 2], { rough: 0.8 }), SPH, mat4(s * 0.8 + Math.cos(k * 1.3) * 0.09, 1.05 + (k % 3) * 0.05, cz - 1.75 + Math.sin(k * 1.3) * 0.09, 0, 0, 0, 0.06)); }
+    }
+    // 석등: 길 양옆
+    const lanternAt = (x, z) => {
+      B.geo(STONED, cyl(0.3, 0.36, 0.16, 6), mat4(x, 0.08, z)); B.geo(STONE, cyl(0.11, 0.13, 0.85, 8), mat4(x, 0.58, z)); B.geo(STONED, cyl(0.28, 0.14, 0.14, 6), mat4(x, 1.07, z));
+      B.geo(STONE, box(0.34, 0.3, 0.34), mat4(x, 1.29, z)); B.geo(mat('glow', 0xffd9a0, { power: 0.5 }), box(0.2, 0.18, 0.36), mat4(x, 1.29, z)); B.geo(mat('glow', 0xffd9a0, { power: 0.5 }), box(0.36, 0.18, 0.2), mat4(x, 1.29, z));
+      B.geo(STONED, new THREE.ConeGeometry(0.42, 0.28, 6), mat4(x, 1.58, z)); B.geo(STONED, SPH, mat4(x, 1.76, z, 0, 0, 0, 0.07));
+      addCollider(x - 0.3, 0, z - 0.3, x + 0.3, 1.7, z + 0.3);
+    };
+    for (let z = 4; z < zEnd - 2; z += 18) { if (Math.abs(z - 16) < 9) continue; for (const s of [-1, 1]) lanternAt(s * 2.5, z); }
+    for (const s of [-1, 1]) { lanternAt(s * 6.6, 9.6); lanternAt(s * 6.6, 22.4); }
+    // 물 긷는 곳: 지붕 아래 돌 물확, 나무 물통과 국자, 기대 세운 빗자루(비석을 닦고 꽃을 가는 아카데미 학생들의 것)
+    {
+      const x = 13.5, z = 15;
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) B.box(M.beam, x + sx * 1.3 - 0.07, 0, z + sz * 0.9 - 0.07, x + sx * 1.3 + 0.07, 2.2, z + sz * 0.9 + 0.07);
+      gableRoof(B, mat('tile', 0x4a5560), x - 1.4, z - 1.0, x + 1.4, z + 1.0, 2.2, 0.7, { ridge: 'x', over: 0.5, overGable: 0.4 });
+      B.box(STONE, x - 0.9, 0, z - 0.45, x + 0.5, 0.6, z + 0.45); B.box(M.water, x - 0.78, 0.5, z - 0.33, x + 0.38, 0.62, z + 0.33, false);
+      const pail = lathe([[0, 0], [0.13, 0], [0.16, 0.26], [0.145, 0.26], [0.12, 0.03], [0, 0.03]], 12);
+      for (let k = 0; k < 4; k++) { const px = x + 0.85 + (k % 2) * 0.36, pz = z - 0.3 + Math.floor(k / 2) * 0.4; B.geo(M.beamLight, pail, mat4(px, 0, pz)); B.geo(M.beamLight, new THREE.TorusGeometry(0.14, 0.008, 4, 12, PI), mat4(px, 0.26, pz, 0, k, 0)); }
+      for (let k = 0; k < 3; k++) { B.geo(M.beamLight, cyl(0.012, 0.012, 0.5, 5).rotateZ(PI / 2), mat4(x - 0.3 + k * 0.1, 0.65, z - 0.3 + k * 0.25, 0, 0.3 * k, 0)); B.geo(M.beamLight, cyl(0.05, 0.04, 0.06, 8), mat4(x - 0.55 + k * 0.1, 0.65, z - 0.3 + k * 0.25)); }
+      for (let k = 0; k < 2; k++) { const bx = x - 1.2 + k * 0.18, bz = z + 0.95; beamBetween(B, M.beamLight, V(bx, 0.05, bz + 0.25), V(bx, 1.5, bz), 0.03, 0.03); B.geo(mat('plain', 0xb9925a, { rough: 1 }), new THREE.ConeGeometry(0.13, 0.4, 8), mat4(bx, 0.22, bz + 0.22, -0.16, 0, 0)); }
+    }
+    for (const s of [-1, 1]) benchAt(B, M.beam, s * 9.5, 0, 16, PI / 2, 2.2);
+
+    // 비석: 받침돌·몸돌·덮개돌, 앞에 꽃병 둘과 향 받침. 줄지어 문 쪽을 본다
+    const grave = mergeGeos([[box(1.0, 0.14, 0.72), mat4(0, 0.07, 0)], [box(0.72, 0.5, 0.3), mat4(0, 0.39, 0.1)], [box(0.82, 0.07, 0.4), mat4(0, 0.675, 0.1)], [box(0.5, 0.3, 0.02), mat4(0, 0.39, -0.055)],
+      [cyl(0.05, 0.045, 0.18, 8), mat4(-0.32, 0.23, -0.2)], [cyl(0.05, 0.045, 0.18, 8), mat4(0.32, 0.23, -0.2)], [box(0.26, 0.05, 0.14), mat4(0, 0.165, -0.24)]]);
+    const bloom = mergeGeos([-1, 1].flatMap(s => [0, 1, 2].map(k => [SPH, mat4(s * 0.32 + Math.cos(k * 2.1) * 0.045, 0.4 + k * 0.03, -0.2 + Math.sin(k * 2.1) * 0.045, 0, 0, 0, 0.04)])));
+    const gm = [], fm = [[], [], []];
+    for (let z = 36; z < 175; z += 4.5) {
+      if (CROSS.some(c => Math.abs(z - c) < 3.2)) continue;
+      for (let x = 4.2; x < 110; x += 3) for (const s of [-1, 1]) {
+        const gx = s * x + (R() - 0.5) * 0.12, r = R(), r2 = R();
+        if (!inside(gx, z, 5.5) || r < 0.07) continue;
+        const m = mat4(gx, 0, z, 0, (R() - 0.5) * 0.04, 0, [1, 0.9 + r2 * 0.3, 1]);
+        gm.push(m); if (r > 0.62) fm[Math.floor(r2 * 3)].push(m);
+        addCollider(gx - 0.5, 0, z - 0.36, gx + 0.5, 0.7, z + 0.36);
+      }
+    }
+    const inst = (g, m, list) => { if (!list.length) return; const im = new THREE.InstancedMesh(g, m, list.length); list.forEach((q, i) => im.setMatrixAt(i, q)); im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); holder.add(im); };
+    inst(grave, STONE, gm);
+    [0xf2efe6, 0xe9c765, 0xe58aa0].forEach((hex, i) => inst(bloom, mat('plain', hex, { rough: 0.8 }), fm[i]));
+    // 이름난 무덤: 조형물 뒤 첫 줄
+    const places = [];
+    const NAMED = [[-4.4, '猿飛アスマ', '사루토비 아스마의 무덤', '3대 호카게의 아들이자 제10반의 스승. 아카츠키의 히단과 싸우다 숨졌다.'], [4.4, 'のはらリン', '노하라 린의 무덤', '카카시와 오비토의 동료였던 의료 닌자. 카카시는 틈날 때마다 이 앞에 선다.'],
+      [-8, 'はたけサクモ', '하타케 사쿠모의 무덤', '"나뭇잎의 하얀 송곳니"라 불린 카카시의 아버지.'], [8, '加藤ダン', '카토 단의 무덤', '호카게를 꿈꾸었던 츠나데의 연인. 시즈네의 삼촌.'],
+      [-11.6, '月光ハヤテ', '겟코 하야테의 무덤', '중닌 시험 예선의 심판을 맡았던 특별 상급닌자.'], [11.6, '日向ネジ', '휴가 네지의 무덤', '휴가 분가의 천재. 제4차 닌자대전에서 나루토와 히나타를 지키고 숨졌다.']];
+    NAMED.forEach(([x, kanji, n, t], i) => {
+      const z = 30.5, S = 1.3;
+      B.geo(STONE, grave, mat4(x, 0, z, 0, 0, 0, S));
+      B.geo(textMat(kanji, { w: 128, h: 256, vertical: true, bg: '#c9c2b2', color: '#2a2622' }), new THREE.PlaneGeometry(0.36, 0.56), mat4(x, 0.39 * S, z - 0.068 * S - 0.012, 0, PI, 0));
+      for (const s of [-1, 1]) for (let k = 0; k < 4; k++) { B.geo(mat('plain', 0x4c9440, { rough: 0.7 }), cyl(0.006, 0.006, 0.22, 4), mat4(x + s * 0.32 * S + Math.cos(k * 1.6) * 0.03, 0.44, z - 0.2 * S + Math.sin(k * 1.6) * 0.03)); B.geo(mat('plain', [0xf2efe6, 0xe9c765, 0xe58aa0, 0xb04a8a][(k + i) % 4], { rough: 0.8 }), SPH, mat4(x + s * 0.32 * S + Math.cos(k * 1.6) * 0.045, 0.56 + (k % 2) * 0.04, z - 0.2 * S + Math.sin(k * 1.6) * 0.045, 0, 0, 0, 0.045)); }
+      addCollider(x - 0.65, 0, z - 0.47, x + 0.65, 0.9, z + 0.47);
+      places.push({ n, t, b: [x - 1.6, x + 1.6, z - 3.2, z + 0.8], y: [0, 4] });
+    });
+    // 아스마의 무덤 앞에 놓인 담배 한 갑과 라이터
+    { const p = part(B, -4.4, 0.19, 30.5 - 0.62, 0.3); p(mat('plain', 0xe9e4d6, { rough: 0.7 }), box(0.07, 0.022, 0.1), -0.25, 0.011, 0); p(mat('metal', 0xb4babd, { rough: 0.4 }), box(0.035, 0.05, 0.012), -0.12, 0.025, 0.02); }
+
+    // 나무: 담 안쪽에 드문드문
+    {
+      const tg = treeGeometry(3031, { height: 12, depth: 4, sprays: 5, leaves: 6, leafLen: 0.5 }), tm = [];
+      let tries = 0;
+      while (tm.length < 16 && tries++ < 3000) {
+        const x = (R() - 0.5) * 230, z = R() * 180, e = inside(x, z, 2.2) ? edge(x, z) : 0;
+        if (e < 2.4 || e > 4.6 || Math.hypot(x, z) < 14 || tm.some(q => Math.hypot(q[0] - x, q[1] - z) < 16)) continue;
+        tm.push([x, z]); addCollider(x - 0.5, 0, z - 0.5, x + 0.5, 6, z + 0.5);
+      }
+      const ms = tm.map(([x, z]) => mat4(x, 0, z, 0, R() * 6.28, 0, 0.9 + R() * 0.3));
+      inst(tg.wood, mat('bark', 0x8a7257), ms); inst(tg.leaves, mat('leaf', 0x35702a), ms);
+      for (const [x, z] of tm) B.geo(MOSS, BUSH.leaves, mat4(x + 1.6, 0, z + 0.8, 0, x, 0, 0.9));
+    }
+    places.push({ n: '불의 의지 조형물', t: '마을을 지키려는 뜻, "불의 의지"를 나타낸 조형물. 받침에 火影(호카게) 두 글자가 새겨져 있다.', b: [-8, 8, 8, 24], y: [0, 8] });
+    return { places, jumps: [['묘지', 0, 0, -9, PI, 85], ['묘지의 이름난 무덤', 0, 0, 25.5, PI, 86]] };
+  });
+  out.places.push({ n: '나뭇잎 마을 묘지', t: '마을 변두리의 묘지. 아카데미 학생들이 돌아가며 비석을 닦고 꽃을 간다.', poly: W, b: bound(W) }, ...res.places);
+  out.jumps.push(...res.jumps);
+}
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
 // 집·나무를 세우기 전에 터부터 알려 둔다(zones.js 다음, streets.js 앞에서 부른다)
@@ -668,6 +804,8 @@ export async function build(scene, ctx) {
   intel(scene, out);
   await ctx.say('전서구 탑에 매를 앉히는 중…');
   aviary(scene, out);
+  await ctx.say('묘지의 비석을 닦는 중…');
+  cemetery(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
