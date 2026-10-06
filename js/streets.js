@@ -378,10 +378,13 @@ export async function build(scene, ctx) {
   console.log(`STREETS 집 ${houses.length} 나무 ${trees.length} 집칸 ${hcells.size} 나무칸 ${tcells.size} 큰칸 ${supers.size} 첫집 ${houses.filter((h, i) => i % 90 === 0).map(h => h.x.toFixed(0) + "," + h.z.toFixed(0)).join(" ")}`);
 
   /* ----- 걷는 사람을 따라 곱게·가볍게 바꿔 그린다 ----- */
-  const NEAR = MB ? 22 : 34, MID = MB ? 95 : 135, TUFT = MB ? 30 : 46, BUSH = 80, FINE_IN = MB ? 45 : 75, FINE_OUT = MB ? 110 : 150;
+  const NEAR = MB ? 22 : 34, MID = MB ? 95 : 135, TUFT = MB ? 30 : 46, BUSH = 80;
+  // 집: PRE 안이면 미리 곱게 지어 숨겨 두고, SHOW_IN 안에 들면 내놓고, SHOW_OUT 밖으로 나가면 다시 가벼운 모습으로, DROP 밖이면 지은 것을 버린다
+  const PRE = MB ? 110 : 150, SHOW_IN = MB ? 45 : 100, SHOW_OUT = MB ? 110 : 150, DROP = MB ? 150 : 230;
   const cam = ctx.camera, glowsOff = { push() {} }, last = V(1e9, 0, 0);
   const dist = (c, half, p) => Math.hypot(Math.max(Math.abs(c.x - p.x) - half, 0), Math.max(Math.abs(c.z - p.z) - half, 0), Math.max(p.y - 25, 0));
-  const queue = [];
+  const queue = [], reveal = [];
+  let shadowAt = 0, shadowBy = 0;                                       // 그림자를 다시 그릴 때(바뀐 것이 잦아들기를 기다렸다가 한 번에)
   const fineStep = c => {   // 칸의 집을 한 채 곱게 짓는다. 다 지으면 가벼운 모습과 바꿔 끼운다.
     if (!c.B) { c.B = new Builder(); c.i = 0; }
     const h = c.houses[c.i++], Bh = new Builder(), from = marks();
@@ -390,7 +393,7 @@ export async function build(scene, ctx) {
     if (h.fineDone) dropSince(from); else { refillSite(h.site, from); h.fineDone = true; }
     c.B.absorb(Bh, h.mat);
     if (c.i < c.houses.length) return false;
-    c.fine = c.B.finish(scene); c.B = null; c.fine.updateMatrixWorld(true); c.light.visible = false;
+    c.fine = c.B.finish(scene); c.B = null; c.fine.updateMatrixWorld(true); c.fine.visible = false; c.shown = false;   // 지어서 숨겨 둔다
     return true;
   };
   const tick = () => {
@@ -415,23 +418,31 @@ export async function build(scene, ctx) {
         if (c.bush) c.bush.visible = bv;
       }
       for (const s of supers.values()) if (s.dirty) { s.im.instanceMatrix.needsUpdate = true; s.dirty = false; }
-      queue.length = 0;
+      queue.length = 0; reveal.length = 0;
       for (const c of hcells.values()) {
         const d = dist(c, HC / 2, p);
-        if (c.fine && d > FINE_OUT) { scene.remove(c.fine); c.fine.traverse(o => o.geometry && o.geometry.dispose()); c.fine = null; c.light.visible = true; changed = true; }
-        if (!c.fine && d < FINE_IN) queue.push([d, c]);
-        if (c.B && d > FINE_OUT) c.B = null;                              // 짓다 만 칸에서 멀어졌으면 그만둔다
+        if (c.fine && d > DROP) { scene.remove(c.fine); c.fine.traverse(o => o.geometry && o.geometry.dispose()); c.fine = null; if (c.shown) { c.shown = false; c.light.visible = true; changed = true; } }
+        if (c.fine && c.shown && d > SHOW_OUT) { c.fine.visible = false; c.light.visible = true; c.shown = false; changed = true; }
+        if (c.fine && !c.shown && d < SHOW_IN) reveal.push([d, c]);
+        if (!c.fine && d < PRE) queue.push([d, c]);
+        if (c.B && d > DROP) c.B = null;                                  // 짓다 만 칸에서 멀어졌으면 그만둔다
       }
-      queue.sort((a, b) => a[0] - b[0]);
+      queue.sort((a, b) => a[0] - b[0]); reveal.sort((a, b) => a[0] - b[0]);
     }
-    // 가까운 칸부터 한 번에 조금씩 짓는다(바로 앞이면 서둘러서)
-    if (queue.length) {
-      const t0 = performance.now(), budget = queue[0][0] < 12 ? 45 : 7;
-      while (queue.length && performance.now() - t0 < budget) if (fineStep(queue[0][1])) { queue.shift(); changed = true; }
+    // 숨겨 둔 집은 한 장면에 한 칸씩만 내놓는다(그래픽 카드로 올리는 일이 몰리지 않게)
+    if (reveal.length) { const c = reveal.shift()[1]; if (c.fine && !c.shown) { c.fine.visible = true; c.light.visible = false; c.shown = true; changed = true; } }
+    // 가까운 칸부터 한 번에 조금씩 짓는다. 한 칸을 다 지으면(묶는 일이 크다) 그 장면에서는 더 짓지 않는다. 내놓을 거리 안인데 아직 못 지은 칸만 조금 서두른다
+    else if (queue.length) {
+      const t0 = performance.now(), budget = queue[0][0] < SHOW_IN ? (queue[0][0] < 12 ? 14 : 6) : 3;
+      while (queue.length && performance.now() - t0 < budget) if (fineStep(queue[0][1])) { const [d, c] = queue.shift(); if (d < SHOW_IN) reveal.push([d, c]); break; }
     }
-    if (changed && ctx.weather) ctx.weather.shadowDirty = true;
+    // 그림자: 바뀔 때마다 마을 전체의 그림자를 다시 그리면 그때마다 화면이 끊긴다. 가벼운 집과 고운 집, 먼 나무와 가까운 나무는 그림자가 거의 같으니
+    // 바뀌는 일이 잦아들 때까지 기다렸다가 한 번만 다시 그린다(길어도 4초 안에는 한 번)
+    const now = performance.now();
+    if (changed) { if (!shadowAt) shadowBy = now + 4000; shadowAt = Math.min(now + 900, shadowBy); }
+    if (shadowAt && now >= shadowAt) { shadowAt = 0; if (ctx.weather) ctx.weather.shadowDirty = true; }
   };
   // 확인용 주소(?shot=)로 곧장 그 자리에 설 때는 둘레의 집을 미리 곱게 지어 둔다
-  if (ctx.shotAt) for (const c of hcells.values()) if (dist(c, HC / 2, ctx.shotAt) < FINE_IN) while (!fineStep(c));
+  if (ctx.shotAt) for (const c of hcells.values()) if (dist(c, HC / 2, ctx.shotAt) < SHOW_IN) { while (!fineStep(c)); c.fine.visible = true; c.light.visible = false; c.shown = true; }
   return { tick };
 }
