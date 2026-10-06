@@ -1123,6 +1123,163 @@ function hospital(scene, out) {
   out.places.push({ n: '병원 터', t: '큰길 서쪽, 병원의 앞마당과 뒤뜰.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
   out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights);
 }
+/* ============================ 나뭇잎 도서관 ============================
+   마을 사람 누구나 드나드는 도서관. 큰길 서쪽, 병원 아래. 정문이 큰길을 본다.
+   원작(나루토 위키)에 적힌 것: 마을 한가운데쯤에 있어 누구나 쓸 수 있고, 어려운 의학책부터 사람 사귀는 법을 다룬 책까지 갖췄다는 것.
+   (사이가 사람 사귀는 법 책을 읽고, 사쿠라가 의학책을 파고들던 곳이다.)
+   건물의 생김새(높은 열람실과 서고 위 2층 마루), 책꽂이 배치, 대출대, 뜰은 모두 지어낸 것이다. */
+const BOOK_HEX = [0x7a2e2a, 0x2e4a6a, 0x3f6a4a, 0x8a6a2e, 0x4a3a5a, 0x9a8a6a, 0x2f2f33, 0xa85a3a, 0xd8cfb4, 0x5a7a8a];
+function library(scene, out) {
+  const Z = zone(27), at = { x: -52, z: 380, ry: PI / 2 };          // 제 좌표의 +z가 큰길(동쪽), +x가 북쪽
+  const X0 = -16, X1 = 16, Z0 = -9, Z1 = 9, T = 0.25, F = 0.2, MZ = 3.6, TOP = 6.8, ME = -1;   // ME: 2층 마루의 앞 가장자리
+  LOTS.push({ x: at.x + 8, z: at.z, ry: at.ry, w: 38, d: 40 });
+  const PL = localPoly(Z.poly, at), R = rngOf(2727);
+  const WALLM = mat('plaster', 0xe9dfc4), TILE = mat('tile', 0x3f6f78), TRIM = M.beam, SHELF = mat('wood', 0x6a4a32), WHITE = mat('plain', 0xf4f1ea, { rough: 1 });
+  const res = put(scene, at, (B, holder) => {
+    const glows = [], lights = [], places = [], books = [], col = new THREE.Color();
+    // 책 한 줄: base 자리의 (u0~u1, y, v)에 등이 +z를 보게 꽂는다
+    const bookRow = (base, u0, u1, y, v, gapH) => {
+      let u = u0 + 0.02;
+      while (u < u1 - 0.06) {
+        if (R() < 0.05) { u += 0.08 + R() * 0.2; continue; }
+        const t = 0.035 + R() * 0.045, h = Math.min(gapH - 0.04, 0.2 + R() * 0.11), lean = R() < 0.06 ? 0.22 : 0;
+        books.push([new THREE.Matrix4().multiplyMatrices(base, mat4(u + t / 2 + lean * h / 2, y + h / 2, v, 0, 0, -lean, [t, h, 0.19])), BOOK_HEX[Math.floor(R() * BOOK_HEX.length)]]);
+        u += t + 0.004 + lean * h;
+      }
+    };
+    // 책꽂이: both면 양면(가운데 등판), 아니면 벽에 붙이는 한 면. 열린 쪽이 ±z
+    const stack = (x, y, z, ry, w, both, h = 2.2, rows = 5) => {
+      const d = both ? 0.56 : 0.3, p = part(B, x, y, z, ry), gap = (h - 0.12) / rows;
+      p(SHELF, box(w, h, 0.03), 0, h / 2, both ? 0 : -d / 2 + 0.015);
+      for (const sx of [-1, 1]) p(SHELF, box(0.05, h, d), sx * (w / 2 - 0.025), h / 2, 0);
+      p(SHELF, box(w + 0.06, 0.06, d + 0.04), 0, h - 0.03, 0);
+      for (let k = 0; k < rows; k++) {
+        const yy = 0.08 + k * gap;
+        p(SHELF, box(w - 0.1, 0.03, d - 0.02), 0, yy - 0.015, 0);
+        bookRow(p.base, -w / 2 + 0.05, w / 2 - 0.05, yy, both ? d / 2 - 0.12 : 0.03, gap);
+        if (both) bookRow(new THREE.Matrix4().multiplyMatrices(p.base, mat4(0, 0, 0, 0, PI, 0)), -w / 2 + 0.05, w / 2 - 0.05, yy, d / 2 - 0.12, gap);
+      }
+      solid(x, y, z, ry, w, d, h);
+    };
+    const tag = (text, x, y, z, ry, w = 0.9) => signBoard(B, text, x, y, z, ry, w, 0.3, { both: true });
+    // 표지가 보이게 눕혀 놓은 책
+    const cover = (title, x, y, z, ry, bg, ink = '#f1e6c8') => { B.geo(mat('plain', new THREE.Color(bg).getHex(), { rough: 0.9 }), box(0.2, 0.035, 0.28), mat4(x, y + 0.0175, z, 0, ry, 0)); B.geo(textMat(title, { w: 128, h: 192, vertical: true, bg, color: ink }), new THREE.PlaneGeometry(0.19, 0.27), mat4(x, y + 0.037, z, -PI / 2, ry, 0)); };
+
+    /* ----- 뼈대 ----- */
+    B.box(M.stone, X0 - 0.2, 0, Z0 - 0.2, X1 + 0.2, 0.1, Z1 + 0.2, false);
+    B.box(M.floor, X0 + T, 0, Z0 + T, X1 - T, F, Z1 - T);
+    const UPS = [MZ - 0.2];
+    face(B, WALLM, 'x', Z1 - T, Z1, X0, X1, 0, TOP, 1, [[-12.9, -11.1, 'w'], [-8.9, -7.1, 'w'], [-4.9, -3.1, 'w'], [-1.3, 1.3, 'd'], [3.1, 4.9, 'w'], [7.1, 8.9, 'w'], [11.1, 12.9, 'w']], UPS, TRIM, M.iron, false);
+    face(B, WALLM, 'x', Z0, Z0 + T, X0, X1, 0, TOP, -1, [], [], TRIM, M.iron, false);
+    face(B, WALLM, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, TOP, -1, [[1.6, 3.4, 'w'], [5.2, 7.0, 'w']], UPS, TRIM, M.iron, false);
+    face(B, WALLM, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[5.2, 7.0, 'w']], UPS, TRIM, M.iron, false);
+    for (const [x, z] of [[X0, Z0], [X0, Z1], [X1, Z0], [X1, Z1]]) B.box(TRIM, x - 0.14, 0, z - 0.14, x + 0.14, TOP, z + 0.14, false);
+    for (const y of [0.5, 3.4, TOP - 0.1]) { B.box(TRIM, X0 - 0.05, y - 0.08, Z0 - 0.05, X1 + 0.05, y + 0.08, Z0, false); B.box(TRIM, X0 - 0.05, y - 0.08, Z1, X1 + 0.05, y + 0.08, Z1 + 0.05, false); B.box(TRIM, X0 - 0.05, y - 0.08, Z0, X0, y + 0.08, Z1, false); B.box(TRIM, X1, y - 0.08, Z0, X1 + 0.05, y + 0.08, Z1, false); }
+    hipRoof(B, TILE, X0, Z0, X1, Z1, TOP, 3.2, { over: 1.0 });
+    // 현관: 맞배 지붕 문간과 현판
+    B.box(M.stone, -2.8, 0, Z1, 2.8, 0.1, Z1 + 3.0, false);
+    for (const s of [-1, 1]) { B.box(TRIM, s * 2.4 - 0.12, 0, Z1 + 2.5, s * 2.4 + 0.12, 3.0, Z1 + 2.74); beamBetween(B, TRIM, V(s * 2.4, 2.9, Z1), V(s * 2.4, 2.9, Z1 + 2.7), 0.14, 0.16); }
+    B.box(TRIM, -2.6, 2.84, Z1 + 2.5, 2.6, 3.0, Z1 + 2.74, false);
+    gableRoof(B, TILE, -2.6, Z1 + 0.1, 2.6, Z1 + 2.8, 3.0, 1.0, { ridge: 'z', over: 0.5, overGable: 0.4, gable: WALLM });
+    signBoard(B, '木ノ葉図書館', 0, 2.55, Z1 + 2.78, 0, 3.0, 0.5, { both: false });
+
+    /* ----- 2층 마루: 서고 위. 앞 가장자리에 난간, 북쪽 벽을 따라 오르는 계단 ----- */
+    B.box(M.floor, X0 + T, MZ - 0.2, Z0 + T, X1 - T, MZ, ME);
+    B.box(TRIM, X0 + T, MZ - 0.42, ME - 0.2, X1 - T, MZ - 0.2, ME, false);
+    for (const x of [-13.5, -7.5, -1.5, 1.5, 7.5, 13.5]) { B.box(TRIM, x - 0.12, F, ME - 0.22, x + 0.12, MZ - 0.42, ME + 0.02); for (const s of [-1, 1]) beamBetween(B, TRIM, V(x + s * 0.1, MZ - 0.95, ME - 0.1), V(x + s * 0.75, MZ - 0.44, ME - 0.1), 0.09, 0.1); }
+    for (let x = -12; x <= 12; x += 3) B.box(TRIM, x - 0.07, MZ - 0.36, Z0 + T, x + 0.07, MZ - 0.2, ME - 0.2, false);
+    stairs(B, M.floorDark, 'z', ME, 1, F, MZ, 14.2, 15.75, 0.3);
+    railing(B, TRIM, [[X0 + T, ME + 0.05], [14.15, ME + 0.05]], MZ, 1.0, { gap: 0.22 });
+    { const n = 17; for (let k = 0; k <= 16; k += 4) { const z = ME + 0.3 * (16 - k) + 0.15, y = F + (k + 1) * 0.2; B.box(TRIM, 14.12, y - 0.2, z - 0.04, 14.2, y + 0.95, z + 0.04, false); } beamBetween(B, TRIM, V(14.16, F + 0.2 + 0.95, ME + 4.95), V(14.16, MZ + 0.95, ME + 0.1), 0.07, 0.07); void n; }
+    addCollider(14.1, F, ME, 14.2, MZ + 1, ME + 4.9);
+
+    /* ----- 1층 서고: 양면 책꽂이 여덟 줄 ----- */
+    const SECT = [[-12, '歴史'], [-9, '地理'], [-6, '植物'], [-3, '医学'], [3, '忍術'], [6, '物語'], [9, '料理'], [12, '人づきあい']];
+    for (const [x, name] of SECT) {
+      for (const zc of [-6.3, -3.3]) stack(x, F, zc, PI / 2, 2.8, true);
+      B.geo(M.iron, cyl(0.006, 0.006, 0.5, 4), mat4(x, MZ - 0.45, ME - 0.9)); tag(name, x, MZ - 0.85, ME - 0.9, 0, name.length > 2 ? 1.5 : 0.8);
+    }
+    for (const x of [-10.5, -4.5, 4.5, 10.5]) ceilLamp(B, x, MZ - 0.2, -4.8, glows, lights, 11);
+    places.push({ n: '도서관 서고', t: '역사·지리·식물·의학·인술·이야기·요리, 그리고 사람 사귀는 법까지. 갈래마다 팻말이 걸려 있다.', b: [X0, X1, Z0, ME], y: [0, MZ - 0.2] });
+
+    /* ----- 1층 열람실(천장이 높은 앞쪽) ----- */
+    // 대출대와 목록 서랍
+    {
+      const p = part(B, -9.6, F, 6.0, PI / 2);
+      p(SHELF, box(3.6, 1.0, 0.6), 0, 0.5, 0); p(M.beamLight, box(3.8, 0.05, 0.8), 0, 1.025, 0); for (let k = 0; k < 5; k++) p(M.beamLight, box(0.04, 0.92, 0.02), -1.6 + k * 0.8, 0.5, 0.31);
+      p(mat('plain', 0xeee8d8, { rough: 1 }), box(0.34, 0.03, 0.46), -1.0, 1.065, 0, 0, 0.1); p(mat('metal', 0xc9a24a, { rough: 0.4 }), SPH, 0.1, 1.08, 0.12, 0, 0, 0, [0.05, 0.035, 0.05]);
+      p(M.beam, box(0.1, 0.05, 0.06), 0.6, 1.075, 0.1); p(mat('plain', 0x8a1c16), box(0.08, 0.02, 0.04), 0.6, 1.11, 0.1);
+      for (let k = 0; k < 5; k++) p(mat('plain', BOOK_HEX[k * 2 % 10], { rough: 0.9 }), box(0.2, 0.035, 0.28), 1.3, 1.07 + k * 0.036, -0.05, 0, (k % 3 - 1) * 0.15);
+      solid(-9.6, F, 6.0, PI / 2, 3.8, 0.8, 1.05); chairAt(B, M.beam, -10.8, F, 6.0, PI / 2);
+      tag('貸出', -9.6, F + 2.6, 6.0, PI / 2, 0.8); B.geo(M.iron, cyl(0.006, 0.006, 3.8, 4), mat4(-9.6, F + 4.7, 5.7)); B.geo(M.iron, cyl(0.006, 0.006, 3.8, 4), mat4(-9.6, F + 4.7, 6.3));
+      // 목록 서랍장
+      const q = part(B, -15.4, F, 4.3, PI / 2);
+      q(SHELF, box(2.2, 1.3, 0.5), 0, 0.65, 0); for (let r = 0; r < 5; r++) for (let c = 0; c < 8; c++) { q(M.beamLight, box(0.24, 0.2, 0.02), -0.945 + c * 0.27, 0.2 + r * 0.24, 0.255); q(M.iron, box(0.07, 0.03, 0.02), -0.945 + c * 0.27, 0.2 + r * 0.24, 0.27); }
+      solid(-15.4, F, 4.3, PI / 2, 2.2, 0.5, 1.3);
+      // 돌려받은 책 수레
+      const c = part(B, -7.6, F, 7.6, 0.3);
+      for (const yy of [0.3, 0.75]) { c(SHELF, box(0.9, 0.03, 0.45), 0, yy, 0); for (let k = 0; k < 7; k++) c(mat('plain', BOOK_HEX[(k * 3 + (yy > 0.5 ? 1 : 0)) % 10], { rough: 0.9 }), box(0.05, 0.24, 0.19), -0.36 + k * 0.07, yy + 0.135, 0); }
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) c(M.iron, cyl(0.012, 0.012, 0.95, 5), sx * 0.43, 0.5, sz * 0.2);
+      addCollider(-8.1, F, 7.3, -7.1, F + 1, 7.9);
+    }
+    signBoard(B, 'しずかに', -5.9, F + 2.9, Z1 - T - 0.04, PI, 1.3, 0.34, { both: false });
+    // 긴 책상 여섯: 의자와 책상 등
+    const TABLES = [[-11, 1.4], [-5, 1.4], [-5, 5.0], [4, 1.4], [4, 5.0], [10, 5.0]];
+    for (const [x, z] of TABLES) {
+      tableAt(B, M.beamLight, x, F, z, 0, 2.6, 1.0);
+      for (const sx of [-0.65, 0.65]) { chairAt(B, M.beam, x + sx, F, z - 0.8, 0); chairAt(B, M.beam, x + sx, F, z + 0.8, PI); }
+      B.geo(M.iron, cyl(0.07, 0.09, 0.02, 10), mat4(x, F + 0.75, z)); B.geo(M.iron, cyl(0.01, 0.01, 0.3, 5), mat4(x, F + 0.9, z)); B.geo(mat('glow', 0xffe2a8, { power: 0.9 }), new THREE.ConeGeometry(0.13, 0.14, 12, 1, true), mat4(x, F + 1.08, z)); glows.push([x, F + 1.05, z, 0.35]);
+    }
+    // 사이가 읽던 책들: 사람 사귀는 법
+    { const [x, z] = TABLES[2]; cover('友だちの作り方', x - 0.6, F + 0.74, z + 0.2, 0.2, '#3d5a80'); cover('人の気持ちがわかる本', x - 0.3, F + 0.74, z + 0.22, -0.15, '#7a3a34'); cover('笑顔のすすめ', x + 0.75, F + 0.74, z - 0.2, 2.9, '#4a7a58');
+      for (let k = 0; k < 3; k++) B.geo(mat('plain', BOOK_HEX[k + 3], { rough: 0.9 }), box(0.2, 0.035, 0.28), mat4(x + 0.4, F + 0.7575 + k * 0.036, z + 0.2, 0, k * 0.2, 0));
+      places.push({ n: '사이가 앉던 자리', t: '사람 마음을 몰랐던 사이가 "친구 만드는 법", "남의 기분을 아는 책" 같은 책을 쌓아 놓고 읽던 책상.', b: [x - 1.6, x + 1.6, z - 1.5, z + 1.5], y: [0, 3] }); }
+    // 사쿠라가 파고들던 의학책
+    { const [x, z] = TABLES[3]; cover('医療忍術大全', x - 0.5, F + 0.74, z - 0.2, 3.0, '#2f4a3a'); cover('毒と薬草', x + 0.6, F + 0.74, z + 0.2, 0.15, '#6a4a2a');
+      for (let k = 0; k < 5; k++) B.geo(mat('plain', BOOK_HEX[(k * 2 + 1) % 10], { rough: 0.9 }), box(0.22, 0.05, 0.3), mat4(x + 0.1, F + 0.765 + k * 0.051, z - 0.18, 0, k * 0.12 - 0.2, 0));
+      B.geo(mat('plain', 0xeee8d8, { rough: 1 }), box(0.3, 0.004, 0.4), mat4(x - 0.9, F + 0.742, z + 0.15, 0, -0.2, 0)); B.geo(M.beam, cyl(0.008, 0.008, 0.2, 5).rotateX(PI / 2), mat4(x - 0.7, F + 0.748, z + 0.15, 0, 0.5, 0));
+      places.push({ n: '의학책이 쌓인 자리', t: '츠나데의 제자가 된 사쿠라가 두꺼운 의료 인술 책을 쌓아 놓고 파고들던 책상.', b: [x - 1.6, x + 1.6, z - 1.5, z + 1.5], y: [0, 3] }); }
+    for (const x of [-2.2, 2.2]) potAt(B, x, F, 8.0, 1.2);
+    // 높은 천장의 등
+    for (const [x, z] of [[-9, 3.4], [0, 3.4], [9, 3.4], [-9, -4.5], [0, -4.5], [9, -4.5]]) { B.geo(M.iron, cyl(0.008, 0.008, 1.0, 5), mat4(x, TOP - 0.5, z)); B.geo(mat('glow', 0xffe2a8, { power: 1.0 }), lathe([[0, 0], [0.2, 0.03], [0.26, 0.2], [0.14, 0.34], [0, 0.36]]), mat4(x, TOP - 1.36, z)); glows.push([x, TOP - 1.2, z, 0.8]); lights.push([x, TOP - 1.5, z, 16, 16]); }
+    places.push({ n: '도서관 열람실', t: '천장이 높은 열람실. 창가의 긴 책상에 앉아 책을 읽는다. 벽에는 "조용히".', b: [X0, X1, ME, Z1], y: [0, TOP] });
+
+    /* ----- 2층 마루: 벽을 따라 책꽂이, 난간 가의 책상 ----- */
+    for (let x = -12.6; x <= 9.5; x += 4.4) stack(x, MZ, Z0 + T + 0.16, 0, 4.2, false);
+    for (const zc of [-6.4, -3.4]) stack(X0 + T + 0.16, MZ, zc, PI / 2, 2.6, false);
+    stack(X1 - T - 0.16, MZ, -5.4, -PI / 2, 4.2, false);
+    for (const x of [-12, -7, -2, 3, 8]) { deskAt(B, M.beamLight, x, MZ, ME - 0.5, 0, 1.6, 0.7); chairAt(B, M.beam, x, MZ, ME - 1.35, 0); }
+    cover('木ノ葉の歴史', -12.3, MZ + 0.78, ME - 0.5, 0.1, '#5a3a2a'); cover('忍の心得', 3.2, MZ + 0.78, ME - 0.5, -0.2, '#2e4a6a');
+    tableAt(B, M.beamLight, 0, MZ, -5.2, 0, 2.2, 0.9, 0.42); for (const sx of [-1.7, 1.7]) benchAt(B, M.beam, sx, MZ, -5.2, PI / 2, 1.6);
+    tag('古書・巻物', 0, MZ + 2.5, Z0 + T + 0.5, 0, 1.4); shelfAt(B, SHELF, 13.0, MZ, Z0 + T + 0.2, 0, 2.4, 2.2, 5, R);
+    places.push({ n: '도서관 2층', t: '서고 위의 마루. 벽을 따라 옛 책과 두루마리가 꽂혀 있고, 난간 가 책상에서 열람실이 내려다보인다.', b: [X0, X1, Z0, ME], y: [MZ, TOP] });
+
+    // 책을 한꺼번에 그린다(권마다 빛깔만 다르다)
+    {
+      const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('plain', 0xffffff, { rough: 0.9 }), books.length);
+      books.forEach(([m, hex], i) => { im.setMatrixAt(i, m); im.setColorAt(i, col.setHex(hex)); });
+      im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true; im.receiveShadow = true; im.computeBoundingSphere(); holder.add(im);
+    }
+
+    /* ----- 뜰 ----- */
+    B.box(M.pave, -1.8, 0, Z1 + 3.0, 1.8, 0.035, 39.5, false); B.box(M.pave, -13, 0, 14, 13, 0.035, 16, false);
+    for (const s of [-1, 1]) {
+      for (const x of [5, 10]) benchAt(B, M.beam, s * x, 0, 16.8, PI, 2.2);
+      B.box(TRIM, s * 2.4 - 0.07, 0, 24, s * 2.4 + 0.07, 2.6, 24.14, false); glows.push(lantern(B, s * 2.4, 2.2, 24.07, { text: '本', color: 0xf0e2c0, r: 0.2, h: 0.5 })); addCollider(s * 2.4 - 0.1, 0, 23.97, s * 2.4 + 0.1, 2.6, 24.17);
+      for (let k = 0; k < 6; k++) B.geo(mat('leaf', k % 2 ? 0x447f2e : 0x35702a), BUSH.leaves, mat4(s * (4.2 + k * 2.1), 0, Z1 + 1.0, 0, k, 0, 1.0));
+    }
+    // 나무 그늘의 책 읽는 자리
+    B.box(M.pave, -1.2, 0, Z0 - 16, 1.2, 0.035, Z0 - 0.2, false); B.box(M.pave, X0 - 3.2, 0, -1, X0 - 0.2, 0.035, 1, false); B.box(M.pave, X0 - 3.2, 0, Z0 - 2, X0 - 1.2, 0.035, -1, false); B.box(M.pave, X0 - 3.2, 0, Z0 - 3.4, 1.2, 0.035, Z0 - 1.4, false);
+    plate(B, M.pave, -6, Z0 - 28, 6, Z0 - 16, 0, 0.037, (x, z) => Math.hypot(x, z - (Z0 - 22)) < 5.5, false);
+    for (const a of [0, PI, PI * 1.5]) benchAt(B, M.beam, Math.cos(a) * 4.2, 0, Z0 - 22 + Math.sin(a) * 4.2, -a - PI / 2, 2.0);
+    const inZone = (x, z) => inPoly(x, z, PL) && polyEdge(x, z, PL) > 5;
+    grove(B, holder, 2728, 26, [-70, -110, 70, 36], (x, z) => inZone(x, z) && !(x > X0 - 6 && x < X1 + 5 && z > Z0 - 5 && z < Z1 + 10) && !(Math.abs(x) < 4 && z > 0) && !(Math.hypot(x, z - (Z0 - 22)) < 9) && !(Math.abs(x) < 3 && z < 0 && z > Z0 - 20));
+    places.unshift({ n: '나뭇잎 도서관', t: '마을 사람 누구나 드나드는 도서관. 어려운 의학책부터 사람 사귀는 법을 다룬 책까지 갖추고 있다.', b: [X0 - 2, X1 + 2, Z0 - 2, Z1 + 4], y: [0, 12] });
+    return { places, glows, lights, jumps: [['나뭇잎 도서관', 0, 0, 22, 0, 89], ['도서관 2층', 0, MZ, -4, PI, 90]] };
+  });
+  out.places.push({ n: '도서관 터', t: '큰길 서쪽, 도서관의 앞뜰과 나무 그늘.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
+  out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights);
+}
 let _blackM = null; const BLACKM = () => _blackM || (_blackM = mat('plain', 0x1b1b1e, { rough: 0.9 }));
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
@@ -1140,6 +1297,8 @@ export async function build(scene, ctx) {
   cemetery(scene, out);
   await ctx.say('병원의 홑이불을 너는 중…');
   hospital(scene, out);
+  await ctx.say('도서관의 책을 꽂는 중…');
+  library(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
