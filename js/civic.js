@@ -1,7 +1,7 @@
 // 관저 둘레의 시설 — 상급닌자 대기소, 정보부, 전서구 탑. 셋 다 제 좌표(정면이 +z)로 지어 마을의 제자리에 돌려 놓는다.
 // 구역의 자리는 배치도(plan-data.js)에서 읽고, 집·나무가 피해 가도록 터를 zones.js의 LOTS에 알려 둔다.
 import * as THREE from '../vendor/three.module.js';
-import { Builder, marks, settle, addCollider, addRoof, mat4, tube, wall, mergeGeos, rng as rngOf } from './build.js';
+import { Builder, marks, settle, addCollider, addRoof, mat4, tube, wall, stairs, mergeGeos, rng as rngOf } from './build.js';
 import { M, mat, textMat } from './materials.js';
 import { beamBetween, hipRoof, gableRoof, coneRoof, roundWall, roundWindow, roundFloor, roundRailing, railing, windowUnit, doorUnit, signBoard, lantern } from './arch.js';
 import { treeGeometry, bushGeometry } from './flora.js';
@@ -56,14 +56,14 @@ function bars(B, m, axis, c, u0, u1, y0, y1, collide = true) {
   if (collide) { if (axis === 'x') addCollider(u0, y0, c - 0.05, u1, y1, c + 0.05); else addCollider(c - 0.05, y0, u0, c + 0.05, y1, u1); }
 }
 // 곧은 벽 한 면에 문·창을 내며 쌓는다. cols = [[u0, u1, 종류]] — 'd' 문, 'w' 창, 'h' 높은 창살 구멍, 'u' 아래층은 막힌 벽. ups = 위층 바닥 높이들(그 층마다 같은 자리에 종이 바른 창).
-function face(B, m, axis, f0, f1, u0, u1, y0, y1, out, cols, ups, frame, iron) {
+function face(B, m, axis, f0, f1, u0, u1, y0, y1, out, cols, ups, frame, iron, paper = true) {
   const low = k => (k === 'd' ? [[y0 + 0.2, y0 + 2.6]] : k === 'w' ? [[y0 + 1.2, y0 + 2.5]] : k === 'h' ? [[y0 + 2.3, y0 + 2.75]] : []);
   wall(B, m, axis, f0, f1, u0, u1, y0, y1, cols.map(([a, b, k]) => ({ u0: a, u1: b, ys: [...low(k), ...ups.map(f => [f + 1.1, f + 2.4])] })), true, true);
   for (const [a, b, k] of cols) {
     if (k === 'd') doorUnit(B, axis, f0, f1, a, b, y0 + 0.2, y0 + 2.6, { frame, leaf: null });
     if (k === 'w') windowUnit(B, axis, f0, f1, a, b, y0 + 1.2, y0 + 2.5, { frame, out });
     if (k === 'h') bars(B, iron, axis, (f0 + f1) / 2, a, b, y0 + 2.3, y0 + 2.75, false);
-    for (const f of ups) windowUnit(B, axis, f0, f1, a, b, f + 1.1, f + 2.4, { frame, out, paper: true });
+    for (const f of ups) windowUnit(B, axis, f0, f1, a, b, f + 1.1, f + 2.4, { frame, out, paper, glass: !paper });
   }
 }
 
@@ -793,6 +793,337 @@ function cemetery(scene, out) {
   out.places.push({ n: '나뭇잎 마을 묘지', t: '마을 변두리의 묘지. 아카데미 학생들이 돌아가며 비석을 닦고 꽃을 간다.', poly: W, b: bound(W) }, ...res.places);
   out.jumps.push(...res.jumps);
 }
+/* ---------- 병원·도서관이 함께 쓰는 것 ---------- */
+// 마을 좌표의 다각형을 자리(at)의 제 좌표로 옮긴다
+function localPoly(poly, at) {
+  const cs = Math.cos(at.ry), sn = Math.sin(at.ry);
+  return poly.map(q => { const dx = q[0] - at.x, dz = q[1] - at.z; return [dx * cs - dz * sn, dx * sn + dz * cs]; });
+}
+const polyEdge = (x, z, P) => { let m = 1e9; for (let i = 0; i < P.length; i++) { const a = P[i], b = P[(i + 1) % P.length], vx = b[0] - a[0], vz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * vx + (z - a[1]) * vz) / (vx * vx + vz * vz))); m = Math.min(m, Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t)); } return m; };
+// 터에 나무를 드문드문 심는다(ok(x, z)가 참인 자리에만). 바람에 흔들리므로 holder에 따로 넣는다.
+function grove(B, holder, seed, n, box4, ok, gap = 13) {
+  const R = rngOf(seed), tg = treeGeometry(seed, { height: 12, depth: 4, sprays: 5, leaves: 6, leafLen: 0.5 }), tm = [];
+  let tries = 0;
+  while (tm.length < n && tries++ < 4000) {
+    const x = box4[0] + R() * (box4[2] - box4[0]), z = box4[1] + R() * (box4[3] - box4[1]);
+    if (!ok(x, z) || tm.some(q => Math.hypot(q[0] - x, q[1] - z) < gap)) continue;
+    tm.push([x, z]); addCollider(x - 0.5, 0, z - 0.5, x + 0.5, 6, z + 0.5);
+  }
+  const ms = tm.map(([x, z]) => mat4(x, 0, z, 0, R() * 6.28, 0, 0.9 + R() * 0.35));
+  for (const [g, m] of [[tg.wood, mat('bark', 0x8a7257)], [tg.leaves, mat('leaf', seed % 2 ? 0x447f2e : 0x35702a)]]) {
+    const im = new THREE.InstancedMesh(g, m, ms.length); ms.forEach((q, i) => im.setMatrixAt(i, q)); im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); holder.add(im);
+  }
+  return tm;
+}
+// 칸막이벽: ops = [[u0, u1, 'd' 문 | 'o' 천장까지 트인 곳]]
+function partition(B, m, frame, axis, c, u0, u1, y, ops = [], h = 3.2) {
+  wall(B, m, axis, c - 0.08, c + 0.08, u0, u1, y, y + h, ops.map(([a, b, k]) => ({ u0: a, u1: b, ys: [[y, y + (k === 'o' ? 2.7 : 2.3)]] })));
+  for (const [a, b, k] of ops) if (k === 'd') doorUnit(B, axis, c - 0.08, c + 0.08, a, b, y, y + 2.3, { frame, leaf: null });
+}
+// 병원 침대: 머리맡이 -z
+function bedAt(B, x, y, z, ry, frame, blanket) {
+  const p = part(B, x, y, z, ry), white = mat('plain', 0xf4f1ea, { rough: 1 });
+  for (const sz of [-1, 1]) { const h = sz < 0 ? 1.05 : 0.8; for (const sx of [-1, 1]) p(frame, cyl(0.022, 0.022, h, 6), sx * 0.45, h / 2, sz * 1.0); p(frame, cyl(0.022, 0.022, 0.9, 6).rotateZ(PI / 2), 0, h, sz * 1.0); p(frame, cyl(0.016, 0.016, 0.9, 6).rotateZ(PI / 2), 0, h - 0.25, sz * 1.0); for (const sx of [-0.2, 0, 0.2]) p(frame, cyl(0.01, 0.01, 0.25, 5), sx, h - 0.125, sz * 1.0); }
+  p(frame, box(0.9, 0.05, 2.0), 0, 0.45, 0); p(white, box(0.86, 0.14, 1.94), 0, 0.545, 0);
+  p(white, box(0.5, 0.1, 0.3), 0, 0.66, -0.74); p(blanket, box(0.9, 0.06, 1.25), 0, 0.64, 0.3); p(white, box(0.9, 0.065, 0.22), 0, 0.642, -0.36);
+  solid(x, y, z, ry, 0.94, 2.06, 0.66);
+}
+function standAt(B, x, y, z, m) { B.box(m, x - 0.22, y, z - 0.2, x + 0.22, y + 0.62, z + 0.2); B.box(M.iron, x - 0.06, y + 0.4, z + 0.2, x + 0.06, y + 0.42, z + 0.22, false); }
+const JAR_HEX = [0x7aa6a0, 0xb07a4a, 0xd8cfb4, 0x6a8a5a, 0xa85a50, 0x8a8ab0];
+function jarShelfAt(B, m, x, y, z, ry, w, h, rows, R, d = 0.32) {   // 약병 선반. 열린 쪽이 +z
+  const p = part(B, x, y, z, ry);
+  p(m, box(w, h, 0.03), 0, h / 2, -d / 2 + 0.015);
+  for (const sx of [-1, 1]) p(m, box(0.04, h, d), sx * (w / 2 - 0.02), h / 2, 0);
+  for (let k = 0; k <= rows; k++) {
+    const yy = 0.04 + k * (h - 0.08) / rows;
+    p(m, box(w, 0.035, d), 0, yy, 0);
+    if (k === rows) break;
+    for (let sxp = -w / 2 + 0.14; sxp < w / 2 - 0.1; sxp += 0.15) {
+      if (R() < 0.15) continue;
+      const hh = 0.12 + R() * 0.1, jm = mat('plain', JAR_HEX[Math.floor(R() * JAR_HEX.length)], { rough: 0.35 });
+      p(jm, cyl(0.05, 0.05, hh, 10), sxp, yy + 0.02 + hh / 2, 0.02); p(M.beamLight, cyl(0.035, 0.035, 0.03, 8), sxp, yy + 0.035 + hh, 0.02);
+    }
+  }
+  solid(x, y, z, ry, w, d, h);
+}
+// 천장 등(둥근 갓)
+function ceilLamp(B, x, yc, z, glows, lights, pow = 14) {
+  B.geo(mat('glow', 0xfff1d0, { power: 1.1 }), new THREE.SphereGeometry(0.22, 14, 8, 0, PI * 2, PI / 2, PI / 2), mat4(x, yc - 0.02, z)); B.geo(M.iron, cyl(0.24, 0.24, 0.03, 16), mat4(x, yc - 0.015, z));
+  glows.push([x, yc - 0.2, z, 0.6]); lights.push([x, yc - 0.4, z, pow, 14]);
+}
+
+/* ============================ 나뭇잎 병원 ============================
+   닌자와 마을 사람들을 돌보는 병원. 큰길 서쪽, 정문이 큰길을 본다.
+   원작(나루토 위키)에 적힌 것: 건물 앞에 "医" 글자가 있다는 것, 록 리와 사스케가 입원했던 곳이라는 것,
+   전쟁 뒤 사쿠라가 이노와 함께 아이들의 마음을 돌보는 진료실을 열었다는 것.
+   옥상의 빨래(흰 홑이불)와 물탱크 둘 — 나루토의 나선환과 사스케의 치도리가 뚫어 놓은 — 은 원작 만화의 장면에서 가져왔다.
+   건물의 생김새(2층·평지붕)와 방 배치, 가구, 마당은 지어낸 것이다. */
+function hospital(scene, out) {
+  const Z = zone(26), at = { x: -46, z: 262, ry: PI / 2 };          // 제 좌표의 +z가 큰길(동쪽), +x가 북쪽(관저 쪽)
+  const X0 = -18, X1 = 18, Z0 = -8, Z1 = 8, T = 0.25, F = 0.2, F2 = 3.6, RF = 7.0, TOP = 8.0, C = 1.2;
+  LOTS.push({ x: at.x + 8, z: at.z, ry: at.ry, w: 42, d: 40 });
+  const PL = localPoly(Z.poly, at), R = rngOf(2626);
+  const WALLM = mat('plaster', 0xf1eee4), TRIM = mat('wood', 0x3f7a78), LINO = mat('plain', 0xcfd6c8, { rough: 0.7 }), STEEL = mat('metal', 0xb4babd, { rough: 0.5 }), WHITE = mat('plain', 0xf4f1ea, { rough: 1 });
+  const BLANK = [mat('plain', 0xa9c9c0, { rough: 1 }), mat('plain', 0xc9d6a8, { rough: 1 })], CURT = mat('cloth', 0xe9efe2), TANK = mat('metal', 0x9aa6a8, { rough: 0.6 }), HOLE = mat('plain', 0x14161a, { rough: 1 });
+  const RED = '#b3261a';
+  const res = put(scene, at, (B, holder) => {
+    const glows = [], lights = [], places = [];
+    const sign = (text, x, y, z, ry, w = 0.9) => signBoard(B, text, x, y, z, ry, w, 0.26, { both: false });
+    /* ----- 뼈대 ----- */
+    B.box(M.stone, X0 - 0.15, 0, Z0 - 0.15, X1 + 0.15, 0.1, Z1 + 0.15, false);
+    B.box(LINO, X0 + T, 0, Z0 + T, X1 - T, F, Z1 - T);
+    // 2층 바닥(1층에서 오르는 계단 구멍을 비운다)과 옥상 바닥(옥상으로 오르는 계단 구멍을 비운다)
+    B.box(LINO, X0 + T, F2 - 0.2, Z0 + T, -0.2, F2, -6.2); B.box(LINO, 4.6, F2 - 0.2, Z0 + T, X1 - T, F2, -6.2); B.box(LINO, X0 + T, F2 - 0.2, -6.2, X1 - T, F2, Z1 - T);
+    B.box(M.concrete, X0 + T, RF - 0.2, Z0 + T, X1 - T, RF, -6.0); B.box(M.concrete, X0 + T, RF - 0.2, -6.0, -4.6, RF, -4.45); B.box(M.concrete, 0.4, RF - 0.2, -6.0, X1 - T, RF, -4.45); B.box(M.concrete, X0 + T, RF - 0.2, -4.45, X1 - T, RF, Z1 - T);
+    const ROOMS = [-15, -9, 9, 15], UPS = [F2];
+    face(B, WALLM, 'x', Z1 - T, Z1, X0, X1, 0, TOP, 1, [...ROOMS.map(c => [c - 0.9, c + 0.9, 'w']), [-4.6, -2.8, 'w'], [-1.3, 1.3, 'd'], [2.8, 4.6, 'w']].sort((a, b) => a[0] - b[0]), UPS, TRIM, M.iron, false);
+    face(B, WALLM, 'x', Z0, Z0 + T, X0, X1, 0, TOP, -1, ROOMS.map(c => [c - 0.9, c + 0.9, 'w']), UPS, TRIM, M.iron, false);
+    for (const [f0, f1, o] of [[X0, X0 + T, -1], [X1 - T, X1, 1]]) face(B, WALLM, 'z', f0, f1, Z0 + T, Z1 - T, 0, TOP, o, [[-5.5, -3.7, 'w'], [-0.7, 0.7, 'w'], [3.7, 5.5, 'w']], UPS, TRIM, M.iron, false);
+    for (const y of [F2 - 0.1, RF - 0.1]) { B.box(TRIM, X0 - 0.06, y - 0.1, Z0 - 0.06, X1 + 0.06, y + 0.1, Z0, false); B.box(TRIM, X0 - 0.06, y - 0.1, Z1, X1 + 0.06, y + 0.1, Z1 + 0.06, false); B.box(TRIM, X0 - 0.06, y - 0.1, Z0, X0, y + 0.1, Z1, false); B.box(TRIM, X1, y - 0.1, Z0, X1 + 0.06, y + 0.1, Z1, false); }
+    B.box(TRIM, X0 - 0.08, TOP, Z0 - 0.08, X1 + 0.08, TOP + 0.1, Z0 + T + 0.04, false); B.box(TRIM, X0 - 0.08, TOP, Z1 - T - 0.04, X1 + 0.08, TOP + 0.1, Z1 + 0.08, false); B.box(TRIM, X0 - 0.08, TOP, Z0, X0 + T + 0.04, TOP + 0.1, Z1, false); B.box(TRIM, X1 - T - 0.04, TOP, Z0, X1 + 0.08, TOP + 0.1, Z1, false);
+    // 현관: 차양과 간판, 둥근 판에 붉은 医
+    B.box(M.stone, -2.6, 0, Z1, 2.6, 0.1, Z1 + 2.8, false);
+    for (const s of [-1, 1]) B.box(TRIM, s * 2.3 - 0.1, 0, Z1 + 2.4, s * 2.3 + 0.1, 2.9, Z1 + 2.6);
+    B.box(WALLM, -2.7, 2.9, Z1, 2.7, 3.1, Z1 + 2.8, false); B.box(TRIM, -2.76, 3.1, Z1, 2.76, 3.18, Z1 + 2.86, false);
+    signBoard(B, '木ノ葉病院', 0, 3.5, Z1 + 2.8, 0, 3.2, 0.6, { both: false, bg: '#f4f1ea' });
+    signBoard(B, '医', 0, 7.05, Z1 + 0.06, 0, 1.7, 1.7, { round: true, both: false, bg: '#f4f1ea', color: RED, frame: mat('plain', 0xb3261a) });
+    // 칸막이: 가운데 복도(z ±1.2), 방 사이 벽, 계단 홀
+    for (const y of [F, F2]) {
+      for (const s of [-1, 1]) {
+        partition(B, M.white, TRIM, 'x', s * C, X0 + T, -6, y, [[-15.55, -14.45, 'd'], [-9.55, -8.45, 'd']]);
+        partition(B, M.white, TRIM, 'x', s * C, 6, X1 - T, y, [[8.45, 9.55, 'd'], [14.45, 15.55, 'd']]);
+        for (const x of [-12, 12]) partition(B, M.white, TRIM, 'z', x, s > 0 ? C + 0.08 : Z0 + T, s > 0 ? Z1 - T : -C - 0.08, y);
+        for (const x of [-6, 6]) partition(B, M.white, TRIM, 'z', x, s > 0 ? C + 0.08 : Z0 + T, s > 0 ? Z1 - T : -C - 0.08, y);
+      }
+      partition(B, M.white, TRIM, 'x', -C, -5.92, 5.92, y, [[-2.5, 2.5, 'o']]);
+      for (const x of [-12, 0, 12]) ceilLamp(B, x, y + 3.2, 0, glows, lights, 12);
+    }
+    // 계단: 1층 → 2층(뒷벽 쪽), 2층 → 옥상(그 앞줄)
+    stairs(B, M.concrete, 'x', 4.6, -1, F, F2, -7.75, -6.2, 0.3);
+    stairs(B, M.concrete, 'x', -4.6, 1, F2, RF, -6.0, -4.45, 0.3);
+    railing(B, STEEL, [[-0.25, -7.75], [-0.25, -6.12], [4.55, -6.12]], F2, 1.0, { gap: 0.3 });
+    railing(B, STEEL, [[0.3, -4.38], [-4.6, -4.38]], F2, 1.0, { gap: 0.3 });
+    sign('二階 病室', 3.9, F + 2.5, -C + 0.1, 0, 1.0); sign('屋上', -3.9, F2 + 2.5, -C + 0.1, 0, 0.6);
+    // 옥상 계단실
+    {
+      const hx0 = -5.9, hx1 = 0.6, hz0 = -6.2, hz1 = -4.25, hy = RF + 2.4;
+      wall(B, WALLM, 'x', hz0, hz0 + 0.15, hx0, hx1, RF, hy); wall(B, WALLM, 'x', hz1 - 0.15, hz1, hx0, hx1, RF, hy, [{ u0: -5.72, u1: -4.4, ys: [[RF, RF + 2.1]] }]);
+      wall(B, WALLM, 'z', hx0, hx0 + 0.15, hz0 + 0.15, hz1 - 0.15, RF, hy); wall(B, WALLM, 'z', hx1 - 0.15, hx1, hz0 + 0.15, hz1 - 0.15, RF, hy);
+      B.box(M.concrete, hx0 - 0.15, hy, hz0 - 0.15, hx1 + 0.15, hy + 0.15, hz1 + 0.15);
+      doorUnit(B, 'x', hz1 - 0.15, hz1, -5.72, -4.4, RF, RF + 2.1, { frame: TRIM, leaf: null });
+    }
+
+    /* ----- 1층 ----- */
+    // 현관 홀: 접수대, 기다리는 긴 의자, 화분
+    {
+      const p = part(B, 3.6, F, 4.6, -PI / 2);
+      p(WHITE, box(3.4, 1.0, 0.55), 0, 0.5, 0); p(TRIM, box(3.5, 0.05, 0.7), 0, 1.025, 0); p(TRIM, box(3.4, 0.12, 0.02), 0, 0.5, 0.285);
+      p(mat('plain', 0xeee8d8, { rough: 1 }), box(0.3, 0.02, 0.4), -0.9, 1.06, 0, 0, 0.1); p(mat('metal', 0xc9a24a, { rough: 0.4 }), SPH, 0.2, 1.08, 0.1, 0, 0, 0, [0.05, 0.035, 0.05]);
+      p(mat('plain', 0xf4f1ea), cyl(0.07, 0.05, 0.16, 10), 1.2, 1.13, 0); for (let k = 0; k < 3; k++) p(mat('plain', [0xe58aa0, 0xe9c765, 0xf2efe6][k], { rough: 0.8 }), SPH, 1.2 + Math.cos(k * 2.1) * 0.05, 1.32 + k * 0.02, Math.sin(k * 2.1) * 0.05, 0, 0, 0, 0.045);
+      solid(3.6, F, 4.6, -PI / 2, 3.5, 0.7, 1.05); chairAt(B, M.beamLight, 4.8, F, 4.6, -PI / 2);
+      sign('受付', 3.2, F + 2.5, 4.6, -PI / 2, 0.7);
+      jarShelfAt(B, M.beamLight, 5.6, F, 2.2, -PI / 2, 1.4, 1.9, 4, R);
+      for (const z of [2.6, 4.4, 6.2]) benchAt(B, M.beamLight, -3.6, F, z, 0, 3.4);
+      for (const x of [-5.3, 5.3]) potAt(B, x, F, 7.2, 1.2);
+      // 벽의 안내판과 포스터
+      const q = part(B, -5.88, F, 4.4, PI / 2);
+      q(TRIM, box(2.2, 1.3, 0.04), 0, 1.6, 0); q(mat('plain', 0xe9efe2, { rough: 1 }), box(2.08, 1.18, 0.02), 0, 1.6, 0.025);
+      for (let k = 0; k < 6; k++) q(mat('plain', [0xf4f1ea, 0xe8d9a0, 0xcfe0e8][k % 3], { rough: 1 }), box(0.5, 0.42, 0.004), -0.68 + (k % 3) * 0.68, 1.88 - Math.floor(k / 3) * 0.54, 0.04, 0, 0, (R() - 0.5) * 0.06);
+      ceilLamp(B, 0, F + 3.2, 4.6, glows, lights, 16);
+      places.push({ n: '나뭇잎 병원 현관', t: '접수대와 기다리는 자리. 복도 양쪽으로 진료실과 약국, 뒤쪽 계단으로 2층 병실에 오른다.', b: [-6, 6, -C, Z1], y: [0, F2 - 0.2] });
+    }
+    // 진료실(둘): 책상과 의자, 진찰 침대, 약장, 벽의 인체 그림
+    const exam = (xc, s, n) => {
+      const zo = s * (Z1 - T);
+      deskAt(B, M.beamLight, xc - 1.6, F, zo - s * 0.55, s > 0 ? 0 : PI, 1.5, 0.75); chairAt(B, M.beamLight, xc - 1.6, F, zo - s * 1.5, s > 0 ? 0 : PI); chairAt(B, STEEL, xc - 0.3, F, zo - s * 1.3, s > 0 ? PI / 2 : -PI / 2);
+      B.geo(mat('plain', 0xeee8d8, { rough: 1 }), box(0.3, 0.02, 0.4), mat4(xc - 1.8, F + 0.79, zo - s * 0.5, 0, 0.2, 0));
+      bedAt(B, xc + 2.3, F, s * 4.6, s > 0 ? PI : 0, STEEL, WHITE);
+      jarShelfAt(B, M.beamLight, xc + 1.9, F, s * (C + 0.3), s > 0 ? 0 : PI, 1.6, 1.9, 4, R);
+      const bm = textMat('人', { w: 256, h: 512, bg: '#efe8d8', color: '#efe8d8', key: 'body-chart', draw: (g, w, h) => {
+        g.strokeStyle = '#2a2622'; g.lineWidth = 5; g.beginPath(); g.arc(w / 2, 80, 40, 0, PI * 2); g.stroke();
+        g.beginPath(); g.moveTo(w / 2, 120); g.lineTo(w / 2, 300); g.moveTo(w / 2 - 80, 170); g.lineTo(w / 2 + 80, 170); g.moveTo(w / 2, 300); g.lineTo(w / 2 - 50, 460); g.moveTo(w / 2, 300); g.lineTo(w / 2 + 50, 460); g.stroke();
+        g.fillStyle = '#b3261a'; for (const [x, y] of [[0, 150], [-40, 170], [40, 170], [0, 200], [0, 250], [-25, 380], [25, 380], [0, 80]]) { g.beginPath(); g.arc(w / 2 + x, y, 6, 0, PI * 2); g.fill(); }
+      } });
+      const wx = xc < 0 ? X0 + T : xc - 2.92; B.geo(M.beam, box(0.66, 1.26, 0.03), mat4(wx + 0.02, F + 1.7, s * 2.4, 0, PI / 2, 0)); B.geo(bm, new THREE.PlaneGeometry(0.6, 1.2), mat4(wx + 0.04, F + 1.7, s * 2.4, 0, PI / 2, 0));
+      ceilLamp(B, xc, F + 3.2, s * 4.4, glows, lights);
+      sign('診察室', xc, F + 2.5, s * C - s * 0.1, s > 0 ? PI : 0);
+      places.push({ n, t: '의료 닌자가 환자를 보는 방. 벽에는 경혈을 짚은 인체 그림.', b: [xc - 3, xc + 3, Math.min(s * C, zo), Math.max(s * C, zo)], y: [0, F2 - 0.2] });
+    };
+    exam(-15, 1, '진료실'); exam(15, -1, '둘째 진료실');
+    // 약국: 약병 선반과 조제대
+    {
+      const xc = -9;
+      for (const dx of [-1.95, 1.95]) jarShelfAt(B, M.beam, xc + dx, F, Z1 - T - 0.2, PI, 1.8, 2.2, 5, R);
+      jarShelfAt(B, M.beam, -6.3, F, 4.6, -PI / 2, 2.2, 2.2, 5, R);
+      tableAt(B, M.beamLight, xc, F, 4.2, 0, 2.6, 0.8, 0.9);
+      B.geo(M.stone, lathe([[0, 0], [0.09, 0], [0.13, 0.1], [0.11, 0.1], [0.08, 0.03], [0, 0.03]]), mat4(xc - 0.7, F + 0.9, 4.2)); B.geo(M.stone, cyl(0.02, 0.03, 0.16, 6), mat4(xc - 0.66, F + 0.99, 4.2, 0, 0, -0.5));
+      for (let k = 0; k < 5; k++) B.geo(mat('plain', JAR_HEX[k], { rough: 0.35 }), cyl(0.045, 0.045, 0.13, 10), mat4(xc + 0.1 + k * 0.17, F + 0.965, 4.3));
+      B.geo(mat('metal', 0xc9a24a, { rough: 0.4 }), box(0.3, 0.02, 0.12), mat4(xc - 0.2, F + 0.93, 4.0)); for (const s of [-1, 1]) B.geo(mat('metal', 0xc9a24a, { rough: 0.4 }), cyl(0.06, 0.06, 0.01, 10), mat4(xc - 0.2 + s * 0.13, F + 0.91, 4.0));
+      for (let k = 0; k < 4; k++) B.geo(mat('plain', 0xeee8d8, { rough: 1 }), box(0.12, 0.012, 0.16), mat4(xc + 0.7 + (k % 2) * 0.15, F + 0.906 + Math.floor(k / 2) * 0.012, 3.95));
+      ceilLamp(B, xc, F + 3.2, 4.4, glows, lights); sign('薬局', xc, F + 2.5, C - 0.1, PI, 0.7);
+      places.push({ n: '약국', t: '약초를 갈고 달여 약을 짓는 방. 병마다 나라 일족이 대 준 약재가 들어 있다.', b: [-12, -6, C, Z1], y: [0, F2 - 0.2] });
+    }
+    // 처치실: 가운데 침상, 바닥에 치료 술식, 기구 수레, 갓등
+    {
+      const xc = -15, zc = -4.6;
+      const sm = textMat(' ', { w: 512, h: 512, bg: '#cfd6c8', color: '#cfd6c8', key: 'heal-seal', draw: (g, w, h) => {
+        g.translate(w / 2, h / 2); g.strokeStyle = '#1f2a24'; g.fillStyle = '#1f2a24';
+        for (const [r, lw] of [[240, 6], [205, 2], [120, 4]]) { g.lineWidth = lw; g.beginPath(); g.arc(0, 0, r, 0, PI * 2); g.stroke(); }
+        g.font = '900 30px "Yu Mincho", "MS Mincho", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        const txt = [...'治癒再生経絡気血陰陽調和快復'];
+        txt.forEach((ch, i) => { g.save(); g.rotate(i / txt.length * PI * 2); g.fillText(ch, 0, -222); g.restore(); });
+        for (let k = 0; k < 8; k++) { g.save(); g.rotate(k * PI / 4); g.lineWidth = 3; g.beginPath(); g.moveTo(0, -120); g.lineTo(0, -205); g.stroke(); g.restore(); }
+      } });
+      B.geo(sm, new THREE.CircleGeometry(2.5, 40).rotateX(-PI / 2), mat4(xc, F + 0.012, zc));
+      bedAt(B, xc, F, zc, PI / 2, STEEL, WHITE);
+      const p = part(B, xc + 1.7, F, zc + 1.3, 0.3);
+      p(STEEL, box(0.6, 0.03, 0.4), 0, 0.8, 0); p(STEEL, box(0.6, 0.03, 0.4), 0, 0.35, 0); for (const sx of [-1, 1]) for (const sz of [-1, 1]) p(STEEL, cyl(0.012, 0.012, 0.8, 5), sx * 0.28, 0.4, sz * 0.18);
+      for (let k = 0; k < 4; k++) p(STEEL, box(0.012, 0.006, 0.14), -0.18 + k * 0.07, 0.82, 0, 0, k * 0.1); p(WHITE, cyl(0.07, 0.06, 0.08, 10), 0.18, 0.86, 0.05); p(WHITE, box(0.2, 0.05, 0.14), 0, 0.39, 0);
+      B.geo(M.iron, cyl(0.012, 0.012, 0.6, 5), mat4(xc, F + 2.9, zc)); B.geo(STEEL, new THREE.ConeGeometry(0.45, 0.2, 16, 1, true), mat4(xc, F + 2.55, zc)); B.geo(mat('glow', 0xfff1d0, { power: 1.3 }), cyl(0.3, 0.3, 0.02, 16), mat4(xc, F + 2.47, zc)); glows.push([xc, F + 2.4, zc, 0.7]); lights.push([xc, F + 2.3, zc, 15, 14]);
+      jarShelfAt(B, M.beamLight, xc + 1.9, F, -C - 0.3, PI, 1.6, 1.9, 4, R);
+      sign('処置室', xc, F + 2.5, -C + 0.1, 0);
+      places.push({ n: '처치실', t: '크게 다친 닌자를 여럿이 둘러앉아 술식으로 고치는 방. 바닥에 치료 술식이 그려져 있다.', b: [-18, -12, Z0, -C], y: [0, F2 - 0.2] });
+    }
+    // 린넨실: 개어 쌓은 홑이불과 빨래 수레
+    {
+      const xc = -9;
+      for (const sd of [-1, 1]) { const lx = xc + sd * 2.62, lry = sd < 0 ? PI / 2 : -PI / 2, p = part(B, lx, F, -4.6, lry); p(M.beamLight, box(2.2, 2.1, 0.03), 0, 1.05, -0.24); for (const sx of [-1, 1]) p(M.beamLight, box(0.04, 2.1, 0.5), sx * 1.08, 1.05, 0); for (let k = 0; k < 5; k++) { p(M.beamLight, box(2.2, 0.035, 0.5), 0, 0.04 + k * 0.5, 0); if (k < 4) for (let i = 0; i < 4; i++) { const n = 1 + Math.floor(R() * 4); for (let j = 0; j < n; j++) p(j % 3 === 2 ? BLANK[i % 2] : WHITE, box(0.42, 0.07, 0.4), -0.78 + i * 0.52, 0.1 + k * 0.5 + j * 0.075, 0); } } solid(lx, F, -4.6, lry, 2.2, 0.5, 2.1); }
+      const p = part(B, xc, F, -5.6, 0.2);
+      p(STEEL, box(0.9, 0.03, 0.6), 0, 0.2, 0); for (const sx of [-1, 1]) for (const sz of [-1, 1]) { p(STEEL, cyl(0.012, 0.012, 0.75, 5), sx * 0.43, 0.55, sz * 0.28); p(BLACKM(), cyl(0.05, 0.05, 0.03, 10).rotateZ(PI / 2), sx * 0.43, 0.05, sz * 0.28); }
+      p(CURT, cyl(0.42, 0.34, 0.6, 12, 1, true), 0, 0.55, 0, 0, 0, 0, [1, 1, 0.65]); p(WHITE, SPH, 0, 0.82, 0, 0, 0, 0, [0.36, 0.14, 0.24]);
+      addCollider(xc - 0.5, F, -6.0, xc + 0.5, F + 0.9, -5.2);
+      ceilLamp(B, xc, F + 3.2, -4.4, glows, lights, 11); sign('リネン室', xc, F + 2.5, -C + 0.1, 0);
+      places.push({ n: '린넨실', t: '빨아서 개어 둔 홑이불과 환자옷. 옥상 빨랫줄에서 걷어 온 것들이다.', b: [-12, -6, Z0, -C], y: [0, F2 - 0.2] });
+    }
+    // 어린이 마음 진료실: 낮은 탁자와 방석, 장난감, 벽의 아이들 그림(전쟁 뒤 사쿠라가 이노와 함께 연 곳)
+    {
+      const xc = 9, zc = 4.6;
+      B.geo(mat('plain', 0xe8d9a0, { rough: 1 }), box(3.6, 0.02, 3.2), mat4(xc, F + 0.01, zc));
+      B.geo(M.beamLight, cyl(0.7, 0.7, 0.05, 20), mat4(xc, F + 0.36, zc)); B.geo(M.beamLight, cyl(0.1, 0.25, 0.34, 10), mat4(xc, F + 0.17, zc)); addCollider(xc - 0.6, F, zc - 0.6, xc + 0.6, F + 0.38, zc + 0.6);
+      for (let k = 0; k < 4; k++) B.geo(mat('plain', [0xe58aa0, 0x7aa6c8, 0xe9c765, 0x8ab88a][k], { rough: 1 }), box(0.5, 0.08, 0.5), mat4(xc + Math.cos(k * 1.57 + 0.4) * 1.15, F + 0.06, zc + Math.sin(k * 1.57 + 0.4) * 1.15, 0, k, 0));
+      for (let k = 0; k < 7; k++) B.geo(mat('plain', [0xd8452e, 0x2e5a9e, 0xe9c765, 0x4c9440][k % 4], { rough: 0.7 }), box(0.1, 0.1, 0.1), mat4(xc - 0.3 + (k % 3) * 0.12, F + 0.435 + (k > 4 ? 0.1 : 0), zc - 0.1 + Math.floor(k / 3) * 0.12 - (k > 4 ? 0.06 : 0), 0, k * 0.3, 0));
+      { const p = part(B, xc + 0.3, F + 0.385, zc + 0.25, 0.6), tan = mat('plain', 0xb98a58, { rough: 1 }); p(tan, SPH, 0, 0.1, 0, 0, 0, 0, [0.09, 0.1, 0.08]); p(tan, SPH, 0, 0.24, 0, 0, 0, 0, 0.075); for (const sx of [-1, 1]) { p(tan, SPH, sx * 0.06, 0.31, 0, 0, 0, 0, 0.03); p(tan, SPH, sx * 0.1, 0.12, 0.02, 0, 0, 0, [0.035, 0.06, 0.035]); p(tan, SPH, sx * 0.05, 0.02, 0.06, 0, 0, 0, [0.04, 0.035, 0.06]); } }   // 곰 인형
+      const q = part(B, xc, F, Z1 - T - 0.03, PI);
+      for (let k = 0; k < 6; k++) {
+        const dm = textMat(' ', { w: 128, h: 96, bg: '#f7f3e6', color: '#f7f3e6', key: 'kid-draw' + k, draw: (g, w, h) => { const cols = ['#e58aa0', '#2e5a9e', '#e9a23a', '#4c9440', '#d8452e', '#6a4a8a']; g.lineWidth = 5; g.lineCap = 'round';
+          g.strokeStyle = cols[k]; g.beginPath(); g.arc(34 + k * 6, 40, 16, 0, PI * 2); g.stroke(); g.beginPath(); g.moveTo(34 + k * 6, 56); g.lineTo(34 + k * 6, 82); g.moveTo(18 + k * 6, 66); g.lineTo(50 + k * 6, 66); g.stroke();
+          g.strokeStyle = cols[(k + 2) % 6]; g.beginPath(); g.arc(98 - k * 3, 26, 12, 0, PI * 2); g.stroke(); for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(98 - k * 3 + Math.cos(i) * 16, 26 + Math.sin(i) * 16); g.lineTo(98 - k * 3 + Math.cos(i) * 22, 26 + Math.sin(i) * 22); g.stroke(); }
+          g.strokeStyle = cols[3]; g.beginPath(); g.moveTo(6, 90); g.lineTo(122, 90); g.stroke(); } });
+        if (Math.abs(-2.2 + (k % 3) * 2.2) < 1.2) continue;   // 창 자리는 비운다
+        q(dm, new THREE.PlaneGeometry(0.5, 0.38), -2.2 + (k % 3) * 2.2, 1.9 - Math.floor(k / 3) * 0.55, 0.02, 0, 0, (k % 2 - 0.5) * 0.08);
+      }
+      shelfAt(B, M.beamLight, xc + 2.6, F, 3.2, -PI / 2, 1.6, 1.2, 3, R);
+      ceilLamp(B, xc, F + 3.2, zc, glows, lights); sign('こども心療室', xc, F + 2.5, C - 0.1, PI, 1.3);
+      places.push({ n: '어린이 마음 진료실', t: '전쟁으로 마음을 다친 아이들을 돌보려고 사쿠라가 이노와 함께 연 진료실.', b: [6, 12, C, Z1], y: [0, F2 - 0.2] });
+    }
+    // 의국: 책상 둘, 옷장, 찻주전자
+    {
+      const xc = 15;
+      deskAt(B, M.beamLight, xc - 1.4, F, Z1 - T - 0.5, 0, 1.5, 0.75); deskAt(B, M.beamLight, xc + 1.4, F, Z1 - T - 0.5, 0, 1.5, 0.75); chairAt(B, M.beamLight, xc - 1.4, F, 6.3, 0); chairAt(B, M.beamLight, xc + 1.4, F, 6.3, 0);
+      for (let k = 0; k < 2; k++) cabinetAt(B, WHITE, xc - 2.0 + k * 0.95, F, C + 0.35, 0, 0.9, 1.9, 0.5, 2);
+      tableAt(B, M.beamLight, xc + 1.9, F, 3.3, 0, 1.0, 0.7); B.geo(M.iron, lathe([[0, 0], [0.1, 0], [0.13, 0.08], [0.11, 0.17], [0.05, 0.2], [0, 0.2]]), mat4(xc + 1.8, F + 0.74, 3.3)); for (let k = 0; k < 3; k++) B.geo(WHITE, cyl(0.036, 0.03, 0.06, 10), mat4(xc + 2.05 + (k % 2) * 0.1, F + 0.77, 3.15 + k * 0.1));
+      for (let k = 0; k < 3; k++) B.geo(mat('plain', SCROLL_HEX[k + 1], { rough: 0.9 }), box(0.22, 0.04, 0.3), mat4(xc - 1.6, F + 0.8 + k * 0.04, Z1 - T - 0.5, 0, k * 0.2, 0));
+      ceilLamp(B, xc, F + 3.2, 4.6, glows, lights); sign('医局', xc, F + 2.5, C - 0.1, PI, 0.7);
+      places.push({ n: '의국', t: '의료 닌자들이 쉬고 기록을 적는 방.', b: [12, 18, C, Z1], y: [0, F2 - 0.2] });
+    }
+    // 검사실: 긴 작업대의 시약병, 약장
+    {
+      const xc = 9;
+      tableAt(B, STEEL, xc, F, Z0 + T + 0.5, 0, 4.4, 0.8, 0.9);
+      for (let k = 0; k < 9; k++) { const hh = 0.1 + (k % 3) * 0.06; B.geo(mat('plain', JAR_HEX[k % 6], { rough: 0.2 }), k % 2 ? lathe([[0, 0], [0.07, 0], [0.07, 0.02], [0.02, hh], [0.02, hh + 0.05], [0, hh + 0.05]], 10) : cyl(0.03, 0.03, hh + 0.05, 8), mat4(xc - 1.8 + k * 0.42, F + 0.9 + (k % 2 ? 0 : (hh + 0.05) / 2), Z0 + T + 0.45 + (k % 3) * 0.08)); }
+      { const p = part(B, xc + 1.2, F + 0.9, Z0 + T + 0.7, 0.4); p(M.iron, box(0.16, 0.03, 0.2), 0, 0.015, 0); p(M.iron, box(0.04, 0.28, 0.04), 0, 0.17, -0.07); p(M.iron, cyl(0.03, 0.025, 0.2, 8), 0, 0.3, 0.0, 0.5); p(STEEL, box(0.1, 0.012, 0.1), 0, 0.12, 0.02); }
+      jarShelfAt(B, M.beamLight, xc - 2.6, F, -3.6, PI / 2, 2.2, 2.0, 4, R); cabinetAt(B, WHITE, xc + 2.5, F, -2.8, -PI / 2, 0.9, 1.4);
+      chairAt(B, STEEL, xc - 0.4, F, -6.3, PI);
+      ceilLamp(B, xc, F + 3.2, -4.6, glows, lights); sign('検査室', xc, F + 2.5, -C + 0.1, 0);
+      places.push({ n: '검사실', t: '피와 독을 살피는 방. 시즈네가 독을 풀 약을 지을 때 쓰던 시약병이 늘어서 있다.', b: [6, 12, Z0, -C], y: [0, F2 - 0.2] });
+    }
+
+    /* ----- 2층: 병실 ----- */
+    const ward = (xc, s, who) => {
+      const zo = s * (Z1 - T), zh = zo - s * 1.1, ry = s > 0 ? PI : 0, y = F2;
+      for (const dx of who ? [-1.7] : [-1.7, 1.7]) { bedAt(B, xc + dx, y, zh, ry, STEEL, BLANK[(xc + dx > 0) ^ (s > 0) ? 0 : 1]); standAt(B, xc + dx + (dx < 0 ? -0.82 : 0.82), y, zo - s * 0.28, WHITE); }
+      // 침대 사이 가림천
+      if (!who) { B.geo(STEEL, cyl(0.012, 0.012, 2.4, 5).rotateX(PI / 2), mat4(xc, y + 2.1, zo - s * 1.3)); B.geo(CURT, new THREE.PlaneGeometry(1.0, 1.7, 8, 4), mat4(xc, y + 1.25, zo - s * 0.6, 0, PI / 2, 0)); }
+      chairAt(B, M.beamLight, xc + (who ? -0.6 : 0.55), y, zh - s * 0.2, who ? -PI / 2 : PI / 2);
+      ceilLamp(B, xc, y + 3.2, s * 4.6, glows, lights, 12);
+      return { y, zo, zh, bx: xc - 1.7, sx: xc - 2.52 };
+    };
+    for (const [xc, s] of [[-9, 1], [-15, -1], [-9, -1], [9, 1], [9, -1], [15, -1]]) { ward(xc, s); sign('病室', xc, F2 + 2.5, s * C - s * 0.1, s > 0 ? PI : 0, 0.6); }
+    places.push({ n: '병실', t: '침대 둘씩 놓인 병실. 창으로 마을이 내다보인다.', b: [X0, X1, Z0, Z1], y: [F2, RF - 0.2] });
+    {   // 록 리의 병실: 머리맡의 수선화 한 송이, 바닥의 아령과 벽에 기댄 목발
+      const w = ward(-15, 1, 'lee'), y = w.y;
+      B.geo(WHITE, lathe([[0, 0], [0.04, 0], [0.05, 0.1], [0.025, 0.17], [0.03, 0.2], [0, 0.2]]), mat4(w.sx, y + 0.62, w.zo - 0.28)); B.geo(mat('plain', 0x4c9440), cyl(0.006, 0.006, 0.3, 4), mat4(w.sx, y + 0.9, w.zo - 0.28));
+      for (let k = 0; k < 6; k++) B.geo(mat('plain', 0xf2d24a, { rough: 0.8 }), SPH, mat4(w.sx + Math.cos(k * 1.047) * 0.04, y + 1.06, w.zo - 0.28 + Math.sin(k * 1.047) * 0.04, 0, 0, 0, [0.03, 0.012, 0.03])); B.geo(mat('plain', 0xe9a23a), cyl(0.018, 0.022, 0.03, 8), mat4(w.sx, y + 1.07, w.zo - 0.28));
+      for (const [x, z, r] of [[-13.4, 3.2, 0.3], [-13.0, 3.5, 1.2]]) { const p = part(B, x, y, z, r); p(M.iron, cyl(0.02, 0.02, 0.3, 6).rotateZ(PI / 2), 0, 0.08, 0); for (const sx of [-1, 1]) p(M.iron, cyl(0.08, 0.08, 0.07, 12).rotateZ(PI / 2), sx * 0.17, 0.08, 0); }
+      for (const dz of [0, 0.14]) { beamBetween(B, M.beamLight, V(-12.25, y, 5.0 + dz), V(-12.14, y + 1.3, 5.0 + dz), 0.03, 0.03); B.geo(M.beamLight, box(0.04, 0.04, 0.2), mat4(-12.13, y + 1.32, 5.0 + dz)); }
+      signBoard(B, '努力', -17.72, y + 1.9, 2.6, PI / 2, 0.5, 0.9, { vertical: true, both: false });
+      sign('ロック・リー', -15, F2 + 2.5, C - 0.1, PI, 1.0);
+      places.push({ n: '록 리의 병실', t: '중닌 시험에서 가아라에게 크게 다친 리가 누워 있던 방. 머리맡에 사쿠라가 꽂아 둔 수선화, 바닥에는 몰래 들던 아령.', b: [-18, -12, C, Z1], y: [F2, RF - 0.2] });
+    }
+    {   // 사스케의 병실: 머리맡 접시의 사과
+      const w = ward(15, 1, 'sasuke'), y = w.y, sx = w.sx, sz = w.zo - 0.28;
+      B.geo(WHITE, cyl(0.12, 0.08, 0.02, 14), mat4(sx, y + 0.63, sz));
+      for (let k = 0; k < 5; k++) { B.geo(mat('plain', 0xf3e6b8, { rough: 0.6 }), SPH, mat4(sx + Math.cos(k * 1.26) * 0.06, y + 0.655, sz + Math.sin(k * 1.26) * 0.06, 0, -k * 1.26, 0, [0.035, 0.018, 0.02])); B.geo(mat('plain', 0xc2332a, { rough: 0.5 }), SPH, mat4(sx + Math.cos(k * 1.26) * 0.078, y + 0.66, sz + Math.sin(k * 1.26) * 0.078, 0, -k * 1.26, 0, [0.02, 0.016, 0.02])); }
+      B.geo(STEEL, box(0.012, 0.004, 0.12), mat4(sx + 0.15, y + 0.625, sz + 0.05, 0, 0.4, 0)); B.geo(M.beam, box(0.016, 0.014, 0.07), mat4(sx + 0.13, y + 0.628, sz - 0.03, 0, 0.4, 0));
+      B.geo(mat('plain', 0xc2332a, { rough: 0.5 }), SPH, mat4(13.5, y + 0.045, 4.4, 0, 0, 0, 0.045));   // 바닥에 구른 사과 한 알
+      sign('うちはサスケ', 15, F2 + 2.5, C - 0.1, PI, 1.1);
+      places.push({ n: '사스케의 병실', t: '이타치에게 당한 뒤 사스케가 누워 있던 방. 사쿠라가 깎아 온 사과 접시를 사스케가 쳐서 떨어뜨렸다.', b: [12, 18, C, Z1], y: [F2, RF - 0.2] });
+    }
+    // 2층 휴게실: 긴 의자와 낮은 탁자, 화분
+    {
+      for (const s of [-1, 1]) benchAt(B, M.beamLight, s * 3.2, F2, 5.4, PI / 2, 2.6);
+      tableAt(B, M.beamLight, 0, F2, 5.4, 0, 1.4, 0.8, 0.45);
+      for (let k = 0; k < 3; k++) B.geo(mat('plain', SCROLL_HEX[k + 2], { rough: 0.9 }), box(0.22, 0.02, 0.3), mat4(-0.3 + k * 0.28, F2 + 0.46 + k * 0.002, 5.4, 0, k * 0.4, 0));
+      for (const x of [-5.3, 5.3]) potAt(B, x, F2, 7.2, 1.2);
+      ceilLamp(B, 0, F2 + 3.2, 4.6, glows, lights, 14);
+      places.push({ n: '병원 휴게실', t: '걸을 수 있는 환자와 문병 온 사람들이 앉아 쉬는 자리.', b: [-6, 6, C, Z1], y: [F2, RF - 0.2] });
+    }
+
+    /* ----- 옥상: 빨랫줄의 흰 홑이불, 물탱크 둘 ----- */
+    {
+      const y = RF;
+      for (let r = 0; r < 4; r++) {
+        const z = -1.5 + r * 2.4, x0 = 4, x1 = 16;
+        for (const x of [x0, x1]) { B.box(STEEL, x - 0.04, y, z - 0.04, x + 0.04, y + 2.1, z + 0.04, false); B.box(STEEL, x - 0.04, y + 2.02, z - 0.5, x + 0.04, y + 2.08, z + 0.5, false); addCollider(x - 0.08, y, z - 0.08, x + 0.08, y + 2.1, z + 0.08); }
+        B.geo(M.iron, tube([V(x0, y + 2.05, z), V(x1, y + 2.05, z)], 0.008, 4, false));
+        for (let k = 0; k < 4; k++) { if ((r + k) % 5 === 4) continue; const w = 2.3, xc = x0 + 1.6 + k * 2.9; B.geo(CURT, new THREE.PlaneGeometry(w, 1.7, 10, 6), mat4(xc, y + 1.19, z)); for (const sx of [-1, 1]) B.geo(M.beamLight, box(0.02, 0.07, 0.03), mat4(xc + sx * 0.9, y + 2.04, z)); }
+      }
+      // 물탱크: 왼쪽은 나루토의 나선환(앞은 작게 패이고 뒤가 크게 터졌다), 오른쪽은 사스케의 치도리(앞에 큰 구멍)
+      const tank = (x, z, front, back) => {
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) B.box(STEEL, x + sx * 1.0 - 0.06, y, z + sz * 1.0 - 0.06, x + sx * 1.0 + 0.06, y + 0.7, z + sz * 1.0 + 0.06, false);
+        B.geo(TANK, cyl(1.5, 1.5, 3.0, 28), mat4(x, y + 2.2, z)); B.geo(TANK, new THREE.SphereGeometry(1.5, 28, 8, 0, PI * 2, 0, PI / 2), mat4(x, y + 3.7, z, 0, 0, 0, [1, 0.25, 1]));
+        for (const yy of [1.0, 2.2, 3.4]) B.geo(STEEL, new THREE.TorusGeometry(1.51, 0.03, 5, 28).rotateX(PI / 2), mat4(x, y + yy, z));
+        B.geo(STEEL, cyl(0.06, 0.06, 0.7, 8), mat4(x - 1.2, y + 0.35, z + 1.25)); B.geo(STEEL, cyl(0.06, 0.06, 0.6, 8).rotateX(PI / 2), mat4(x - 1.2, y + 0.7, z + 1.0));
+        // 앞(+x)과 뒤(-x)의 구멍
+        const blot = (dir, r) => { B.geo(HOLE, SPH, mat4(x + dir * 1.46, y + 2.3, z, 0, 0, 0, [0.09, r, r])); for (let k = 0; k < 9; k++) { const a = k * 0.7 + r; B.geo(TANK, new THREE.ConeGeometry(r * 0.2, r * 0.5, 4), mat4(x + dir * (1.5 + r * 0.1), y + 2.3 + Math.sin(a) * r * 0.95, z + Math.cos(a) * r * 0.95, a, 0, -dir * 1.2)); } };
+        blot(1, front); blot(-1, back);
+        addCollider(x - 1.3, y, z - 1.3, x + 1.3, y + 4.1, z + 1.3);
+      };
+      tank(-11.5, 4.2, 0.22, 1.15); tank(-11.5, -0.2, 0.85, 0.0001);
+      signBoard(B, '貯水', -9.96, y + 1.2, 4.2, PI / 2, 0.5, 0.3, { both: false });
+      for (let k = 0; k < 2; k++) { const p = part(B, 2.6 + k * 0.7, y, 6.6, k * 0.5); p(M.beamLight, lathe([[0, 0], [0.24, 0], [0.3, 0.3], [0.28, 0.3], [0.22, 0.03], [0, 0.03]], 14), 0, 0, 0); p(WHITE, SPH, 0, 0.26, 0, 0, 0, 0, [0.22, 0.1, 0.22]); }   // 빨래 바구니
+      places.push({ n: '병원 옥상', t: '흰 홑이불이 널린 옥상. 나루토와 사스케가 여기서 맞붙어, 나선환과 치도리가 물탱크를 하나씩 뚫어 놓았다. 앞은 작게 패였는데 뒤가 크게 터진 쪽이 나루토의 것이다.', b: [X0, X1, Z0, Z1], y: [RF, RF + 6] });
+    }
+
+    /* ----- 마당 ----- */
+    B.box(M.pave, -1.8, 0, Z1 + 2.8, 1.8, 0.035, 31.5, false); B.box(M.pave, -14, 0, 12.5, 14, 0.035, 14.5, false);
+    for (const s of [-1, 1]) {
+      benchAt(B, M.beam, s * 6, 0, 15.3, PI, 2.2); benchAt(B, M.beam, s * 11, 0, 15.3, PI, 2.2);
+      B.box(TRIM, s * 2.4 - 0.07, 0, 22, s * 2.4 + 0.07, 2.6, 22.14, false); glows.push(lantern(B, s * 2.4, 2.2, 22.07, { text: '医', color: 0xf4f1ea, ink: RED, r: 0.2, h: 0.5 })); addCollider(s * 2.4 - 0.1, 0, 21.97, s * 2.4 + 0.1, 2.6, 22.17);
+      for (let k = 0; k < 6; k++) B.geo(mat('leaf', k % 2 ? 0x447f2e : 0x35702a), BUSH.leaves, mat4(s * (4.2 + k * 2.3), 0, Z1 + 1.0, 0, k, 0, 1.0));
+    }
+    // 뒤뜰: 환자들이 바람 쐬는 뜰
+    B.box(M.pave, X1 + 0.2, 0, -1, X1 + 3.4, 0.035, 1, false); B.box(M.pave, X1 + 1.4, 0, -22, X1 + 3.4, 0.035, -1, false); B.box(M.pave, -12, 0, -23.5, X1 + 3.4, 0.035, -21.5, false);
+    for (const x of [-8, 0, 8]) benchAt(B, M.beam, x, 0, -24.3, 0, 2.2);
+    const inZone = (x, z) => inPoly(x, z, PL) && polyEdge(x, z, PL) > 5;
+    grove(B, holder, 2627, 22, [-60, -75, 60, 34], (x, z) => inZone(x, z) && !(x > X0 - 5 && x < X1 + 6 && z > Z0 - 4 && z < Z1 + 9) && !(Math.abs(x) < 4 && z > 0) && !(z > -26 && z < -20 && x > -14 && x < 24) && !(x > X1 && x < X1 + 5 && z < 2 && z > -24));
+    places.unshift({ n: '나뭇잎 병원', t: '닌자와 마을 사람들을 돌보는 병원. 웬만한 병과 상처는 여기 의료 닌자들이 고치고, 크게 다친 사람은 츠나데나 시즈네가 나선다.', b: [X0 - 2, X1 + 2, Z0 - 2, Z1 + 4], y: [0, 14] });
+    return { places, glows, lights, jumps: [['나뭇잎 병원', 0, 0, 20, 0, 87], ['병원 옥상', 6, RF, 5.5, PI / 2, 88]] };
+  });
+  out.places.push({ n: '병원 터', t: '큰길 서쪽, 병원의 앞마당과 뒤뜰.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
+  out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights);
+}
+let _blackM = null; const BLACKM = () => _blackM || (_blackM = mat('plain', 0x1b1b1e, { rough: 0.9 }));
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
 // 집·나무를 세우기 전에 터부터 알려 둔다(zones.js 다음, streets.js 앞에서 부른다)
@@ -807,6 +1138,8 @@ export async function build(scene, ctx) {
   aviary(scene, out);
   await ctx.say('묘지의 비석을 닦는 중…');
   cemetery(scene, out);
+  await ctx.say('병원의 홑이불을 너는 중…');
+  hospital(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
