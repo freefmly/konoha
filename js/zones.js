@@ -7,6 +7,7 @@ import { boxHouse, makeKit, ROOFS } from './town.js';
 import { lantern, signBoard, beamBetween, gableRoof, hipRoof } from './arch.js';
 import { tuftGeometry } from './flora.js';
 import { Herd } from './deer.js';
+import { Pack } from './dogs.js';
 import { uchihaKit, uchihaGate } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
 import { terrainH, inPoly } from './village.js';
@@ -842,6 +843,142 @@ function sarutobi(scene, out) {
   const g = gates[0], t = [Math.cos(g.a), -Math.sin(g.a)];
   out.jumps.push(['사루토비 구역', g.x - t[0] * 9, 0, g.z - t[1] * 9, yawTo(t[0], t[1]), 65]);
 }
+const INUZUKA_FANGS = ['m1.01746,33.7875c-0.25871,1.3223 -0.20122,5.1167 0.11499,9.0261c2.15592,24.9224 14.97645,39.9851 36.50695,42.8597c1.6672,0.20119 3.162,0.4025 3.3057,0.4025c0.1725,0 -1.0061,-1.3223 -2.5871,-2.9321c-7.5026,-7.6751 -11.9294,-18.081 -13.108,-30.7866c-0.4024,-4.1106 -0.1724,-11.6707 0.4599,-15.8675c0.23,-1.5811 0.4312,-3.0471 0.4312,-3.2483c0,-0.2587 -2.6733,-0.3449 -12.4756,-0.3449l-12.44681,0l-0.20122,0.8911l-0.00001,0z',
+  'm73.85887,33.24129c0,0.20123 0.20122,1.66725 0.43118,3.24827c0.63242,4.19686 0.86237,11.75696 0.45993,15.86758c-1.17857,12.70556 -5.60538,23.11147 -13.108,30.78656c-1.58102,1.60976 -2.73084,2.93206 -2.58711,2.93206c0.17247,0 1.6385,-0.20123 3.30575,-0.40244c21.53046,-2.87458 34.35101,-17.93728 36.50694,-42.85973c0.31619,-3.9094 0.3737,-7.70382 0.11497,-9.02612l-0.17246,-0.89111l-12.47561,0c-9.80225,0 -12.47559,0.08623 -12.47559,0.34493z'];
+/* ============================ 이누즈카 구역과 견사 ============================
+   닌견과 짝을 이뤄 싸우는 일족의 구역. 공원 쪽(북쪽) 가운데 골목 어귀에 나무 문, 집마다 문장과 개집.
+   가운데 골목 옆 블록에 본가(츠메·하나·키바의 집 — 건물 파일 b_homes.js가 짓는다).
+   동쪽 견사: 울타리 친 놀이터 둘에서 닌견들이 놀고, 개집이 늘어선 마당, 훈련 마당, 관리동(하나가 보는 동물 진료소)이 있다.
+   닌견과 뺨의 붉은 송곳니 무늬, 하나가 수의사라는 것은 원작의 것이고, 견사의 짜임새와 진료소 건물은 지어낸 것이다. */
+// 이누즈카 일족의 문장: 붉은 송곳니 둘과 그 위의 세모(나루토 위키의 문장 그림을 따랐다)
+function drawInuzuka(g, cx, cy, r) {
+  g.save(); g.translate(cx - r * 0.92, cy - r * 0.92); g.scale(r * 0.92 / 50, r * 0.92 / 50);
+  g.fillStyle = '#b3261a';
+  for (const d of INUZUKA_FANGS) g.fill(new Path2D(d));
+  g.translate(50, 13.9743); g.rotate(-Math.PI / 4); g.translate(-50, -13.9743);
+  g.beginPath(); g.moveTo(42.26528, 21.70905); g.lineTo(42.26528, 6.23961); g.lineTo(57.73472, 21.70905); g.closePath(); g.fill();
+  g.restore();
+}
+// 개집: 널로 짠 작은 집에 맞배지붕. 문은 +z 쪽. s = 크기
+function doghouse(B, K, tile, x, z, s = 1, solid = true) {
+  const w = 0.5 * s, d = 0.62 * s, h = 0.68 * s;
+  B.box(K.door, x - w, 0.05, z - d, x + w, h, z + d, false); B.box(K.wood, x - w - 0.03, 0, z - d - 0.03, x + w + 0.03, 0.06, z + d + 0.03, false);
+  B.box(K.dark, x - 0.2 * s, 0.06, z + d - 0.01, x + 0.2 * s, 0.46 * s, z + d + 0.012, false);
+  B.geo(K.dark, new THREE.CircleGeometry(0.2 * s, 12, 0, Math.PI), mat4(x, 0.46 * s, z + d + 0.012));
+  B.prism(tile, 'z', [[x - w - 0.14, h], [x + w + 0.14, h], [x, h + 0.42 * s]], z - d - 0.12, z + d + 0.12);
+  if (solid) addCollider(x - w, 0, z - d, x + w, h + 0.3, z + d);   // 길가 집의 꾸밈으로 놓을 때는 충돌 상자를 두지 않는다(집의 제 좌표라 자리가 맞지 않는다)
+}
+// 나무 울타리를 네모로 두른다. 문은 gate([x, z]) 둘레를 비운다
+function railFence(B, x0, z0, x1, z1, gate) {
+  const P = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+  for (let i = 0; i < 4; i++) {
+    const a = P[i], b = P[(i + 1) % 4], L = Math.hypot(b[0] - a[0], b[1] - a[1]), k = Math.max(1, Math.round(L / 2.4));
+    let prev = null;
+    for (let j = 0; j <= k; j++) {
+      const x = a[0] + (b[0] - a[0]) * j / k, z = a[1] + (b[1] - a[1]) * j / k;
+      if (Math.hypot(x - gate[0], z - gate[1]) < 1.5) { prev = null; continue; }
+      B.box(M.beam, x - 0.07, 0, z - 0.07, x + 0.07, 1.35, z + 0.07, false);
+      if (prev) { for (const y of [0.3, 0.7, 1.15]) beamBetween(B, M.beamLight, V(prev[0], y, prev[1]), V(x, y, z), 0.045, 0.1); for (let s = 0; s < 5; s++) { const cx = prev[0] + (x - prev[0]) * (s + 0.5) / 5, cz = prev[1] + (z - prev[1]) * (s + 0.5) / 5; addCollider(cx - 0.26, 0, cz - 0.26, cx + 0.26, 1.3, cz + 0.26); } }
+      prev = [x, z];
+    }
+  }
+}
+function inuzuka(scene, out) {
+  const K = makeKit(), Z = zone(21), Zk = zone(22), R = rngOf(2121), tileHex = 0x77706a, tile = mat('tile', tileHex);
+  const bb = Z.blocks.map(bound), kb = Zk.blocks.map(bound), zb = bound(Z.poly);
+  // 들머리의 나무 문: 공원 쪽 가운데 골목 어귀
+  const lane = [(bb[1][1] + bb[0][0]) / 2, zb[2] + 4];
+  put(scene, { x: lane[0], z: lane[1], ry: 0 }, B => {
+    for (const s of [-1, 1]) { B.box(M.beam, s * 2.6 - 0.2, 0, -0.2, s * 2.6 + 0.2, 4.2, 0.2); B.box(M.stone, s * 2.6 - 0.3, 0, -0.3, s * 2.6 + 0.3, 0.4, 0.3, false); }
+    B.box(M.beam, -3.4, 3.2, -0.11, 3.4, 3.44, 0.11, false); B.box(M.beam, -3.8, 4.04, -0.16, 3.8, 4.3, 0.16, false);
+    gableRoof(B, tile, -3.6, -0.7, 3.6, 0.7, 4.3, 0.7, { ridge: 'x', over: 0.5, overGable: 0.5 });
+    crestDisc(B, drawInuzuka, 'inuzuka', 0, 3.74, 0.13, 0, 0.4); crestDisc(B, drawInuzuka, 'inuzuka', 0, 3.74, -0.13, Math.PI, 0.4);
+  });
+  // 구역 안의 집: 누런 벽·잿빛 기와, 벽에 문장, 두 집에 한 집꼴로 문 옆에 개집
+  GROUPS.push({
+    polys: Z.blocks, land: 3,
+    style: Rr => ({ round: false, floors: 1 + (Rr() < 0.4 ? 1 : 0), wall: Rr() < 0.6 ? 0 : 4, roof: 3, roofHex: tileHex, roofKind: Rr() < 0.6 ? 'gable' : 'hip', shop: Rr() < 0.05 ? ['肉', '骨', '薬'][Math.floor(Rr() * 3)] : null }),
+    deco: (B, h) => {
+      crestDisc(B, drawInuzuka, 'inuzuka', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36);
+      if (h.seed % 2) { doghouse(B, K, tile, h.w / 2 - 1.2, h.d / 2 + 0.85, 0.9 + (h.seed % 3) * 0.12, false); B.geo(M.iron, new THREE.CylinderGeometry(0.13, 0.1, 0.07, 10), mat4(h.w / 2 - 2.2, 0.035, h.d / 2 + 1.1)); }
+    },
+  });
+  out.places.push({ n: '이누즈카 구역', t: '닌견과 짝을 이뤄 싸우는 이누즈카 일족의 구역. 뺨에 붉은 송곳니 무늬를 그리고, 코가 개만큼 밝다.', poly: Z.poly, b: zb });
+  out.jumps.push(['이누즈카 구역', lane[0], 0, lane[1] - 9, yawTo(0, 1), 68]);
+
+  /* ---------- 견사 ---------- */
+  const [RUN_A, RUN_B, HOUSES, TRAIN, OFFICE, STORE] = [2, 1, 6, 5, 0, 4];                      // 견사 블록 번호: 놀이터 둘, 개집 마당, 훈련 마당, 관리동, 사료 창고
+  // 놀이터: 울타리 안에서 닌견들이 걷고 뛰고 냄새를 맡는다
+  for (const [bi, n, seed] of [[RUN_A, 7, 2201], [RUN_B, 6, 2202]]) {
+    const b = kb[bi], x0 = b[0] + 1.2, x1 = b[1] - 1.2, z0 = b[2] + 1.2, z1 = b[3] - 1.2, gate = [(x0 + x1) / 2, z1], B = new Builder();
+    railFence(B, x0, z0, x1, z1, gate);
+    B.geo(K.tank, new THREE.CylinderGeometry(0.5, 0.45, 0.32, 14), mat4(x0 + 1.6, 0.16, z0 + 1.6)); B.geo(M.water, new THREE.CircleGeometry(0.46, 14).rotateX(-Math.PI / 2), mat4(x0 + 1.6, 0.29, z0 + 1.6));   // 물통
+    addCollider(x0 + 1.1, 0, z0 + 1.1, x0 + 2.1, 0.32, z0 + 2.1);
+    for (let k = 0; k < 3; k++) B.geo(M.beamLight, new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8).rotateZ(Math.PI / 2), mat4(x1 - 2 - k * 1.3, 0.05, z0 + 2 + k * 2.1, 0, k * 1.1, 0));                       // 물고 노는 나무토막
+    B.finish(scene);
+    const pack = new Pack(scene, [[x0 + 1.2, z0 + 1.2], [x1 - 1.2, z0 + 1.2], [x1 - 1.2, z1 - 1.2], [x0 + 1.2, z1 - 1.2]], n, rngOf(seed));
+    out.ticks.push((t, dt) => pack.tick(t, dt, out.eye && out.eye.position));
+    out.places.push({ n: '닌견 놀이터', t: '울타리 안에서 닌견들이 뛰논다. 일족의 아이는 나이가 차면 여기서 제 짝을 만난다.', poly: Zk.blocks[bi], b });
+    if (bi === RUN_A) out.jumps.push(['이누즈카 견사', gate[0], 0, gate[1] + 4, 0, 69]);
+  }
+  // 개집 마당: 개집 두 줄과 밥그릇
+  {
+    const b = kb[HOUSES], hw = (b[1] - b[0]) / 2, hd = (b[3] - b[2]) / 2;
+    put(scene, { x: (b[0] + b[1]) / 2, z: (b[2] + b[3]) / 2, ry: Math.PI }, B => {              // 제 좌표의 +z가 골목(북쪽)
+      for (let r = 0; r < 2; r++) for (let x = -hw + 2.2; x <= hw - 2; x += 2.9) {
+        const zz = hd - 6 - r * 9, s = 1 + ((Math.round(x * 3) + r + 30) % 3) * 0.18;
+        doghouse(B, K, tile, x, zz, s); B.geo(M.iron, new THREE.CylinderGeometry(0.14, 0.1, 0.07, 10), mat4(x + 0.2, 0.035, zz + 1.6));
+      }
+      for (const s of [-1, 1]) B.box(M.beam, s * 0.9 - 0.06, 0, hd - 0.52, s * 0.9 + 0.06, 2.0, hd - 0.4, false);
+      signBoard(B, '犬舎', 0, 1.7, hd - 0.46, 0, 1.7, 0.5, {});
+    });
+    out.places.push({ n: '견사의 개집 마당', t: '닌견마다 제 집이 있다. 덩치 큰 놈의 집은 그만큼 크다.', poly: Zk.blocks[HOUSES], b });
+  }
+  // 훈련 마당: 뛰어넘는 가로대, 기어가는 통, 오르내리는 판
+  {
+    const b = kb[TRAIN], B = new Builder(), x0 = b[0] + 2.5, z0 = b[2] + 3;
+    for (let k = 0; k < 4; k++) {
+      const x = x0 + 1 + k * 4.2, h = 0.45 + k * 0.15;
+      for (const s of [-1, 1]) B.box(M.beam, x - 0.05, 0, z0 + s * 1.1 - 0.05, x + 0.05, h + 0.25, z0 + s * 1.1 + 0.05, false);
+      B.geo(mat('plain', k % 2 ? 0xb3261a : 0xf1eadb), new THREE.CylinderGeometry(0.04, 0.04, 2.2, 8).rotateX(Math.PI / 2), mat4(x, h, z0));
+      addCollider(x - 0.1, 0, z0 - 1.15, x + 0.1, h, z0 + 1.15);
+    }
+    const tz = z0 + 7;                                                                               // 통
+    B.geo(K.tank, new THREE.CylinderGeometry(0.55, 0.55, 4.2, 14, 1, true).rotateZ(Math.PI / 2), mat4(x0 + 4, 0.55, tz)); addCollider(x0 + 1.9, 0, tz - 0.55, x0 + 6.1, 1.1, tz + 0.55);
+    const rx = x0 + 12.5;                                                                            // 오르내리는 판(∧ 꼴)
+    for (const s of [-1, 1]) B.geo(M.beamLight, new THREE.BoxGeometry(2.6, 0.06, 1.0), mat4(rx + s * 1.1, 0.72, tz, 0, 0, -s * 0.58));
+    for (const s of [-1, 1]) B.box(M.beam, rx - 0.05, 0, tz + s * 0.55 - 0.05, rx + 0.05, 1.45, tz + s * 0.55 + 0.05, false);
+    addCollider(rx - 2.2, 0, tz - 0.5, rx + 2.2, 1.4, tz + 0.5);
+    for (const [x, z] of [[x0 + 2, z0 + 13], [x0 + 6, z0 + 14.5], [x0 + 10, z0 + 13]]) {             // 물어뜯는 말뚝
+      B.geo(M.beam, new THREE.CylinderGeometry(0.16, 0.18, 1.5, 12), mat4(x, 0.75, z)); addCollider(x - 0.2, 0, z - 0.2, x + 0.2, 1.5, z + 0.2);
+    }
+    B.finish(scene);
+    out.places.push({ n: '닌견 훈련 마당', t: '뛰어넘고, 기어가고, 물어뜯는 훈련. 사람과 개가 한 몸처럼 움직이는 법을 여기서 익힌다.', poly: Zk.blocks[TRAIN], b });
+  }
+  // 관리동(동물 진료소)과 사료 창고
+  {
+    const b = kb[OFFICE], at = { x: (b[0] + b[1]) / 2, z: (b[2] + b[3]) / 2, ry: Math.PI / 2 + Math.PI, w: 13, d: 22 };   // 앞이 서쪽(견사 안쪽)
+    LOTS.push({ x: at.x, z: at.z, ry: 0, w: b[1] - b[0], d: b[3] - b[2] });
+    const res = put(scene, at, B => {
+      boxHouse(B, K, { x0: -9, z0: -5, x1: 9, z1: 4.5, front: 's', floors: 2, wall: 5, roof: 3, roofHex: tileHex, roofKind: 'gable', rise: 2.0, shop: '犬', near: true }, rngOf(2203), out.glows);
+      crestDisc(B, drawInuzuka, 'inuzuka', -7.3, 2.0, 4.53, 0, 0.45);
+      signBoard(B, '動物診療所', 5.6, 2.9, 4.6, 0, 2.6, 0.5, { both: false });
+      doghouse(B, K, tile, -7.5, 6.0, 1.1);
+      return { places: [{ n: '견사 관리동', t: '닌견을 돌보는 사람들의 집무실이자, 수의사인 이누즈카 하나가 보는 동물 진료소.', b: [-9.5, 9.5, -5.5, 7], y: [0, 9] }], jumps: [['동물 진료소', 0, 0, 10, 0, 70]] };
+    });
+    out.places.push(...res.places); out.jumps.push(...res.jumps);
+    const s = kb[STORE], at2 = { x: (s[0] + s[1]) / 2, z: (s[2] + s[3]) / 2, ry: Math.PI / 2 + Math.PI, w: 12, d: 12 };
+    LOTS.push({ x: at2.x, z: at2.z, ry: 0, w: s[1] - s[0], d: s[3] - s[2] });
+    put(scene, at2, B => {
+      boxHouse(B, K, { x0: -6.5, z0: -4.5, x1: 6.5, z1: 3.5, front: 's', floors: 1, wall: 0, roof: 3, roofHex: tileHex, roofKind: 'gable', rise: 2.2, shop: null, near: true }, rngOf(2204), out.glows);
+      signBoard(B, '飼料', 3.6, 2.4, 3.6, 0, 1.2, 0.45, { both: false });
+      const sack = mat('plain', 0xb89468, { rough: 1 });
+      for (let k = 0; k < 6; k++) B.geo(sack, new THREE.SphereGeometry(0.34, 8, 6).scale(1.25, 0.55, 0.85), mat4(-4.6 + (k % 3) * 0.75, 0.2 + Math.floor(k / 3) * 0.34, 4.3, 0, k * 0.3, 0));
+      addCollider(-5.2, 0, 3.9, -2.6, 0.8, 4.8);
+    });
+  }
+  out.places.push({ n: '이누즈카 견사', t: '일족이 닌견을 기르고 길들이는 곳. 놀이터와 개집 마당, 훈련 마당이 있다.', poly: Zk.poly, b: bound(Zk.poly) });
+}
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
 export async function build(scene, ctx) {
@@ -858,6 +995,8 @@ export async function build(scene, ctx) {
   hyuga(scene, out);
   await ctx.say('사루토비 일족의 화톳불을 지피는 중…');
   sarutobi(scene, out);
+  await ctx.say('이누즈카 일족의 닌견을 풀어놓는 중…');
+  inuzuka(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }

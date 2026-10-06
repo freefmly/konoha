@@ -2,6 +2,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { Builder, wall, stairs, tube, mergeGeos, mat4, rng, addCollider } from './build.js';
 import { mat, M, textMat } from './materials.js';
+import { dogStatue } from './dogs.js';
 import { gableRoof, hipRoof, tilePanel, beamBetween, windowUnit, doorUnit, railing, noren, signBoard } from './arch.js';
 
 const PI = Math.PI;
@@ -1595,6 +1596,174 @@ function buildSarutobi(B, R, out) {
   out.lights.push([5, 2.6, 6.5, 16, 18], [12.6, 2.6, 4.5, 14, 15], [5, 5.5, 9.4, 14, 15], [4.6, 5.5, 3, 13, 15]);
 }
 
+/* ============================ 이누즈카 본가 — 츠메·하나·키바의 집 ============================
+   이누즈카 구역 가운데 골목가. 1층은 다다미 거실과 츠메의 방, 부엌, 2층은 키바의 방과 하나의 방. 방마다 식구의 닌견이 있다.
+   츠메(쿠로마루), 하나(하이마루 삼형제), 키바(아카마루)는 원작의 식구와 닌견이고, 집의 생김새와 꾸밈은 지어낸 것이다. */
+function buildInuzuka(B, R, out) {
+  const X0 = 0, X1 = 16, Z0 = 0, Z1 = 13, T = 0.2, F1 = 0.4, F2 = 3.4, CE = 6.1, TOP = 6.2, wl = mat('plaster', 0xe8dcc0), tile = mat('tile', 0x77706a);
+  const { glows } = out, grey = mat('plain', 0x8a8f96);
+  // 닌견 한 마리를 세워 둔다(ci: 0 흰 개, 1 검은 개, 2 잿빛 개). 발밑에 충돌 상자
+  const dog = (ci, x, y, z, ry, s) => { const Tm = mat4(x, y, z, 0, ry, 0, s); for (const [hex, g, m] of dogStatue(ci)) B.geo(mat('plain', hex, { rough: 0.95 }), g, Tm.clone().multiply(m)); addCollider(x - 0.3 * s, y, z - 0.3 * s, x + 0.3 * s, y + 0.8 * s, z + 0.3 * s); };
+  const dogBed = (x, y, z, r, m) => { B.geo(M.beamLight, cyl(r + 0.06, r + 0.06, 0.1, 16), mat4(x, y + 0.05, z)); B.geo(m, cyl(r, r, 0.08, 16), mat4(x, y + 0.11, z)); };
+  const bowl = (x, y, z) => B.geo(P.steel, cyl(0.13, 0.1, 0.07, 10), mat4(x, y + 0.035, z));
+  // 바깥벽(아래위층 한 번에)과 창
+  side(B, wl, 'x', Z0, Z0 + T, X0, X1, 0, TOP, -1, [[2, 4.5, 1.3, 2.7], [2, 4.5, 4.3, 5.7], [6, 8.5, 1.3, 2.7], [6, 8.5, 4.3, 5.7], [11.5, 13.5, 1.5, 2.6], [11.5, 13.5, 4.3, 5.7]]);
+  side(B, wl, 'x', Z1 - T, Z1, X0, X1, 0, TOP, 1, [[1.4, 3.8, 1.3, 2.7], [1.4, 3.8, 4.3, 5.7], [5.6, 8, 1.3, 2.7], [5.6, 8, 4.3, 5.7], [11.5, 12.7, 0, 2.4, 'd'], [11.5, 12.7, 4.3, 5.7]]);
+  side(B, wl, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, TOP, -1, [[2, 4, 1.3, 2.7], [2, 4, 4.3, 5.7], [7.6, 10, 1.3, 2.7], [7.6, 10, 4.3, 5.7]]);
+  side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
+  trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
+  for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
+  gableRoof(B, tile, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+
+  // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
+  B.box(M.floor, X0 + T, 0, Z0 + T, 10, F1, Z1 - T); B.box(M.floor, 10, 0, Z0 + T, X1 - T, F1, 11.5);
+  B.box(M.pave, 10, 0, 11.5, X1 - T, 0.12, Z1 - T); B.box(M.beam, 10, 0.12, 11.47, X1 - T, F1 + 0.025, 11.53, false);
+  B.box(M.pave, 11.1, 0, Z1 - T - 0.02, 13.1, 0.135, 14.2);
+  B.box(M.floor, X0 + T, 3.2, Z0 + T, 14.4, F2, Z1 - T); B.box(M.floor, 14.4, 3.2, Z0 + T, X1 - T, F2, 6.4); B.box(M.floor, 14.4, 3.2, 10.9, X1 - T, F2, Z1 - T);
+  B.box(M.beamLight, X0 + T, CE, Z0 + T, X1 - T, TOP, Z1 - T);
+  // 1층 칸막이: 츠메의 방(북서) | 거실(남서) | 부엌·현관(동). 계단은 동쪽 벽을 따라 북으로 오른다
+  wall(B, M.white, 'z', 9.8, 10, Z0 + T, Z1 - T, F1, 3.2, [{ u0: 2.2, u1: 3.6, ys: [[F1, 2.6]] }, { u0: 8.6, u1: 10, ys: [[F1, 2.6]] }]);
+  wall(B, M.white, 'x', 6.2, 6.4, X0 + T, 9.8, F1, 3.2);
+  wall(B, M.white, 'x', 6.2, 6.4, 10, X1 - T, F1, 3.2, [{ u0: 11, u1: 12.3, ys: [[F1, 2.6]] }]);
+  doorUnit(B, 'z', 9.8, 10, 2.2, 3.6, F1, 2.6, { leaf: 'slide', inward: -1, paper: true }); doorUnit(B, 'z', 9.8, 10, 8.6, 10, F1, 2.6, { leaf: null }); doorUnit(B, 'x', 6.2, 6.4, 11, 12.3, F1, 2.6, { leaf: null });
+  B.box(M.white, 14.25, F1, 6.4, 14.4, 3.2, 10.6);
+  stairs(B, M.floor, 'z', 6.4, 1, F1, F2, 14.4, X1 - T, 0.3);
+  beamBetween(B, M.beam, V3(14.46, F1 + 1.1, 10.5), V3(14.46, F2 + 0.9, 6.5), 0.05, 0.06);
+  railing(B, M.beamLight, [[14.3, 6.5], [14.3, 10.95], [X1 - T, 10.95]], F2, 1.0);
+  // 2층 칸막이: 키바의 방(남서) | 하나의 방(북서) | 복도(동)
+  wall(B, M.white, 'z', 9.8, 10, Z0 + T, Z1 - T, F2, CE, [{ u0: 2.4, u1: 3.8, ys: [[F2, 5.6]] }, { u0: 8.2, u1: 9.5, ys: [[F2, 5.6]] }]);
+  wall(B, M.white, 'x', 5.8, 6, X0 + T, 9.8, F2, CE);
+  doorUnit(B, 'z', 9.8, 10, 8.2, 9.5, F2, 5.6, { leaf: 'swing', inward: -1 });
+  doorUnit(B, 'z', 9.8, 10, 2.4, 3.8, F2, 5.6, { leaf: 'swing', inward: -1 });
+  // 현관문과 포렴(犬), 문 위 눈썹지붕
+  doorUnit(B, 'x', Z1 - T, Z1, 11.5, 12.7, 0.12, 2.4, { leaf: 'swing', inward: -1 });
+  noren(B, 'x', Z1 + 0.14, 11.5, 12.7, 2.36, 0.62, ' 犬 ', { color: '#8a2a22' });
+  const pv = V3(0, 0.45, -1.2).normalize();
+  tilePanel(B, tile, V3(10.8, 2.65, 14.2), V3(1, 0, 0), pv, 2.6, Math.hypot(0.45, 1.2));
+  beamBetween(B, M.beam, V3(12.1, 2.6, 14.2), V3(12.1, 3.05, 13), 2.6, 0.04);
+  beamBetween(B, M.beam, V3(10.8, 2.58, 14.2), V3(13.4, 2.58, 14.2), 0.07, 0.12);
+  for (const x of [10.95, 13.25]) { beamBetween(B, M.beam, V3(x, 2.1, 13.02), V3(x, 2.56, 14.1), 0.07, 0.09); B.box(M.beam, x - 0.035, 2.0, Z1, x + 0.035, 3.0, Z1 + 0.06, false); }
+
+  /* 1층 거실: 다다미에 둥근 상. 한쪽에 쿠로마루의 큰 방석 — 덩치 큰 검은 닌견이 지키고 섰다 */
+  {
+    B.box(M.tatami, 0.6, F1, 6.8, 9.2, F1 + 0.03, 12.5, false);
+    const T2 = local(B, 5.6, F1 + 0.03, 9.7, 0);
+    lowTable(T2, 0.8); teaSet(T2, -0.25, 0.34, 0.1, 3);
+    [[0, -1.15, P.red], [0, 1.15, P.red], [1.15, 0, P.black]].forEach(([u, v, m], i) => T2.put(m, G.zabuton, u, 0.04, v, i * 0.2, 1.15));
+    dogBed(2.2, F1 + 0.03, 9.2, 0.75, P.black); dog(1, 2.2, F1 + 0.16, 9.2, -0.5, 1.35);
+    kakejiku(B, '牙', X0 + T + 0.012, F1 + 1.75, 11.6, PI / 2, 0.42, 1.2, P.red);
+    tansu(local(B, 5, F1, Z1 - T, 2), 1.6, 0.45, 0.82, 3);
+    // 식구 사진: 츠메, 하나, 키바
+    photo(B, teamPhoto('            ', [[0.22, 0.4, '#4a3a2e', '#6a7a6a', 'spiky'], [0.5, 0.42, '#5a4030', '#d8c8a8', 'pony'], [0.78, 0.5, '#4a3626', '#8a8f96', 'spiky']]), 5, F1 + 0.98, 12.42, PI, 0.3, 0.22, 0.2);
+    potOf(B, F.broad, 9.3, F1, 12.3, 1.8); addCollider(9.1, F1, 12.1, 9.5, F1 + 0.8, 12.5);
+    lamp(B, 4.9, 3.2, 9.7, glows);
+  }
+  /* 1층 츠메의 방: 다다미에 개어 둔 이부자리, 장과 옷장, "犬塚" 족자 */
+  {
+    B.box(M.tatami, X0 + T, F1, Z0 + T, 9.8, F1 + 0.03, 6.2, false);
+    for (let i = 0; i < 3; i++) B.put(i % 2 ? P.red : P.white, G.futon, 1.3, F1 + 0.1 + i * 0.15, 5.2, 0, 1.1);
+    B.put(P.white, G.pillow, 1.3, F1 + 0.57, 5.2, 0.2); addCollider(0.4, F1, 4.6, 2.2, F1 + 0.6, 5.8);
+    kakejiku(B, '犬塚', 5.25, F1 + 1.75, Z0 + T + 0.012, 0, 0.42, 1.2, P.red);
+    tansu(local(B, 1.1, F1, Z0 + T, 0), 1.6, 0.45, 1.1, 4);
+    wardrobe(local(B, 9.15, F1, Z0 + T, 0), 1.2, 0.6, 2.0);
+    const T2 = local(B, 5.2, F1 + 0.03, 3.6, 0);
+    lowTable(T2, 0.55); teaSet(T2, 0, 0.34, 0, 1); T2.put(P.red, G.zabuton, 0, 0.04, 0.95, 0, 1.15);
+    B.box(M.beam, 7.4, F1 + 1.5, 6.14, 8.6, F1 + 1.56, 6.2, false); B.box(grey, 7.6, F1 + 0.75, 6.12, 8.4, F1 + 1.52, 6.17, false);     // 벽에 건 임무 조끼
+    lamp(B, 4.8, 3.2, 3.2, glows);
+  }
+  /* 부엌: 개수대와 화구, 냉장고, 식탁. 바닥에 닌견 밥그릇이 줄지어 있고 구석에 사료 자루 */
+  {
+    cabinet(local(B, 10.85, F1, Z0 + T, 0), 1.3, 0.6, 0.85, 2, P.steel);
+    sinkUnit(local(B, 12.5, F1, Z0 + T, 0), 2.0, 0.6, 0.85);
+    cabinet(local(B, 14.35, F1, Z0 + T, 0), 1.7, 0.6, 0.85, 3, P.steel, true);
+    const E = local(B, X1 - T, F1, 2.0, 3);
+    cabinet(E, 1.8, 0.6, 0.85, 2, P.steel); stove(E, 0, 0.85, 0.3);
+    E.box(P.steel, -0.6, 1.85, 0, 0.6, 2.0, 0.5); E.box(P.steel, -0.3, 2.0, 0, 0.3, 2.8, 0.3);
+    fridge(local(B, 15.35, F1, 6.2, 2), 0.85, 0.7, 1.8);
+    const L = local(B, 12.6, F1, 3.9, 0);
+    table(L, 1.5, 0.9); chair(local(B, 12.2, F1, 3.15, 0), P.red); chair(local(B, 13.0, F1, 3.15, 0), P.red); chair(local(B, 12.6, F1, 4.65, 2), P.red);
+    for (const [u, v] of [[-0.4, -0.2], [0.4, -0.2], [0, 0.25]]) { L.put(P.porcelain, G.bowl, u - 0.1, 0.74, v); L.put(P.porcelain, G.plate, u + 0.14, 0.74, v, 0, 0.8); }
+    for (let k = 0; k < 5; k++) bowl(10.5 + k * 0.42, F1, 5.75);
+    for (let i = 0; i < 3; i++) B.put(P.kraft, G.sack, 13.6 + (i % 2) * 0.45, F1 + 0.1 + (i >> 1) * 0.18, 5.7, PI / 2 + i * 0.1);
+    lamp(B, 12.4, 3.2, 3.2, glows);
+  }
+  /* 현관과 복도 */
+  {
+    const S = local(B, X1 - T, 0.12, 12.2, 3);
+    cabinet(S, 1.0, 0.38, 0.9, 2);
+    [[11.0, 11.85, 0.1, P.black, 1.1], [10.6, 11.9, -0.1, P.blue, 1.0], [13.3, 11.9, -0.2, P.blue, 1.05]].forEach(([x, z, r, m, s]) => { for (const k of [-1, 1]) B.put(m, G.sandal, x + k * 0.08 * s, 0.12, z, PI + r + k * 0.06, s); });
+    for (const y of [1.3, 1.5]) B.geo(P.red, new THREE.TorusGeometry(0.12, 0.012, 5, 14), mat4(10.06, y, 12.2, 0, PI / 2, 0));                 // 벽에 건 목줄
+    lamp(B, 12.3, 3.2, 9.2, glows, 0.45);
+  }
+  /* 2층 — 키바의 방: 침대와 책상, 침대 옆 방석에 아카마루 */
+  {
+    bed(local(B, 1.5, F2, 6.78, 1), 1.2, 1.9, P.red);
+    const nt = local(B, 3.0, F2, 6.0, 0);
+    tansu(nt, 0.5, 0.42, 0.5, 2);
+    // 8반 사진: 키바, 히나타, 시노
+    photo(B, teamPhoto('             ', [[0.2, 0.42, '#4a3626', '#8a8f96', 'spiky'], [0.5, 0.5, '#22264a', '#d8cfc0', 'long'], [0.8, 0.42, '#2a2a2e', '#7a8a96', 'spiky']]), 3.0, F2 + 0.63, 6.2, 0, 0.32, 0.24, 0.22);
+    bookcase(local(B, 5.2, F2, 6.0, 0), 1.6, 0.34, 1.6, ['books', 'rolls', 'books', 'books'], R);
+    wardrobe(local(B, 9.8, F2, 7.0, 3), 1.4, 0.6, 2.0);
+    const D = local(B, 0.62, F2, 9.9, 1);
+    desk(D, 1.4, 0.65); chair(local(B, 1.4, F2, 9.9, 3), P.red);
+    D.box(P.books[3], -0.3, 0.74, -0.15, -0.05, 0.78, 0.15);
+    dogBed(3.6, F2, 9.0, 0.42, P.red); dog(0, 3.6, F2 + 0.13, 9.0, 0.6, 0.55); bowl(4.4, F2, 8.4);
+    B.box(M.beam, 4.0, F2 + 1.95, 12.74, 5.0, F2 + 2.0, 12.8, false); B.box(grey, 4.1, F2 + 0.9, 12.7, 4.9, F2 + 1.97, 12.76, false);       // 벽에 건 털 달린 겉옷
+    B.put(P.red, G.tableTop, 6.2, F2 + 0.004, 10.4, 0, [1.2, 0.3, 1.2]); B.put(P.red, G.zabuton, 6.9, F2 + 0.06, 10.9, 0.4, 1.1);
+    potOf(B, F.fern, 0.6, F2, 12.4, 1.4); addCollider(0.4, F2, 12.2, 0.8, F2 + 0.7, 12.6);
+    lamp(B, 5, CE, 9.6, glows);
+  }
+  /* 2층 — 하나의 방: 침대와 책상, 약병이 늘어선 선반. 깔개 위에 하이마루 삼형제 */
+  {
+    bed(local(B, 1.5, F2, 0.82, 1), 1.2, 1.9, P.blue);
+    const D = local(B, 5.25, F2, 0.6, 0);
+    desk(D, 1.4, 0.65); chair(local(B, 5.25, F2, 1.5, 2), P.blue);
+    D.box(P.books[1], -0.45, 0.74, -0.15, -0.15, 0.8, 0.15); D.box(P.paper, 0.05, 0.74, -0.2, 0.45, 0.745, 0.1);
+    bookcase(local(B, 8.6, F2, Z0 + T, 0), 1.8, 0.34, 2.0, ['vases', 'books', 'pots', 'books'], R, M.beamLight);                          // 약병과 의학 책
+    bookcase(local(B, X0 + T, F2, 4.6, 1), 1.4, 0.34, 1.6, ['books', 'vases', 'books'], R, M.beamLight);
+    B.put(P.blue, G.tableTop, 5.4, F2 + 0.004, 3.8, 0, [1.9, 0.3, 1.5]);
+    dog(2, 4.5, F2 + 0.02, 3.6, 0.3, 0.95); dog(2, 5.5, F2 + 0.02, 4.2, -0.4, 0.95); dog(2, 6.4, F2 + 0.02, 3.4, 2.6, 0.95);
+    for (let k = 0; k < 3; k++) bowl(7.6 + k * 0.4, F2, 5.4);
+    wardrobe(local(B, 2.6, F2, 5.8, 2), 1.4, 0.6, 2.0);
+    lamp(B, 4.8, CE, 3, glows);
+  }
+  /* 2층 복도 */
+  {
+    cabinet(local(B, 12.5, F2, Z0 + T, 0), 1.4, 0.4, 0.8, 2);
+    potOf(B, F.broad, 10.5, F2, 12.3, 1.6); addCollider(10.3, F2, 12.1, 10.7, F2 + 0.6, 12.5);
+    lamp(B, 12.3, CE, 4, glows);
+  }
+
+  /* 마당: 낮은 돌담과 대문 기둥·문패, 디딤돌, 큰 개집 둘과 물그릇 */
+  const gx0 = -3.6, gx1 = 19.6, gz0 = -3.6, gz1 = 19.2;
+  for (const [a, b, c, d] of [[gx0, gz0, gx0 + 0.3, gz1], [gx1 - 0.3, gz0, gx1, gz1], [gx0, gz0, gx1, gz0 + 0.3], [gx0, gz1 - 0.3, 11.0, gz1], [13.2, gz1 - 0.3, gx1, gz1]]) {
+    B.box(M.stone, a, 0, b, c, 0.85, d); B.box(M.concrete, a - 0.04, 0.85, b - 0.04, c + 0.04, 0.93, d + 0.04, false);
+  }
+  for (const x of [10.89, 13.31]) { B.box(M.beam, x - 0.14, 0, gz1 - 0.36, x + 0.14, 1.75, gz1 + 0.06); B.prism(tile, 'z', [[x - 0.2, 1.75], [x + 0.2, 1.75], [x, 1.9]], gz1 - 0.42, gz1 + 0.12); }
+  signBoard(B, '犬塚', 10.89, 1.25, gz1 + 0.085, 0, 0.13, 0.36, { vertical: true, both: false, depth: 0.03 });
+  for (let i = 0; i < 6; i++) B.put(M.pave, G.stone, 12.1 + (i % 2 ? 0.14 : -0.12), 0, 18.3 - i * 0.78, i * 1.3, [1 + (i % 3) * 0.12, 1, 0.9 + (i % 2) * 0.2]);
+  for (const [x, s] of [[3.2, 1.5], [6.4, 1.1]]) {                                                    // 개집
+    const w = 0.5 * s, d = 0.62 * s, h = 0.68 * s, z = 15.4;
+    B.box(M.beamLight, x - w, 0.05, z - d, x + w, h, z + d); B.box(P.black, x - 0.2 * s, 0.06, z + d - 0.01, x + 0.2 * s, 0.5 * s, z + d + 0.012, false);
+    B.prism(tile, 'z', [[x - w - 0.14, h], [x + w + 0.14, h], [x, h + 0.42 * s]], z - d - 0.12, z + d + 0.12);
+    bowl(x + w + 0.35, 0, z + d + 0.3);
+  }
+  for (const x of [15.5, 17.5]) { B.geo(M.beam, cyl(0.16, 0.18, 1.6, 12), mat4(x, 0.8, 16.2)); addCollider(x - 0.2, 0, 16.0, x + 0.2, 1.6, 16.4); }   // 발톱 가는 말뚝
+
+  out.places.push(
+    { n: '이누즈카 본가', t: '일족을 이끄는 츠메와 딸 하나, 아들 키바의 집. 식구마다 제 닌견이 있다.', b: [gx0, gx1, gz0, gz1] },
+    { n: '이누즈카네 현관', t: '신을 벗고 마루로 올라선다. 벽에 목줄이 걸려 있다.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
+    { n: '이누즈카네 거실', t: '큰 방석 위에 선 검은 닌견이 츠메의 짝 쿠로마루다. 사람 말을 하는 닌견이다.', b: [0.2, 9.8, 6.4, 12.8], y: [0, 3.2] },
+    { n: '츠메의 방', t: '키바의 어머니 츠메의 방. 벽에 임무 조끼, "犬塚" 족자.', b: [0.2, 9.8, 0.2, 6.2], y: [0, 3.2] },
+    { n: '이누즈카네 부엌', t: '식탁 옆 바닥에 닌견 밥그릇이 줄지어 있다.', b: [10, 15.8, 0.2, 6.2], y: [0, 3.2] },
+    { n: '키바의 방', t: '침대 옆 방석이 아카마루의 자리. 머리맡에 8반 사진.', b: [0.2, 9.8, 6, 12.8], y: [F2, TOP] },
+    { n: '하나의 방', t: '수의사인 하나의 방. 약병과 의학 책, 깔개 위에는 잿빛 하이마루 삼형제.', b: [0.2, 9.8, 0.2, 5.8], y: [F2, TOP] },
+    { n: '이누즈카네 2층 복도', t: '계단을 오르면 왼쪽 안쪽이 키바의 방, 앞쪽이 하나의 방이다.', b: [10, 15.8, 0.2, 12.8], y: [F2, TOP] },
+  );
+  out.jumps.push(['이누즈카 본가 앞', 12.1, 0, 21.5, 0, 71], ['키바의 방', 7.2, F2, 11.2, 0.9, 72]);
+  out.lights.push([5, 2.6, 9.5, 14, 16], [5, 2.6, 3.2, 13, 14], [12.6, 2.6, 4.5, 14, 15], [5, 5.5, 9.4, 14, 15], [4.6, 5.5, 3, 13, 15]);
+}
+
 export function build(scene, ctx) {
   P = palette(); G = makeGeos(); F = makeFlowers();
   const out = { places: [], jumps: [], lights: [], glows: [], skip: [] };
@@ -1605,6 +1774,7 @@ export function build(scene, ctx) {
   if (ctx.which === 'inoichi') buildInoichi(B, rng(4104), out);
   if (ctx.which === 'hyuga') buildHyuga(B, rng(4105), out);
   if (ctx.which === 'sarutobi') buildSarutobi(B, rng(4106), out);
+  if (ctx.which === 'inuzuka') buildInuzuka(B, rng(4107), out);
   B.finish(scene);
   return out;
 }
