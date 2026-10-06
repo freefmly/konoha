@@ -241,6 +241,7 @@ export async function buildVillage(scene, ctx) {
     }
     if (!ctx.part) { await ctx.say('구역 팻말을 세우는 중…'); buildSigns(scene); }
     if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./zones.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: zones', e); } }
+    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./civic.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: civic', e); } }   // 관저 둘레의 시설(대기소·정보부·전서구 탑)
     if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./streets.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: streets', e); } }
   }
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
