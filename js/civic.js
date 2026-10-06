@@ -535,8 +535,9 @@ function intel(scene, out) {
     {
       deskAt(B, M.beam, -8.4, F, -2.6, PI, 2.0, 0.7); chairAt(B, M.beam, -9, F, -1.8, PI); chairAt(B, M.beam, -7.8, F, -1.8, PI);
       B.geo(PAPER, box(0.3, 0.02, 0.4), mat4(-8.9, F + 0.79, -2.6, 0, 0.1, 0)); B.geo(PAPER, box(0.3, 0.004, 0.4), mat4(-7.9, F + 0.782, -2.55, 0, -0.2, 0));
-      for (let k = 0; k < 3; k++) cabinetAt(B, CABM, -5.45, F, -2.5 + k * 0.95, -PI / 2, 0.9, 1.4);
-      shelfAt(B, M.beam, -8.6, F, MZ1 - T - 0.2, PI, 2.6, 2.2, 5, R);
+      cabinetAt(B, CABM, -5.45, F, 0.25, -PI / 2, 0.9, 1.4);      // 문(z -1.6~-0.6)을 막지 않게 문 남쪽 벽에 붙인다
+      for (const z of [0.35, 1.28]) cabinetAt(B, CABM, -10.3, F, z, PI / 2, 0.9, 1.4);
+      shelfAt(B, M.beam, -6.4, F, MZ1 - T - 0.2, PI, 1.8, 2.2, 5, R);                      // 앞벽의 창을 가리지 않는 자리
       lamp(-8, C1, -0.6, 13);
     }
     // 부장실: 이비키의 책상, 서가, 걸어 둔 검은 외투
