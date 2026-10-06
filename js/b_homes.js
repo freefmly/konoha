@@ -1832,7 +1832,7 @@ function buildAburame(B, R, out) {
     lowTable(T2, 0.75); teaSet(T2, -0.2, 0.34, 0.1, 2);
     [[0, -1.1, P.green], [0, 1.1, P.green]].forEach(([u, v, m], i) => T2.put(m, G.zabuton, u, 0.04, v, i * 0.2, 1.15));
     kakejiku(B, '油女', X0 + T + 0.012, F1 + 1.75, 11.5, PI / 2, 0.42, 1.2, P.green);
-    for (let k = 0; k < 3; k++) photo(B, specimen(k), 4.6 + k * 0.6, F1 + 1.7, 12.788, PI, 0.46, 0.36);
+    for (let k = 0; k < 3; k++) photo(B, specimen(k), 4.12 + k * 0.57, F1 + 1.7, 12.788, PI, 0.46, 0.36);
     tansu(local(B, X0 + T, F1, 8.4, 1), 1.6, 0.45, 0.82, 3);
     jar(0.5, F1 + 0.82, 8.0, 0.8); jar(0.5, F1 + 0.82, 8.8, 0.6);
     potOf(B, F.fern, 9.3, F1, 12.3, 1.8); addCollider(9.1, F1, 12.1, 9.5, F1 + 0.8, 12.5);
@@ -1888,7 +1888,8 @@ function buildAburame(B, R, out) {
     desk(D, 1.5, 0.65); chair(local(B, 1.4, F2, 9.9, 3), P.green);
     terrarium(0.55, F2 + 0.74, 10.3, 0.4, 0.55, 0.32);
     B.box(P.black, 0.45, F2 + 0.745, 9.35, 0.6, F2 + 0.775, 9.4, false); B.box(P.black, 0.45, F2 + 0.745, 9.45, 0.6, F2 + 0.775, 9.5, false); B.box(P.black, 0.5, F2 + 0.765, 9.4, 0.53, F2 + 0.775, 9.45, false);   // 벗어 둔 색안경
-    for (let k = 0; k < 4; k++) photo(B, specimen(5 + k), 1.6 + k * 0.62, F2 + 1.75, 12.788, PI, 0.46, 0.36);
+    for (let k = 0; k < 2; k++) photo(B, specimen(5 + k), 4.4 + k * 0.62, F2 + 1.75, 12.788, PI, 0.46, 0.36);                // 남쪽 벽의 두 창 사이
+    for (let k = 0; k < 2; k++) photo(B, specimen(7 + k), X0 + T + 0.012, F2 + 1.75, 11.0 + k * 0.62, PI / 2, 0.46, 0.36);   // 서쪽 벽, 창 옆
     const Lt = local(B, 6.0, F2, 10.2, 0); B.put(P.green, G.tableTop, 6.0, F2 + 0.004, 10.2, 0, [1.2, 0.3, 1.2]); lowTable(Lt, 0.5, 0.32);
     terrarium(6.0, F2 + 0.326, 10.2, 0.6, 0.4, 0.35); B.put(P.green, G.zabuton, 6.9, F2 + 0.06, 10.8, 0.4, 1.1);
     for (let k = 0; k < 3; k++) jar(8.6, F2, 11.4 + k * 0.5, 1.0); addCollider(8.3, F2, 11.1, 8.9, F2 + 0.5, 12.7);
