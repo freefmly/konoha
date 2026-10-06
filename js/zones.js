@@ -125,7 +125,7 @@ function uchiha(scene, out) {
     polys: [...Z.blocks, zone(36).poly, zone(37).poly], land: 3,
     ok: (x, z) => { if (!inPoly(x, z, W)) return false; for (let i = 0; i < NW; i++) if (segDist(x, z, W[i], W[(i + 1) % NW]) < 2.4) return false; return true; },
     style: R => ({ round: false, floors: 1 + (R() < 0.45 ? 1 : 0), wall: 5, roof: 3, roofKind: R() < 0.6 ? 'gable' : 'hip', shop: R() < 0.07 ? shops[si++ % shops.length] : null }),
-    deco: (B, h) => U.crestPlaque(B, -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36),
+    deco: (B, h) => U.crestPlaque(B, -h.w / 2 + 1.0, (h.floors >= 2 ? 3.3 : 2.75), h.d / 2 + 0.03, 0, 0.36),
   });
 
   const xs = W.map(q => q[0]), zs = W.map(q => q[1]);
@@ -246,7 +246,7 @@ function nara(scene, out) {
   GROUPS.push({
     polys: Z.blocks.filter((_, i) => ![HOME, PADDOCK, HERBS].includes(i)), land: 3,
     style: Rr => ({ round: false, floors: 1 + (Rr() < 0.35 ? 1 : 0), wall: Rr() < 0.6 ? 0 : 1, roof: 2, roofKind: Rr() < 0.65 ? 'gable' : 'hip', shop: Rr() < 0.04 ? '薬' : null }),
-    deco: (B, h) => crestDisc(B, drawNara, 'nara', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36),
+    deco: (B, h) => crestDisc(B, drawNara, 'nara', -h.w / 2 + 1.0, (h.floors >= 2 ? 3.3 : 2.75), h.d / 2 + 0.03, 0, 0.36),
   });
   out.places.push({ n: '나라 구역', t: '사슴을 돌보고 약을 짓는 나라 일족의 구역. 그림자를 다루는 술법으로 이름났다.', poly: Z.poly, b: bound(Z.poly) });
   out.jumps.push(['나라 구역', gate[0] - u[0] * 9, 0, gate[1] - u[1] * 9, yawTo(u[0], u[1]), 50]);
@@ -378,7 +378,7 @@ function akimichi(scene, out) {
     polys: Z.blocks.filter((_, i) => ![HALL, STORE].includes(i)), land: 3, size: [9.5, 4.5, 8.5, 3.5],
     ok: (x, z) => !inPoly(x, z, zone(10).poly),                     // 야마나카 구역과 겹친 귀퉁이는 그쪽에 내준다
     style: Rr => ({ round: false, floors: 1 + (Rr() < 0.5 ? 1 : 0), wall: Rr() < 0.55 ? 3 : 0, roof: 1, roofKind: Rr() < 0.55 ? 'hip' : 'gable', shop: Rr() < 0.1 ? ['米', '団子', '焼肉', '菓子', '餅'][Math.floor(Rr() * 5)] : null }),
-    deco: (B, h) => crestDisc(B, drawAkimichi, 'akimichi', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36),
+    deco: (B, h) => crestDisc(B, drawAkimichi, 'akimichi', -h.w / 2 + 1.0, (h.floors >= 2 ? 3.3 : 2.75), h.d / 2 + 0.03, 0, 0.36),
   });
   out.places.push({ n: '아키미치 구역', t: '많이 먹고 몸을 불려 싸우는 아키미치 일족의 구역. 옷에 먹을 식(食) 자를 새긴다.', poly: Z.poly, b: bound(Z.poly) });
   out.jumps.push(['아키미치 구역', gate[0] - u[0] * 9, 0, gate[1] - u[1] * 9, yawTo(u[0], u[1]), 52]);
@@ -633,7 +633,7 @@ function yamanaka(scene, out) {
     polys: Z.blocks.filter((_, i) => ![FIELD_A, FIELD_B, WORKS].includes(i)), land: 3,
     style: Rr => ({ round: false, floors: 1 + (Rr() < 0.4 ? 1 : 0), wall: Rr() < 0.65 ? 5 : 4, roof: 0, roofKind: Rr() < 0.6 ? 'gable' : 'hip', shop: Rr() < 0.05 ? ['茶', '花', '香'][Math.floor(Rr() * 3)] : null }),
     deco: (B, h) => {
-      crestDisc(B, drawYamanaka, 'yamanaka', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36);
+      crestDisc(B, drawYamanaka, 'yamanaka', -h.w / 2 + 1.0, (h.floors >= 2 ? 3.3 : 2.75), h.d / 2 + 0.03, 0, 0.36);
       const kd = h.seed % 3, f = Y.FG[kd][h.seed % 2], hue = Y.hues[kd][(h.seed >> 2) % Y.hues[kd].length], x = h.w / 2 - 1.5, z = h.d / 2 + 0.42;
       B.box(K.pot, x - 0.75, 0, z - 0.19, x + 0.75, 0.32, z + 0.19, false);
       for (const o of [-0.48, 0, 0.48]) { const m = mat4(x + o, 0.3, z, 0, o * 9 + h.seed, 0, [0.85, 0.85, 0.85]); B.geo(Y.green, f.stem, m); B.geo(Y.petal(hue), f.head, m); if (f.eye) B.geo(Y.eye, f.eye, m); }
@@ -792,7 +792,7 @@ function hyuga(scene, out) {
     polys: Z.blocks.filter((_, i) => i !== MAIN), land: 3,
     ok: (x, z) => { if (!inPoly(x, z, W)) return false; for (let i = 0; i < NP; i++) if (segDist(x, z, W[i], W[(i + 1) % NP]) < 2.4) return false; return true; },
     style: Rr => ({ round: false, floors: 1 + (Rr() < 0.35 ? 1 : 0), wall: 5, roof: 3, roofHex: tileHex, roofKind: Rr() < 0.55 ? 'hip' : 'gable', shop: null }),
-    deco: (B, h) => crestDisc(B, drawHyuga, 'hyuga', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36),
+    deco: (B, h) => crestDisc(B, drawHyuga, 'hyuga', -h.w / 2 + 1.0, (h.floors >= 2 ? 3.3 : 2.75), h.d / 2 + 0.03, 0, 0.36),
   });
   out.places.push({ n: '휴가 구역', t: '백안을 물려받는, 마을에서 가장 오래된 일족의 구역. 일족을 이끄는 종가와 그를 지키는 분가로 나뉜다.', poly: W, b: bound(W) });
   out.jumps.push(['휴가 구역 대문', G.at[0] + G.out[0] * 9, 0, G.at[1] + G.out[1] * 9, yawTo(-G.out[0], -G.out[1]), 60]);
@@ -837,7 +837,7 @@ function sarutobi(scene, out) {
   GROUPS.push({
     polys: Z.blocks, land: 3,
     style: Rr => ({ round: false, floors: 1 + (Rr() < 0.45 ? 1 : 0), wall: Rr() < 0.6 ? 0 : 1, roof: 4, roofKind: Rr() < 0.6 ? 'gable' : 'hip', shop: Rr() < 0.05 ? ['茶', '書', '忍具'][Math.floor(Rr() * 3)] : null }),
-    deco: (B, h) => crestDisc(B, drawSarutobi, 'sarutobi', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36),
+    deco: (B, h) => crestDisc(B, drawSarutobi, 'sarutobi', -h.w / 2 + 1.0, (h.floors >= 2 ? 3.3 : 2.75), h.d / 2 + 0.03, 0, 0.36),
   });
   out.places.push({ n: '사루토비 구역', t: '3대 호카게 히루젠을 낸 일족의 구역. 화둔을 쓰고, 대대로 "불의 의지"를 받든다.', poly: Z.poly, b: bound(Z.poly) });
   const g = gates[0], t = [Math.cos(g.a), -Math.sin(g.a)];
@@ -899,7 +899,7 @@ function inuzuka(scene, out) {
     polys: Z.blocks, land: 3,
     style: Rr => ({ round: false, floors: 1 + (Rr() < 0.4 ? 1 : 0), wall: Rr() < 0.6 ? 0 : 4, roof: 3, roofHex: tileHex, roofKind: Rr() < 0.6 ? 'gable' : 'hip', shop: Rr() < 0.05 ? ['肉', '骨', '薬'][Math.floor(Rr() * 3)] : null }),
     deco: (B, h) => {
-      crestDisc(B, drawInuzuka, 'inuzuka', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36);
+      crestDisc(B, drawInuzuka, 'inuzuka', -h.w / 2 + 1.0, (h.floors >= 2 ? 3.3 : 2.75), h.d / 2 + 0.03, 0, 0.36);
       if (h.seed % 2) { doghouse(B, K, tile, h.w / 2 - 1.2, h.d / 2 + 0.85, 0.9 + (h.seed % 3) * 0.12, false); B.geo(M.iron, new THREE.CylinderGeometry(0.13, 0.1, 0.07, 10), mat4(h.w / 2 - 2.2, 0.035, h.d / 2 + 1.1)); }
     },
   });
@@ -1042,8 +1042,8 @@ function aburame(scene, out) {
     ok: (x, z) => Math.hypot(x - gate[0], z - gate[1]) > 9,
     style: Rr => ({ round: false, floors: 1 + (Rr() < 0.5 ? 1 : 0), wall: 4, roof: 2, roofHex: tileHex, roofKind: Rr() < 0.5 ? 'gable' : 'hip', shop: null }),
     deco: (B, h) => {
-      crestDisc(B, drawAburame, 'aburame', -h.w / 2 + 1.0, h.floors * 3.0 - 0.55, h.d / 2 + 0.03, 0, 0.36);
-      if (h.seed % 3 === 0) for (let k = 0; k < 3; k++) B.geo(K.pot, new THREE.SphereGeometry(0.22, 10, 8).scale(1, 1.25, 1), mat4(h.w / 2 - 1.0 - k * 0.55, 0.26, h.d / 2 + 0.5 + (k % 2) * 0.2));   // 문 옆의 벌레 항아리
+      crestDisc(B, drawAburame, 'aburame', -h.w / 2 + 1.0, (h.floors >= 2 ? 3.3 : 2.75), h.d / 2 + 0.03, 0, 0.36);
+      if (h.seed % 3 === 0) for (let k = 0; k < 2; k++) B.geo(K.pot, new THREE.SphereGeometry(0.22, 10, 8).scale(1, 1.25, 1), mat4(h.w / 2 - 0.35 - k * 0.42, 0.26, h.d / 2 + 0.4 + (k % 2) * 0.25));   // 문을 막지 않게 모퉁이에 붙여 둔다   // 문 옆의 벌레 항아리
     },
   });
   out.places.push({ n: '아부라메 구역', t: '몸에 벌레를 깃들여 함께 사는 아부라메 일족의 구역. 성벽과 강 사이 외진 땅에 말수 적은 사람들이 모여 산다.', poly: Z.poly, b: bound(Z.poly) });

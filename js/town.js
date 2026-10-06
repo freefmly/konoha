@@ -137,8 +137,10 @@ export function boxHouse(B, K, s, R, glows) {
   if (s.shop) {
     shopFront(B, K, ff, FW / 2, Math.min(FW - 2.2, 4.4), tile, s.shop, R, glows);
   } else {
-    fakeDoor(K, ff, FW * (0.3 + R() * 0.4));
-    if (FW > 6) fakeWindow(K, ff, FW * 0.82, 1.25, 1.05, 1.15, R, { planter: R() < 0.4 });
+    const du = FW * (0.3 + R() * 0.4);
+    fakeDoor(K, ff, du);
+    // 문 옆 창: 문이 오른쪽으로 치우쳐 창 자리와 겹치면 왼쪽에 낸다
+    if (FW > 6) fakeWindow(K, ff, du + 0.85 > FW * 0.82 - 0.6 ? FW * 0.18 : FW * 0.82, 1.25, 1.05, 1.15, R, { planter: R() < 0.4 });
   }
   // 2층 발코니
   if (floors >= 2 && R() < 0.45) {
