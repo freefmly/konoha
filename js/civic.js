@@ -7,7 +7,7 @@ import { beamBetween, hipRoof, gableRoof, coneRoof, roundWall, roundWindow, roun
 import { treeGeometry, bushGeometry } from './flora.js';
 import { uchihaKit } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
-import { LOTS, OPEN } from './zones.js';
+import { LOTS, OPEN, zoneGroups } from './zones.js';
 import { inPoly } from './village.js';
 
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -1116,7 +1116,7 @@ function hospital(scene, out) {
     B.box(M.pave, X1 + 0.2, 0, -1, X1 + 3.4, 0.035, 1, false); B.box(M.pave, X1 + 1.4, 0, -22, X1 + 3.4, 0.035, -1, false); B.box(M.pave, -12, 0, -23.5, X1 + 3.4, 0.035, -21.5, false);
     for (const x of [-8, 0, 8]) benchAt(B, M.beam, x, 0, -24.3, 0, 2.2);
     const inZone = (x, z) => inPoly(x, z, PL) && polyEdge(x, z, PL) > 5;
-    grove(B, holder, 2627, 22, [-60, -75, 60, 34], (x, z) => inZone(x, z) && !(x > X0 - 5 && x < X1 + 6 && z > Z0 - 4 && z < Z1 + 9) && !(Math.abs(x) < 4 && z > 0) && !(z > -26 && z < -20 && x > -14 && x < 24) && !(x > X1 && x < X1 + 5 && z < 2 && z > -24));
+    grove(B, holder, 2627, 16, [-60, -75, 60, 34], (x, z) => inZone(x, z) && !(x > X0 - 5 && x < X1 + 6 && z > Z0 - 4 && z < Z1 + 9) && !(Math.abs(x) < 4 && z > 0) && !(z > -26 && z < -20 && x > -14 && x < 24) && !(x > X1 && x < X1 + 5 && z < 2 && z > -24));
     places.unshift({ n: '나뭇잎 병원', t: '닌자와 마을 사람들을 돌보는 병원. 웬만한 병과 상처는 여기 의료 닌자들이 고치고, 크게 다친 사람은 츠나데나 시즈네가 나선다.', b: [X0 - 2, X1 + 2, Z0 - 2, Z1 + 4], y: [0, 14] });
     return { places, glows, lights, jumps: [['나뭇잎 병원', 0, 0, 20, 0, 87], ['병원 옥상', 6, RF, 5.5, PI / 2, 88]] };
   });
@@ -1273,12 +1273,99 @@ function library(scene, out) {
     plate(B, M.pave, -6, Z0 - 28, 6, Z0 - 16, 0, 0.037, (x, z) => Math.hypot(x, z - (Z0 - 22)) < 5.5, false);
     for (const a of [0, PI, PI * 1.5]) benchAt(B, M.beam, Math.cos(a) * 4.2, 0, Z0 - 22 + Math.sin(a) * 4.2, -a - PI / 2, 2.0);
     const inZone = (x, z) => inPoly(x, z, PL) && polyEdge(x, z, PL) > 5;
-    grove(B, holder, 2728, 26, [-70, -110, 70, 36], (x, z) => inZone(x, z) && !(x > X0 - 6 && x < X1 + 5 && z > Z0 - 5 && z < Z1 + 10) && !(Math.abs(x) < 4 && z > 0) && !(Math.hypot(x, z - (Z0 - 22)) < 9) && !(Math.abs(x) < 3 && z < 0 && z > Z0 - 20));
+    grove(B, holder, 2728, 18, [-70, -110, 70, 36], (x, z) => inZone(x, z) && !(x > X0 - 6 && x < X1 + 5 && z > Z0 - 5 && z < Z1 + 10) && !(Math.abs(x) < 4 && z > 0) && !(Math.hypot(x, z - (Z0 - 22)) < 9) && !(Math.abs(x) < 3 && z < 0 && z > Z0 - 20));
     places.unshift({ n: '나뭇잎 도서관', t: '마을 사람 누구나 드나드는 도서관. 어려운 의학책부터 사람 사귀는 법을 다룬 책까지 갖추고 있다.', b: [X0 - 2, X1 + 2, Z0 - 2, Z1 + 4], y: [0, 12] });
     return { places, glows, lights, jumps: [['나뭇잎 도서관', 0, 0, 22, 0, 89], ['도서관 2층', 0, MZ, -4, PI, 90]] };
   });
   out.places.push({ n: '도서관 터', t: '큰길 서쪽, 도서관의 앞뜰과 나무 그늘.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
   out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights);
+}
+/* ============================ 번화가 ============================
+   큰길 동쪽의 가게 거리. 바둑판 골목마다 가게가 줄지어 서고, 골목 위로 붉은 등 줄이 걸려 있다.
+   큰길가 북쪽(이치라쿠 라멘·야키니쿠 큐 둘레)은 포장마차가 서는 장터 마당.
+   원작에는 번화가의 지도가 없어 골목의 짜임새, 가게 이름, 골목 어귀의 문과 등 줄, 포장마차는 모두 지어낸 것이다
+   (이름 있는 가게 — 야키니쿠 큐·경단 가게·아마구리아마·슈슈야 — 는 따로 짓는다). */
+const TOWN_SHOPS = ['八百屋', '魚屋', '肉屋', '豆腐', '米屋', '酒屋', '茶屋', '甘味処', '蕎麦', 'うどん', '寿司', '天ぷら', '居酒屋', '焼鳥', 'おでん', '定食', '弁当', '菓子', '饅頭', '煎餅', '呉服', '履物', '傘屋', '金物', '忍具', '武器', '巻物', '書店', '古本', '薬屋', '花屋', '玩具', '提灯', '銭湯', '宿屋', '質屋', '写真', '理髪', '雑貨', '陶器', '漬物', '乾物', '味噌', '飴屋', '竹細工', '染物'];
+function downtown(scene, out) {
+  const Z = zone(12), R = rngOf(1212), K = { red: mat('glow', 0xd8452e, { power: 0.9 }), white: mat('glow', 0xf0e2c0, { power: 0.9 }) };
+  const VX = [44.5, 93, 141.5], HZ = [503, 560, 616.5, 673.5, 730], ZA = 450, ZB = 784, XA = 10, XB = 155;      // 세로 골목의 x, 가로 골목의 z
+  /* ----- 골목가의 가게: 겉모습은 streets.js가 줄지어 세운다 ----- */
+  let si = 0;
+  const chochin = lathe([[0, -0.2], [0.07, -0.2], [0.13, -0.12], [0.15, 0], [0.13, 0.12], [0.07, 0.2], [0, 0.2]], 8);
+  const banners = ['営業中', '大安売', '新入荷', '名物'].map((t, i) => textMat(t, { w: 64, h: 256, vertical: true, bg: ['#7a1f1c', '#1f3a6e', '#2f5a34', '#f1ead6'][i], color: i === 3 ? '#1d1a16' : '#f4efe2' }, 'cloth'));
+  const crateM = mat('planks', 0xb08a58), barrelM = mat('wood', 0x8a6238);
+  zoneGroups().push({
+    polys: Z.blocks, land: 3, size: [8, 4.5, 8.5, 3], set: 0.75,                              // 가게는 골목에 바짝 붙여 세운다
+    ok: (x, z) => !(x < 31 && z > 649 && z < 671) && Z.blocks.some(b => { const xs = b.map(q => q[0]), zs = b.map(q => q[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs); return x > x0 && x < x1 && z > z0 && z < z1 && Math.min(x - x0, x1 - x, z - z0, z1 - z) < 13.5; }),   // 경단 가게 자리(큰길가)는 비우고, 블록 한가운데(안마당)에는 집을 세우지 않는다                                           // 경단 가게 자리(큰길가)
+    style: Rr => { const k = Rr(); return { round: false, floors: 2 + (Rr() < 0.4 ? 1 : 0), roofKind: k < 0.45 ? 'gable' : k < 0.7 ? 'hip' : 'flat', shop: Rr() < 0.78 ? TOWN_SHOPS[si++ % TOWN_SHOPS.length] : null }; },
+    deco: (B, h) => {
+      if (!h.shop) return;
+      const s = h.seed, sd = s % 2 ? 1 : -1, u = sd * (h.w / 2 - 0.55), zf = h.d / 2;
+      // 처마 밑의 붉은 등
+      B.geo(M.iron, cyl(0.008, 0.008, 0.3, 4), mat4(u, 2.75, zf + 0.5)); B.geo(s % 5 ? K.red : K.white, chochin, mat4(u, 2.4, zf + 0.5)); B.geo(M.beam, box(0.04, 0.04, 0.55), mat4(u, 2.9, zf + 0.27));
+      // 세워 둔 깃발
+      if (s % 3 === 0) { const bu = -u; B.geo(M.beamLight, cyl(0.02, 0.02, 2.8, 5), mat4(bu, 1.4, zf + 0.75)); B.geo(M.beamLight, cyl(0.012, 0.012, 0.5, 4).rotateZ(PI / 2), mat4(bu + 0.22, 2.72, zf + 0.75)); B.geo(banners[s % 4], new THREE.PlaneGeometry(0.44, 1.7, 2, 6), mat4(bu + 0.24, 1.85, zf + 0.75)); }
+      // 문 옆의 궤짝이나 술통
+      if (s % 4 === 1) { for (let k = 0; k < 3; k++) B.geo(crateM, box(0.55, 0.4, 0.45), mat4(-u + (k === 2 ? 0.05 : (k - 0.5) * 0.6) * (k === 2 ? 1 : 1), 0.2 + (k === 2 ? 0.4 : 0), zf + 0.45, 0, (s + k) % 3 * 0.1, 0)); }
+      else if (s % 4 === 2) { for (let k = 0; k < 2; k++) { B.geo(barrelM, lathe([[0, 0], [0.24, 0], [0.3, 0.35], [0.24, 0.7], [0, 0.7]], 10), mat4(-u + k * 0.62 - 0.3, 0, zf + 0.45)); for (const yy of [0.12, 0.58]) B.geo(M.iron, new THREE.TorusGeometry(0.27, 0.012, 4, 10).rotateX(PI / 2), mat4(-u + k * 0.62 - 0.3, yy, zf + 0.45)); } }
+    },
+  });
+
+  /* ----- 골목 위의 등 줄: 장대 둘 사이에 처진 줄, 줄마다 등 다섯 ----- */
+  const poles = [], cables = [], lampsR = [], lampsW = [], _x = new THREE.Vector3(), _y = new THREE.Vector3(), _z = new THREE.Vector3();
+  const seg = (a, b) => { _x.subVectors(b, a); const L = _x.length(); _x.normalize(); _y.set(0, 1, 0).addScaledVector(_x, -_x.y).normalize(); _z.crossVectors(_x, _y); cables.push(new THREE.Matrix4().makeBasis(_x.clone().multiplyScalar(L), _y.clone().multiplyScalar(0.018), _z.clone().multiplyScalar(0.018)).setPosition((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2)); };
+  const string = (ax, az, bx, bz, n) => {
+    const H = 5.3, sag = 0.7, pts = [];
+    for (const [x, z] of [[ax, az], [bx, bz]]) { poles.push(mat4(x, H / 2, z, 0, 0, 0, [1, H, 1])); addCollider(x - 0.1, 0, z - 0.1, x + 0.1, H, z + 0.1); }
+    for (let i = 0; i <= n + 1; i++) { const t = i / (n + 1); pts.push(V(ax + (bx - ax) * t, H - 0.1 - sag * 4 * t * (1 - t), az + (bz - az) * t)); }
+    for (let i = 0; i <= n; i++) seg(pts[i], pts[i + 1]);
+    for (let i = 1; i <= n; i++) (n % 2 === 0 && i % 2 === 0 || (ax + az) % 7 < 1 ? lampsW : lampsR).push(mat4(pts[i].x, pts[i].y - 0.24, pts[i].z, 0, i, 0, 1.25));
+    if (Math.round(ax + az) % 3 === 0) out.glows.push([(ax + bx) / 2, H - 1.0, (az + bz) / 2, 1.1]);
+  };
+  const cross = (v, list, r) => list.some(c => Math.abs(v - c) < r);
+  for (const cx of VX) for (let z = ZA + 9; z < ZB - 4; z += 15) { if (cross(z, HZ, 5)) continue; string(cx - 2.8, z, cx + 2.8, z, 5); }
+  for (const cz of HZ) for (let x = XA + 8; x < XB - 4; x += 15) { if (cross(x, VX, 5)) continue; string(x, cz - 2.8, x, cz + 2.8, 5); }
+  const inst = (g, m, list, shadow = false) => { const im = new THREE.InstancedMesh(g, m, list.length); list.forEach((q, i) => im.setMatrixAt(i, q)); im.instanceMatrix.needsUpdate = true; im.castShadow = shadow; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); };
+  inst(cyl(0.06, 0.08, 1, 6), M.beam, poles, true); inst(new THREE.BoxGeometry(1, 1, 1), M.iron, cables);
+  inst(chochin, K.red, lampsR); inst(chochin, K.white, lampsW);
+
+  const B = new Builder();
+  /* ----- 골목 어귀의 문: 큰길에서 가로 골목으로 들어서는 자리 ----- */
+  const tile = mat('tile', 0xa4502f);
+  HZ.forEach((cz, i) => {
+    const x = 13, name = ['一番街', '二番街', '三番街', '四番街', '五番街'][i];
+    for (const s of [-1, 1]) { B.box(M.beam, x - 0.18, 0, cz + s * 3.0 - 0.18, x + 0.18, 4.6, cz + s * 3.0 + 0.18); B.box(M.stone, x - 0.28, 0, cz + s * 3.0 - 0.28, x + 0.28, 0.4, cz + s * 3.0 + 0.28, false); }
+    B.box(M.beam, x - 0.1, 3.7, cz - 3.6, x + 0.1, 3.92, cz + 3.6, false); B.box(M.beam, x - 0.14, 4.5, cz - 3.9, x + 0.14, 4.72, cz + 3.9, false);
+    gableRoof(B, tile, x - 0.7, cz - 3.8, x + 0.7, cz + 3.8, 4.72, 0.7, { ridge: 'z', over: 0.45, overGable: 0.45 });
+    signBoard(B, name, x, 4.2, cz, -PI / 2, 2.6, 0.5, { bg: '#7a1f1c', color: '#f4efe2' });
+    for (const s of [-1, 1]) out.glows.push(lantern(B, x - 0.35, 3.1, cz + s * 2.2, { text: '商', r: 0.22, h: 0.55 }));
+  });
+
+  /* ----- 포장마차와 길가 살림 ----- */
+  const stallC = [['#b3261a', 0xb3261a], ['#1f3a6e', 0x1f3a6e], ['#2f5a34', 0x2f5a34], ['#8a5a1e', 0x8a5a1e]];
+  const yatai = (x, z, ry, name, k) => {
+    const p = part(B, x, 0, z, ry), [css, hex] = stallC[k % 4], cloth = mat('plain', hex, { rough: 0.95, side: 'double' });
+    p(M.beamLight, box(2.3, 0.75, 0.85), 0, 0.5, 0); p(M.beam, box(2.5, 0.05, 1.1), 0, 0.9, 0.05);
+    for (const sx of [-1, 1]) { p(M.beam, cyl(0.34, 0.34, 0.06, 14).rotateZ(PI / 2), sx * 1.2, 0.34, -0.1); p(M.iron, cyl(0.06, 0.06, 0.08, 8).rotateZ(PI / 2), sx * 1.2, 0.34, -0.1); for (const sz of [-1, 1]) p(M.beam, box(0.06, 1.5, 0.06), sx * 1.1, 1.65, sz * 0.45); }
+    p(cloth, box(2.7, 0.04, 1.5), 0, 2.45, 0.1, 0.12); p(M.beam, box(2.5, 0.05, 0.05), 0, 2.36, 0.6);
+    for (let i = 0; i < 4; i++) p(textMat([...name][i] || ' ', { w: 64, h: 96, bg: css, color: '#f4efe2' }, 'cloth'), new THREE.PlaneGeometry(0.56, 0.6, 2, 3), -0.87 + i * 0.58, 2.04, 0.62);
+    p(M.iron, cyl(0.2, 0.17, 0.22, 12), -0.6, 1.03, 0); p(M.iron, cyl(0.2, 0.17, 0.22, 12), 0.1, 1.03, 0); p(mat('plain', 0xe9e4d6, { rough: 0.5 }), cyl(0.09, 0.06, 0.07, 10), 0.75, 0.96, 0.25); p(mat('plain', 0xe9e4d6, { rough: 0.5 }), cyl(0.09, 0.06, 0.07, 10), 0.95, 0.96, 0.1);
+    p(M.iron, cyl(0.008, 0.008, 0.25, 4), 1.2, 2.2, 0.62); p(K.red, chochin, 1.2, 1.9, 0.62, 0, 0, 0, 1.2);
+    for (let i = 0; i < 3; i++) { p(M.beamLight, cyl(0.17, 0.17, 0.04, 10), -0.8 + i * 0.8, 0.5, 1.05); p(M.beamLight, cyl(0.03, 0.03, 0.48, 6), -0.8 + i * 0.8, 0.24, 1.05); }
+    solid(x, 0, z, ry, 2.5, 1.1, 1.0);
+    const c = Math.cos(ry), s = Math.sin(ry); out.glows.push([x + 1.2 * c + 0.62 * s, 1.9, z - 1.2 * s + 0.62 * c, 0.6]);
+  };
+  // 장터 마당: 이치라쿠 라멘과 야키니쿠 큐 둘레
+  [[36, 458, 'たこ焼'], [36, 472, 'やきそば'], [36, 494, 'おでん'], [36, 512, 'もろこし'], [36, 534, 'りんご飴'], [36, 550, 'お面'], [20, 503, '金魚'], [20, 553, 'わたあめ']].forEach(([x, z, name], i) => yatai(x, z, x > 30 ? -PI / 2 : 0, name, i));
+  for (const z of [465, 487, 503, 523, 542]) benchAt(B, M.beam, 31.5, 0, z, PI / 2, 2.0);
+  // 골목 모퉁이의 포장마차와 긴 의자
+  [[VX[0] + 2.2, HZ[1] + 8, PI / 2, '甘酒'], [VX[1] - 2.2, HZ[2] - 9, -PI / 2, '焼鳥'], [VX[1] + 2.2, HZ[3] + 9, PI / 2, '団子'], [VX[2] - 2.2, HZ[0] + 10, -PI / 2, 'そば'], [VX[0] - 2.2, HZ[3] + 12, -PI / 2, 'たい焼'], [VX[2] - 2.2, HZ[4] - 10, -PI / 2, 'ラムネ']].forEach(([x, z, ry, name], i) => yatai(x, z, ry, name, i + 2));
+  for (const cx of VX) for (const cz of HZ) if (R() < 0.6) benchAt(B, M.beam, cx + (R() < 0.5 ? -2.6 : 2.6), 0, cz + (R() < 0.5 ? -7 : 7), PI / 2, 1.8);
+  B.finish(scene);
+
+  out.places.push({ n: '번화가', t: '가게와 술집이 바둑판 골목마다 늘어선 거리. 골목 위로 붉은 등 줄이 걸려 있다.', poly: Z.poly, b: bound(Z.poly) },
+    { n: '장터 마당', t: '이치라쿠 라멘과 야키니쿠 큐 사이의 마당. 포장마차가 줄지어 선다.', b: [10, 41, 450, 557], y: [0, 6] });
+  out.jumps.push(['번화가', 6, 0, HZ[2], -PI / 2, 91], ['번화가 한가운데', VX[1], 0, HZ[2] + 4, 0, 92]);
 }
 let _blackM = null; const BLACKM = () => _blackM || (_blackM = mat('plain', 0x1b1b1e, { rough: 0.9 }));
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
@@ -1299,6 +1386,8 @@ export async function build(scene, ctx) {
   hospital(scene, out);
   await ctx.say('도서관의 책을 꽂는 중…');
   library(scene, out);
+  await ctx.say('번화가에 등을 내거는 중…');
+  downtown(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }

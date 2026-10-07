@@ -117,7 +117,7 @@ function planHouses(R, mobile, groups) {
     let s = R() * 4;
     while (s < T) {
       const sz = G.size || [7.5, 4.5, 7.5, 3.5];                         // 집의 폭·깊이(가장 작은 값, 더해지는 폭)
-      const w = sz[0] + R() * sz[1], d = sz[2] + R() * sz[3], set = 1.2 + R() * 1.3, a = at(s), b = at(s + w), ch = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const w = sz[0] + R() * sz[1], d = sz[2] + R() * sz[3], set0 = 1.2 + R() * 1.3, set = G.set ?? set0, a = at(s), b = at(s + w), ch = Math.hypot(b[0] - a[0], b[1] - a[1]);
       let done = false;
       if (ch > w * 0.93) {
         const ux = (b[0] - a[0]) / ch, uz = (b[1] - a[1]) / ch, mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
