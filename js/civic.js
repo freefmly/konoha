@@ -2120,6 +2120,140 @@ function park(scene, out) {
   out.places.push({ n: '센주 공원', t: '센주 일족의 이름이 붙은 큰 공원. 못에 둘러싸인 큰 나무와 놀이터가 있다.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
   out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights); out.ticks.push(...ticks);
 }
+/* ============================ 중급닌자 시험 경기장 ============================
+   중급닌자 선발 시험의 본선이 열리는 둥근 경기장. 높은 벽에 둘러싸인 흙 마당을 계단식 관람석이 빙 두른다.
+   나루토 위키에는 이 건물만 다룬 글이 없다. 아래는 만화의 본선 장면을 떠올려 옮긴 것이다(위키로 확인하지 못함):
+   둥근 흙 마당과 높은 벽, 계단식 관람석, 호카게와 카제카게가 앉던 지붕 있는 자리, 선수들이 기다리던 난간 자리,
+   마당 한쪽의 나무, 나루토가 네지와 싸울 때 판 땅굴 구멍, 본선 대진.
+   지어낸 것: 크기와 문의 자리, 관람석으로 오르는 계단 통로, 벽 위의 깃발, 벽의 싸움 자국이 난 자리. */
+function arena(scene, out) {
+  const Z = zone(31), at = { x: Z.at[0], z: Z.at[1], ry: 0 };
+  const RF = 22, RW = 24.5, RB = 35.7, RO = 36.5, TD = 0.95, TH = 0.45, NT = 11, WALK = 5, TOP = 12.5;
+  const tr = i => RW + TD * i, ty = i => WALK + TH * (i + 1);      // 관람석 단 i의 안쪽 반지름과 윗면 높이
+  const res = put(scene, at, (B, holder) => {
+    const places = [], glows = [], lights = [];
+    const WALLM = mat('plaster', 0xd9cdb0), STONE = M.stone, STEP = mat('plain', 0xb9b2a0, { rough: 0.95 }), STEP2 = mat('plain', 0xa9a290, { rough: 0.95 }), DIRT = mat('dirt', 0xcdbb8e);
+    const TILE = mat('tile', 0x3f5a52, { rough: 0.6 }), LOG = mat('wood', 0x7a5a3c), RED = mat('plain', 0xa8382c, { rough: 0.7 }), DARK = mat('plain', 0x24211e, { rough: 1 });
+    const inst = (g, m, ms) => { const im = new THREE.InstancedMesh(g, m, ms.length); ms.forEach((q, i) => im.setMatrixAt(i, q)); im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); holder.add(im); return im; };
+    const S = PI / 2, TW = 2.5;                                    // 남쪽(정문) 각도, 정문 굴의 반 너비
+    const dS = Math.asin(TW / RF), dSo = Math.asin(TW / RB), dBal = Math.asin(5 / RF);
+
+    /* ---- 마당 ---- */
+    B.geo(DIRT, new THREE.CircleGeometry(RF, 72).rotateX(-PI / 2), mat4(0, 0.03, 0));
+    // 마당 벽(관람석 앞 난간까지). 정문 굴과 그 위 선수 대기석 자리는 뚫는다
+    roundWall(B, WALLM, 0, 0, RF, RF + 0.4, 0, WALK + 1, [
+      { a0: S - dBal, a1: S - dS, ys: [[WALK, WALK + 1]] }, { a0: S - dS, a1: S + dS, ys: [[0, 3.6], [WALK, WALK + 1]] }, { a0: S + dS, a1: S + dBal, ys: [[WALK, WALK + 1]] }]);
+    roundWall(B, STONE, 0, 0, RF - 0.06, RF + 0.46, WALK + 1, WALK + 1.08, [{ a0: S - dBal, a1: S + dBal, ys: [[WALK + 1, WALK + 1.08]] }], { collide: false });
+    roundWall(B, STONE, 0, 0, RF - 0.05, RF, 0, 0.9, [{ a0: S - dS, a1: S + dS, ys: [[0, 0.9]] }], { collide: false });
+
+    /* ---- 관람석 ---- */
+    roundWall(B, STEP, 0, 0, RF + 0.4, RW, WALK - TH, WALK, []);                                   // 앞 통로
+    for (let i = 0; i < NT; i++) {
+      const r0 = tr(i), r1 = i === NT - 1 ? RB : tr(i + 1), y = ty(i), da = 1.25 / r0;
+      const ops = i < 3 ? [0, PI].map(a => ({ a0: a - da, a1: a + da, ys: [[y - TH * 2, y]] })) : [];   // 동·서 계단 통로가 올라오는 자리
+      roundWall(B, i % 2 ? STEP2 : STEP, 0, 0, r0, r1, y - TH * 2, y, ops);
+    }
+    // 바깥벽: 문 셋(남쪽 정문, 동·서 계단 통로)과 위쪽에 줄지은 창
+    {
+      const ops = [{ a0: S - dSo, a1: S + dSo, ys: [[0, 3.6]] }, ...[0, PI].map(a => ({ a0: a - 1.25 / RB, a1: a + 1.25 / RB, ys: [[0, 3]] }))];
+      for (let k = 0; k < 24; k++) { const a = (k + 0.5) / 24 * PI * 2; ops.push({ a0: a - 0.036, a1: a + 0.036, ys: [[10.7, 11.9]] }); }
+      roundWall(B, WALLM, 0, 0, RB, RO, 0, TOP, ops);
+      roundWall(B, STONE, 0, 0, RO, RO + 0.07, 0, 1.2, ops.slice(0, 3).map(o => ({ ...o, ys: [[0, 1.2]] })), { collide: false });
+      roundWall(B, STONE, 0, 0, RB - 0.06, RO + 0.1, 9.9, 10.1, [], { collide: false });
+      for (let k = 0; k < 24; k++) { const a = k / 24 * PI * 2; if (k % 6 === 0 || k === 6) continue; B.geo(WALLM, box(0.5, TOP, 0.7), mat4(Math.cos(a) * (RO + 0.2), TOP / 2, Math.sin(a) * (RO + 0.2), 0, -a, 0)); }
+      coneRoof(B, TILE, 0, 0, RO + 0.8, TOP, 0.8, { rTop: RB - 0.7, seg: 48, detail: 2, cap: false, soffit: false });
+      // 벽 위의 깃발
+      for (let k = 0; k < 12; k++) {
+        const a = (k + 0.5) / 12 * PI * 2, x = Math.cos(a) * (RB + 0.4), z = Math.sin(a) * (RB + 0.4);
+        B.geo(M.iron, cyl(0.035, 0.045, 3.2, 6), mat4(x, TOP + 2.2, z)); B.geo(mat('cloth', k % 2 ? 0x3f7a4a : 0xb5392b), new THREE.PlaneGeometry(1.5, 0.95), mat4(x - Math.sin(a) * 0.78, TOP + 3.25, z + Math.cos(a) * 0.78, 0, -a + PI / 2, 0));
+      }
+    }
+
+    /* ---- 남쪽 정문: 관람석 밑을 지나 마당으로 나가는 굴 ---- */
+    {
+      for (const s of [-1, 1]) B.box(WALLM, s * TW, 0, RF + 0.2, s * (TW + 0.4), 4, RB + 0.2);
+      B.box(WALLM, -TW - 0.4, 3.6, RF + 0.2, TW + 0.4, 4, RB + 0.2, false);
+      B.box(mat('dirt', 0xb7a67e), -TW, 0, RF - 0.2, TW, 0.035, RO + 3, false);
+      signBoard(B, '中忍選抜試験　本選会場', 0, 4.75, RO + 0.06, 0, 7.5, 0.95, { both: false });
+      for (const s of [-1, 1]) {   // 활짝 열어 둔 문짝
+        B.box(LOG, s * (TW + 0.05), 0, RO, s * (TW + 0.2), 3.5, RO + 2.45); for (const y of [0.5, 1.75, 3.0]) B.box(M.iron, s * (TW + 0.03), y, RO + 0.05, s * (TW + 0.22), y + 0.12, RO + 2.4, false);
+        hangLamp(B, 0, 3.6, RF + 3.5 + (s + 1) * 3.5, 0.2, glows, lights, 12);
+      }
+      // 본선 대진표
+      const LINES = ['本選　組み合わせ', 'うずまきナルト　対　日向ネジ', '我愛羅　対　うちはサスケ', 'カンクロウ　対　油女シノ', 'テマリ　対　奈良シカマル'];
+      B.box(LOG, -TW + 0.0, 1.0, 26.6, -TW + 0.05, 3.2, 31.4, false);
+      LINES.forEach((t, i) => signBoard(B, t, -TW + 0.07, 2.95 - i * 0.42, 29, PI / 2, 4.4, i ? 0.36 : 0.4, { both: false, bg: i ? '#efe6cf' : '#2b2622', color: i ? '#1a1410' : '#efe6cf', depth: 0.02 }));
+    }
+
+    /* ---- 선수 대기석: 정문 굴 위의 난간 자리와 마당으로 내려가는 계단 ---- */
+    {
+      const z0 = 19.6;
+      B.box(STEP, -5, WALK - 0.3, z0, 5, WALK, 21.7); B.box(STEP, -3.2, WALK - 0.3, 21.7, 3.2, WALK, RF + 0.4);
+      for (const x of [-4.6, 2.9]) B.box(STONE, x - 0.2, 0, z0 + 0.1, x + 0.2, WALK - 0.3, z0 + 0.5);
+      bars(B, M.iron, 'x', z0 + 0.05, -5, 3.6, WALK, WALK + 1.05); bars(B, M.iron, 'z', -4.95, z0, 21.3, WALK, WALK + 1.05); bars(B, M.iron, 'z', 4.95, z0, 21.3, WALK, WALK + 1.05);
+      for (let k = 0; k < 20; k++) { const zb = z0 - 0.45 * k, y = WALK - 0.25 * (k + 1); B.box(STEP2, 3.7, 0, zb - 0.45, 5, y, zb); }
+      for (const x of [3.7, 5]) { beamBetween(B, M.iron, V(x, WALK + 0.95, z0), V(x, 0.95, z0 - 9), 0.05, 0.05); for (let k = 0; k <= 4; k++) B.geo(M.iron, cyl(0.02, 0.02, 0.95, 5), mat4(x, WALK + 0.475 - k * 1.25, z0 - k * 2.25)); }
+      places.push({ n: '선수 대기석', t: '본선에 오른 선수들이 제 차례를 기다리던 자리. 계단으로 마당에 내려간다.', b: [-5, 5, z0, 22], y: [WALK - 0.5, WALK + 3] });
+    }
+
+    /* ---- 동·서 계단 통로: 바깥에서 관람석 앞 통로로 오른다 ---- */
+    for (const s of [-1, 1]) {
+      for (let k = 0; k < 23; k++) { const xo = RO - 0.5 * k; B.box(STEP2, s * (xo - 0.5), 0, -1.25, s * xo, WALK * (k + 1) / 23, 1.25); }
+      B.box(STEP2, s * (RW - 0.1), 0, -1.25, s * (RO - 11.5), WALK, 1.25);
+      for (let i = 0; i < NT; i++) for (const sz of [-1, 1]) B.box(WALLM, s * tr(i), 0, sz * 1.25, s * (i === NT - 1 ? RB : tr(i + 1)), ty(i) - TH * 2 + 0.05, sz * 1.6);
+      signBoard(B, s > 0 ? '東　観覧席' : '西　観覧席', s * (RO + 0.06), 3.45, 0, s * PI / 2, 2.4, 0.6, { both: false });
+    }
+
+    /* ---- 카게석: 북쪽 관람석 꼭대기의 지붕 있는 자리 ---- */
+    {
+      const Y = ty(NT - 1) + 0.1, z0 = -RB, z1 = -29;
+      B.box(STONE, -4.5, 7.2, z0, 4.5, Y, z1);
+      B.box(WALLM, -4.5, Y, z1 - 0.3, 4.5, Y + 1.0, z1); for (const s of [-1, 1]) B.box(WALLM, s * 4.2, Y, -34, s * 4.5, Y + 1.0, z1);
+      for (const s of [-1, 1]) for (const z of [z1 - 0.15, z0 + 0.3]) B.box(RED, s * 4.35 - 0.13, Y, z - 0.13, s * 4.35 + 0.13, Y + 3.55, z + 0.13, false);
+      B.box(M.beamLight, -5, Y + 3.5, z0 - 0.2, 5, Y + 3.56, z1 + 0.4, false);
+      hipRoof(B, TILE, -4.7, z0 - 0.1, 4.7, z1 + 0.1, Y + 3.56, 1.9, { over: 0.8 });
+      signBoard(B, '火', -2.1, 8.9, z1 + 0.04, 0, 1.5, 1.5, { both: false, bg: '#b5392b', color: '#f4efe2' }); signBoard(B, '風', 2.1, 8.9, z1 + 0.04, 0, 1.5, 1.5, { both: false, bg: '#3f7a4a', color: '#f4efe2' });
+      for (const [x, hex] of [[-1.4, 0xb5392b], [1.4, 0x3f7a4a]]) {   // 호카게와 카제카게의 자리
+        const p = part(B, x, Y, -31.6, 0), cu = mat('plain', hex, { rough: 0.9 });
+        p(LOG, box(0.9, 0.5, 0.8), 0, 0.25, 0); p(cu, box(0.8, 0.1, 0.7), 0, 0.55, 0.02); p(LOG, box(0.9, 1.5, 0.12), 0, 0.75, -0.4); p(cu, box(0.7, 0.8, 0.05), 0, 1.05, -0.33); for (const s of [-1, 1]) p(LOG, box(0.1, 0.3, 0.8), s * 0.45, 0.65, 0);
+        addCollider(x - 0.5, Y, -32.1, x + 0.5, Y + 1.5, -31.2);
+      }
+      tableAt(B, LOG, 0, Y, -31.5, 0, 0.6, 0.5, 0.6); B.geo(mat('plain', 0xe6dcc0), cyl(0.05, 0.04, 0.08, 10), mat4(-0.12, Y + 0.64, -31.5)); B.geo(mat('plain', 0xe6dcc0), cyl(0.05, 0.04, 0.08, 10), mat4(0.14, Y + 0.64, -31.45));
+      hangLamp(B, 0, Y + 3.5, -32, 0.3, glows, lights, 12);
+      places.push({ n: '카게석', t: '본선을 지켜보는 호카게와 카제카게의 자리. 나뭇잎 무너뜨리기 때 이 지붕 위에서 3대 호카게가 오로치마루와 싸웠다.', b: [-4.5, 4.5, z0, z1], y: [7, 18] });
+    }
+
+    /* ---- 마당에 남은 것들 ---- */
+    {
+      const R = rngOf(3131), tg = treeGeometry(3131, { height: 11, depth: 4, sprays: 5, leaves: 6, leafLen: 0.5 }), tm = [];
+      for (const [a, r] of [[PI + 0.35, 17.5], [PI + 0.75, 18], [PI + 1.12, 17], [PI + 0.55, 13.5], [PI + 0.98, 13]]) { const x = Math.cos(a) * r, z = Math.sin(a) * r; tm.push(mat4(x, 0, z, 0, R() * 6, 0, 0.85 + R() * 0.3)); addCollider(x - 0.45, 0, z - 0.45, x + 0.45, 6, z + 0.45); B.geo(mat('leaf', 0x3f7a30), BUSH.leaves, mat4(x + 1.5, 0, z + 1.1, 0, a, 0, 0.9)); }
+      inst(tg.wood, mat('bark', 0x8a7257), tm); inst(tg.leaves, mat('leaf', 0x3a742c), tm);
+      // 나루토가 판 땅굴 구멍 둘
+      for (const [x, z] of [[3.2, 1.5], [-2.4, -3.6]]) {
+        B.geo(DARK, new THREE.CircleGeometry(0.6, 20).rotateX(-PI / 2), mat4(x, 0.045, z)); B.geo(DARK, new THREE.CylinderGeometry(0.6, 0.5, 0.5, 20, 1, true), mat4(x, -0.2, z));
+        for (let i = 0; i < 9; i++) { const a = i / 9 * PI * 2 + R(), d = 0.75 + R() * 0.25, s = 0.18 + R() * 0.2; B.geo(mat('dirt', 0xa8936a), SPH, new THREE.Matrix4().multiplyMatrices(mat4(x + Math.cos(a) * d, 0.03, z + Math.sin(a) * d), new THREE.Matrix4().makeScale(s * 1.3, s * 0.6, s))); }
+      }
+      // 땅에 박힌 쿠나이와 수리검
+      for (let i = 0; i < 9; i++) {
+        const a = R() * PI * 2, d = 3 + R() * 14, x = Math.cos(a) * d, z = Math.sin(a) * d, p = part(B, x, 0.03, z, R() * 6);
+        if (i % 3) { p(M.iron, new THREE.ConeGeometry(0.022, 0.16, 4), 0, 0.03, 0, PI + 0.4, 0, 0); p(DARK, cyl(0.012, 0.012, 0.1, 5), 0.0, 0.15, 0.045, 0.4); p(M.iron, new THREE.TorusGeometry(0.022, 0.006, 4, 10), 0, 0.22, 0.075, 0.4); }
+        else for (const r of [0, PI / 4]) p(M.iron, box(0.15, 0.006, 0.03), 0, 0.05, 0, 0.9, r, 0);
+      }
+      // 벽의 싸움 자국: 움푹 팬 자리와 사방으로 간 금
+      {
+        const a = -0.55, p = part(B, Math.cos(a) * (RF - 0.03), 2.4, Math.sin(a) * (RF - 0.03), -a - PI / 2);
+        p(mat('plain', 0x6f675a, { rough: 1 }), new THREE.CircleGeometry(1.2, 14), 0, 0, 0); p(DARK, new THREE.CircleGeometry(0.55, 10), 0.1, -0.05, 0.004);
+        for (let i = 0; i < 11; i++) { const c = i / 11 * PI * 2 + R() * 0.4, L = 1.2 + R() * 1.6; p(DARK, box(L, 0.035, 0.004), Math.cos(c) * (0.9 + L / 2), Math.sin(c) * (0.9 + L / 2), 0.003, 0, 0, c); if (i % 2) p(DARK, box(L * 0.5, 0.025, 0.004), Math.cos(c) * (1.1 + L) + Math.cos(c + 0.6) * L * 0.2, Math.sin(c) * (1.1 + L) + Math.sin(c + 0.6) * L * 0.2, 0.003, 0, 0, c + 0.6); }
+      }
+      places.push({ n: '경기장 마당', t: '본선의 싸움터. 나루토가 네지를 올려 치려고 판 땅굴 구멍이 남아 있다.', b: [-RF, RF, -RF, RF], y: [-1, 4.5] });
+    }
+    return { places, glows, lights, jumps: [['중급닌자 시험 경기장', 0, 0, RO + 7, 0, 100], ['경기장 마당', 0, 0, 12, 0, 101], ['카게석', 0, ty(NT - 1) + 0.1, -30.6, PI, 102]] };
+  });
+  OPEN.push([at.x, at.z, 41]);
+  BARE.push((x, z) => Math.hypot(x - at.x, z - at.z) < RO + 0.3 || (Math.abs(x - at.x) < 2.6 && z > at.z && z < at.z + RO + 3));
+  out.places.push({ n: '중급닌자 시험 경기장', t: '중급닌자 선발 시험의 본선이 열리는 경기장. 영주와 손님들 앞에서 한 사람씩 맞붙는다.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
+  out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights);
+}
 let _blackM = null; const BLACKM = () => _blackM || (_blackM = mat('plain', 0x1b1b1e, { rough: 0.9 }));
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
@@ -2147,6 +2281,8 @@ export async function build(scene, ctx) {
   homes3(scene, out);
   await ctx.say('공원의 잉어에게 먹이를 주는 중…');
   park(scene, out);
+  await ctx.say('경기장 마당을 고르는 중…');
+  arena(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
