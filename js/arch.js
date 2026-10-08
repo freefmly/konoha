@@ -66,7 +66,7 @@ export function beamBetween(B, m, p0, p1, wdt, hgt, up = V3(0, 1, 0)) {
 }
 
 // 용마루·내림마루: 받침 위에 둥근 수키와를 엎어 이은 마루, 끝에는 막새(둥근 마구리)
-function ridgeLine(B, m, p0, p1, r = 0.13) {
+export function ridgeLine(B, m, p0, p1, r = 0.13) {
   const d = new THREE.Vector3().subVectors(p1, p0), L = d.length(), n = Math.max(2, Math.round(L / 0.4));
   beamBetween(B, m, p0.clone().setY(p0.y - 0.02), p1.clone().setY(p1.y - 0.02), r * 2.1, 0.16);
   const pts = [];
