@@ -3,7 +3,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { Builder, marks, settle, addCollider, addRoof, mat4, tube, wall, stairs, mergeGeos, rng as rngOf } from './build.js';
 import { M, mat, textMat } from './materials.js';
-import { beamBetween, hipRoof, gableRoof, coneRoof, roundWall, roundWindow, roundFloor, roundRailing, railing, windowUnit, doorUnit, signBoard, lantern } from './arch.js';
+import { beamBetween, hipRoof, gableRoof, coneRoof, roundWall, roundWindow, roundFloor, roundRailing, railing, windowUnit, doorUnit, signBoard, lantern, noren } from './arch.js';
 import { treeGeometry, bushGeometry } from './flora.js';
 import { uchihaKit } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
@@ -1367,6 +1367,234 @@ function downtown(scene, out) {
     { n: '장터 마당', t: '이치라쿠 라멘과 야키니쿠 큐 사이의 마당. 포장마차가 줄지어 선다.', b: [10, 41, 450, 557], y: [0, 6] });
   out.jumps.push(['번화가', 6, 0, HZ[2], -PI / 2, 91], ['번화가 한가운데', VX[1], 0, HZ[2] + 4, 0, 92]);
 }
+/* ============================ 번화가의 이름 있는 가게 ============================
+   야키니쿠 큐 · 경단 가게 · 아마구리아마 · 슈슈야. 넷 다 안에 들어갈 수 있다.
+   원작(나루토 위키)에 적힌 것
+   - 야키니쿠 큐: 넓은 창, 초록 자리의 칸막이 좌석 여럿과 초록 방석을 깐 바닥 자리, 벽에 붙은 차림표, 상마다 가운데 박힌 숯불 화로와 집게.
+     아스마가 제10반을 데리고 다니던 단골집. 파를 얹은 소금 우설이 이름난 음식.
+   - 경단 가게: 흰 경단을 꿴 꼬치 꼴 간판에 붉은 "だんご", 안은 수수한 나무 상, 네모난 등, 벽마다 걸린 차림표. 안코의 단골집이고, 이타치와 키사메가 차를 마시고 간 곳.
+   - 아마구리아마: 밤 과자를 파는 단것 가게. 차 거리의 첫째 가게는 밖에서 먹는다. 다른 나라의 과자(모래 경단·기린 넥타·바위 떡)도 늘어놓았다.
+   - 슈슈야: 중국풍 술집. 기둥이 받친 높은 천장과 작은 등 여럿, 술을 늘어놓은 바와 걸상, 나무 칸막이 좌석. 큰 접시 요리와 숯불 닭꼬치, 제 술이 이름났다. 지라이야가 떠나기 전 츠나데와 한잔한 곳.
+   건물의 겉모습과 크기, 자리 배치의 세부, 부엌, 가게 밖 의자와 양산은 지어낸 것이다. 경단 가게는 배치도의 자리가 골목에 걸쳐 있어 바로 위 블록 모퉁이로 옮겨 세웠다. */
+let _chochin = null; const CHOCHIN = () => _chochin || (_chochin = lathe([[0, -0.2], [0.07, -0.2], [0.13, -0.12], [0.15, 0], [0.13, 0.12], [0.07, 0.2], [0, 0.2]], 8));
+// 줄에 매단 등
+function hangLamp(B, x, yTop, z, drop, glows, lights, pow = 14, boxy = false) {
+  B.geo(M.iron, cyl(0.008, 0.008, drop, 5), mat4(x, yTop - drop / 2, z));
+  if (boxy) { B.geo(mat('glow', 0xffe9c0, { power: 1.0 }), box(0.5, 0.26, 0.26), mat4(x, yTop - drop - 0.13, z)); for (const s of [-1, 1]) { B.geo(M.beam, box(0.54, 0.03, 0.3), mat4(x, yTop - drop - 0.13 + s * 0.13, z)); B.geo(M.beam, box(0.03, 0.26, 0.3), mat4(x + s * 0.26, yTop - drop - 0.13, z)); } }
+  else B.geo(mat('glow', 0xffe2a8, { power: 1.0 }), lathe([[0, 0], [0.2, 0.03], [0.26, 0.2], [0.14, 0.34], [0, 0.36]]), mat4(x, yTop - drop - 0.34, z));
+  glows.push([x, yTop - drop - 0.15, z, 0.7]); if (lights) lights.push([x, yTop - drop - 0.4, z, pow, 14]);
+}
+// 가게의 뼈대: 기단·바닥·네 벽. cols = { s, n, e, w } (face()의 cols). ups를 주면 그 높이에 종이 바른 높은 창.
+function shopShell(B, X0, Z0, X1, Z1, H, wallM, trim, floorM, cols, ups = []) {
+  const T = 0.25;
+  B.box(M.stone, X0 - 0.15, 0, Z0 - 0.15, X1 + 0.15, 0.1, Z1 + 0.15, false); B.box(floorM, X0 + T, 0, Z0 + T, X1 - T, 0.2, Z1 - T);
+  face(B, wallM, 'x', Z1 - T, Z1, X0, X1, 0, H, 1, cols.s || [], ups, trim, M.iron); face(B, wallM, 'x', Z0, Z0 + T, X0, X1, 0, H, -1, cols.n || [], ups, trim, M.iron);
+  face(B, wallM, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, H, -1, cols.w || [], ups, trim, M.iron); face(B, wallM, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, H, 1, cols.e || [], ups, trim, M.iron);
+  for (const [x, z] of [[X0, Z0], [X0, Z1], [X1, Z0], [X1, Z1]]) B.box(trim, x - 0.13, 0, z - 0.13, x + 0.13, H, z + 0.13, false);
+  for (const y of [0.5, H - 0.1]) { B.box(trim, X0 - 0.05, y - 0.08, Z0 - 0.05, X1 + 0.05, y + 0.08, Z0, false); B.box(trim, X0 - 0.05, y - 0.08, Z1, X1 + 0.05, y + 0.08, Z1 + 0.05, false); B.box(trim, X0 - 0.05, y - 0.08, Z0, X0, y + 0.08, Z1, false); B.box(trim, X1, y - 0.08, Z0, X1 + 0.05, y + 0.08, Z1, false); }
+}
+// 칸막이 좌석: 등받이 높은 긴 의자 둘이 상을 사이에 두고 마주 본다(의자는 ±z, 길이는 x 방향). fire면 상 가운데 숯불 화로.
+function boothAt(B, x, y, z, ry, seatM, fire, glows) {
+  const p = part(B, x, y, z, ry);
+  for (const s of [-1, 1]) { p(M.beam, box(1.5, 0.4, 0.5), 0, 0.2, s * 0.95); p(seatM, box(1.46, 0.09, 0.48), 0, 0.445, s * 0.95); p(M.beam, box(1.5, 1.2, 0.08), 0, 0.6, s * 1.24); p(seatM, box(1.4, 0.5, 0.05), 0, 0.82, s * 1.18); }
+  p(M.beamLight, box(1.2, 0.05, 0.8), 0, 0.715, 0); p(M.beam, box(0.9, 0.69, 0.5), 0, 0.345, 0);
+  if (fire) brazierAt(B, new THREE.Matrix4().multiplyMatrices(p.base, mat4(0, 0.74, 0)), glows, x, y + 0.8, z);
+  const t = Math.abs(Math.sin(ry)) > 0.7, a = t ? 2.56 : 1.5, b = t ? 1.5 : 2.56;
+  addCollider(x - a / 2, y, z - b / 2, x + a / 2, y + 1.2, z + b / 2);
+  return p;
+}
+// 상에 박힌 숯불 화로: 쇠 테, 벌건 숯, 석쇠와 집게
+function brazierAt(B, m, glows, gx, gy, gz) {
+  const P = (mt, g, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = 1) => B.geo(mt, g, new THREE.Matrix4().multiplyMatrices(m, mat4(x, y, z, rx, ry, rz, s)));
+  P(M.iron, cyl(0.19, 0.17, 0.05, 14), 0, 0.025); P(mat('glow', 0xff5a1e, { power: 1.3 }), cyl(0.15, 0.15, 0.012, 12), 0, 0.045);
+  for (let k = -3; k <= 3; k++) P(M.iron, box(0.008, 0.008, 0.34 * Math.sqrt(1 - (k * 0.045 / 0.17) ** 2 * 0.9)), k * 0.045, 0.062);
+  for (let k = 0; k < 3; k++) P(mat('plain', k ? 0x9a4a3a : 0x6a3a2a, { rough: 0.7 }), box(0.07, 0.012, 0.05), -0.06 + k * 0.06, 0.072, (k % 2 - 0.5) * 0.08, 0, k);
+  P(mat('metal', 0xb4babd, { rough: 0.4 }), box(0.012, 0.008, 0.2), 0.3, 0.006, 0.12, 0, 0.5); P(mat('metal', 0xb4babd, { rough: 0.4 }), box(0.012, 0.008, 0.2), 0.32, 0.006, 0.12, 0, 0.62);
+  if (glows) glows.push([gx, gy, gz, 0.3]);
+}
+const stoolAt = (B, x, y, z, m) => { B.geo(m, cyl(0.17, 0.17, 0.05, 12), mat4(x, y + 0.66, z)); B.geo(M.iron, cyl(0.025, 0.025, 0.64, 6), mat4(x, y + 0.32, z)); B.geo(M.iron, cyl(0.16, 0.18, 0.03, 12), mat4(x, y + 0.015, z)); B.geo(M.iron, new THREE.TorusGeometry(0.13, 0.01, 4, 12).rotateX(PI / 2), mat4(x, y + 0.25, z)); addCollider(x - 0.17, y, z - 0.17, x + 0.17, y + 0.68, z + 0.17); };
+// 경단 꼬치: 삼색(분홍·흰·풀빛) 또는 한 빛깔
+function dango(B, m, hexes = [0xf2a6b8, 0xf7f3ea, 0x9ac27a], s = 1) {
+  B.geo(M.beamLight, cyl(0.004 * s, 0.004 * s, 0.2 * s, 4).rotateZ(PI / 2), new THREE.Matrix4().multiplyMatrices(m, mat4(0.02 * s, 0, 0)));
+  hexes.forEach((hex, i) => B.geo(mat('plain', hex, { rough: 0.6 }), SPH, new THREE.Matrix4().multiplyMatrices(m, mat4((-0.045 + i * 0.04) * s, 0, 0, 0, 0, 0, 0.021 * s))));
+}
+// 가게 밖의 붉은 천 깐 긴 의자와 붉은 양산
+function teaBench(B, x, z, ry, parasol) {
+  benchAt(B, M.beam, x, 0, z, ry, 1.9);
+  const p = part(B, x, 0, z, ry); p(mat('plain', 0xb3261a, { rough: 1, side: 'double' }), box(1.94, 0.02, 0.46), 0, 0.455, 0); p(mat('plain', 0xb3261a, { rough: 1, side: 'double' }), box(1.94, 0.3, 0.01), 0, 0.31, 0.225);
+  if (parasol) { p(M.beam, cyl(0.025, 0.025, 2.5, 6), 1.25, 1.25, -0.2); p(mat('plain', 0xb3261a, { rough: 0.9, side: 'double' }), new THREE.ConeGeometry(1.35, 0.42, 16, 1, true), 1.25, 2.4, -0.2); for (let k = 0; k < 8; k++) p(M.beam, cyl(0.008, 0.008, 1.4, 4), 1.25 + Math.cos(k * PI / 4) * 0.64, 2.38, -0.2 + Math.sin(k * PI / 4) * 0.64, 0, -k * PI / 4, PI / 2 - 0.3); }
+}
+const menuStrip = (B, text, x, y, z, ry, bg = '#f4efe2') => { B.geo(textMat(text, { w: 64, h: 224, vertical: true, bg, color: '#1d1a16' }), new THREE.PlaneGeometry(0.2, 0.7), mat4(x, y, z, 0, ry, 0)); };
+
+function shops(scene, out) {
+  const take = res => { out.places.push(...res.places); out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights); };
+  const GREEN = mat('plain', 0x3f7a4a, { rough: 0.95 }), WOODSEAT = mat('plain', 0x7a4a2e, { rough: 0.9 }), CHINA = mat('plain', 0xf1ece0, { rough: 0.4 });
+  const cup = (B, x, y, z) => B.geo(CHINA, cyl(0.035, 0.028, 0.055, 10), mat4(x, y + 0.0275, z));
+  const plate = (B, x, y, z, r = 0.11) => B.geo(CHINA, cyl(r, r * 0.6, 0.02, 14), mat4(x, y + 0.01, z));
+
+  /* ---------- 야키니쿠 큐 ---------- */
+  {
+    const at = { x: 21, z: 536, ry: -PI / 2 }, X0 = -8, X1 = 8, Z0 = -6, Z1 = 6, H = 3.6, F = 0.2, T = 0.25;
+    LOTS.push({ x: at.x - 1.5, z: at.z, ry: at.ry, w: 18, d: 17 });
+    const WALLM = mat('plaster', 0xe9dab0), TILE = mat('tile', 0xa4502f), TRIM = M.beam;
+    take(put(scene, at, B => {
+      const glows = [], lights = [], places = [];
+      shopShell(B, X0, Z0, X1, Z1, H, WALLM, TRIM, M.floorDark, { s: [[-7, -2.4, 'w'], [-1, 1, 'd'], [2.4, 7, 'w']], w: [[0.4, 4.6, 'w']], e: [[0.4, 4.6, 'w']] });
+      gableRoof(B, TILE, X0, Z0, X1, Z1, H, 2.2, { ridge: 'x', gable: WALLM, over: 0.9 });
+      signBoard(B, '焼肉Q', 0, 3.05, Z1 + 0.1, 0, 3.4, 0.8, { both: false, bg: '#f1ead6', color: '#b3261a' });
+      noren(B, 'x', Z1 + 0.22, -1, 1, 2.58, 0.75, '焼肉', { color: '#7a1f1c' });
+      for (const s of [-1, 1]) { B.box(TRIM, s * 1.7 - 0.06, 0, Z1 + 0.3, s * 1.7 + 0.06, 2.5, Z1 + 0.42, false); beamBetween(B, TRIM, V(s * 1.7, 2.44, Z1 + 0.36), V(s * 1.7, 2.44, Z1 + 0.8), 0.05, 0.05); glows.push(lantern(B, s * 1.7, 2.1, Z1 + 0.76, { text: '肉', r: 0.2, h: 0.5 })); }
+      B.box(M.stone, -1.4, 0, Z1, 1.4, 0.1, Z1 + 1.0, false);
+      // 부엌과 계산대
+      B.box(M.beam, X0 + T, F, -3.3, 4.1, F + 1.0, -2.75); B.box(M.beamLight, X0 + T, F + 1.0, -3.4, 4.2, F + 1.05, -2.65, false);
+      { const p = part(B, 3.4, F + 1.05, -3.0, 0); p(M.iron, box(0.4, 0.26, 0.34), 0, 0.13, 0); p(mat('plain', 0xd8cfb4), box(0.3, 0.1, 0.02), 0, 0.2, 0.18, -0.3); for (let k = 0; k < 4; k++) plate(B, -6.5 + k * 0.5, F + 1.05, -3.0 + (k % 2) * 0.1, 0.13); }
+      jarShelfAt(B, M.beam, -5.4, F, Z0 + T + 0.2, 0, 3.0, 2.2, 4, rngOf(1401)); tableAt(B, mat('metal', 0xb4babd, { rough: 0.5 }), -1.2, F, Z0 + T + 0.5, 0, 3.4, 0.8, 0.9);
+      for (let k = 0; k < 5; k++) { B.geo(CHINA, box(0.5, 0.03, 0.34), mat4(-2.4 + k * 0.6, F + 0.915, Z0 + T + 0.5)); for (let i = 0; i < 6; i++) B.geo(mat('plain', i % 2 ? 0xb8443a : 0xc9605a, { rough: 0.6 }), box(0.14, 0.02, 0.09), mat4(-2.56 + k * 0.6 + (i % 3) * 0.16, F + 0.94, Z0 + T + 0.42 + Math.floor(i / 3) * 0.14, 0, 0.2 * i, 0)); }
+      { const p = part(B, 3.0, F, Z0 + T + 0.5, 0); p(M.iron, box(1.3, 0.85, 0.8), 0, 0.425, 0); p(mat('glow', 0xff5a1e, { power: 0.8 }), box(1.0, 0.02, 0.5), 0, 0.86, 0); p(M.iron, cyl(0.26, 0.2, 0.3, 14), 0, 1.02, 0); solid(3.0, F, Z0 + T + 0.5, 0, 1.3, 0.8, 0.9); }
+      // 칸막이 좌석 여섯: 초록 자리, 상 가운데 숯불 화로
+      for (const s of [-1, 1]) for (const z of [-1.3, 1.5, 4.3]) boothAt(B, s * 6.95, F, z, 0, GREEN, true, glows);
+      // 제10반의 자리(왼쪽 가운데): 쵸지가 쌓아 올린 빈 접시, 아스마의 재떨이
+      { const x = -6.95, z = 1.5, y = F + 0.74; for (let k = 0; k < 9; k++) plate(B, x - 0.42, y + k * 0.021, z + 0.22, 0.1); for (let k = 0; k < 4; k++) cup(B, x - 0.4 + k * 0.26, y, z - 0.3); B.geo(M.iron, cyl(0.06, 0.05, 0.025, 10), mat4(x + 0.45, y + 0.0125, z + 0.28)); B.geo(CHINA, cyl(0.006, 0.006, 0.07, 4).rotateZ(PI / 2), mat4(x + 0.45, y + 0.03, z + 0.28, 0, 0.4, 0));
+        plate(B, x + 0.4, y, z - 0.28, 0.12); for (let i = 0; i < 5; i++) { B.geo(mat('plain', 0xc9a28a, { rough: 0.6 }), box(0.07, 0.012, 0.05), mat4(x + 0.34 + (i % 3) * 0.06, y + 0.025, z - 0.3 + Math.floor(i / 3) * 0.06, 0, i, 0)); B.geo(mat('plain', 0x7aa650, { rough: 0.7 }), box(0.03, 0.008, 0.03), mat4(x + 0.34 + (i % 3) * 0.06, y + 0.035, z - 0.3 + Math.floor(i / 3) * 0.06, 0, i * 2, 0)); }   // 파를 얹은 소금 우설
+        places.push({ n: '제10반의 자리', t: '아스마가 시카마루·이노·쵸지를 데리고 임무가 끝날 때마다 앉던 자리. 쵸지 앞에는 늘 빈 접시가 쌓였다.', b: [-7.75, -5.6, 0.2, 2.8], y: [0, 3] }); }
+      // 가운데 바닥 자리: 다다미 단 위의 낮은 상 둘, 초록 방석
+      B.box(M.beam, -2.5, F, -1.9, 2.5, F + 0.28, 1.7); B.box(M.tatami, -2.4, F + 0.28, -1.8, 2.4, F + 0.3, 1.6, false);
+      for (const x of [-1.2, 1.2]) { const y = F + 0.3; B.geo(M.beamLight, box(1.1, 0.05, 0.8), mat4(x, y + 0.33, -0.1)); B.geo(M.beam, box(0.8, 0.3, 0.5), mat4(x, y + 0.15, -0.1)); brazierAt(B, mat4(x, y + 0.355, -0.1), glows, x, y + 0.45, -0.1); for (const [dx, dz] of [[0, -0.85], [0, 0.85]]) for (const sx of [-0.3, 0.3]) B.geo(GREEN, box(0.46, 0.07, 0.46), mat4(x + dx + sx, y + 0.035, -0.1 + dz, 0, sx, 0)); }
+      // 벽에 붙은 차림표
+      ['タン塩', 'カルビ', 'ロース', 'ハラミ', 'ホルモン', '野菜盛', 'ライス', 'ビール'].forEach((t, i) => menuStrip(B, t, -3.4 + i * 0.5, F + 2.6, Z0 + T + 0.02, 0));
+      for (const s of [-1, 1]) ['上カルビ', '特上タン', '冷麺'].forEach((t, i) => menuStrip(B, t, s * (X1 - T - 0.02), F + 2.3, -2.2 + i * 0.5, s > 0 ? -PI / 2 : PI / 2, '#f1e2b8'));
+      for (const [x, z] of [[-4.2, 3.2], [4.2, 3.2], [-4.2, -0.8], [4.2, -0.8], [0, -4.6]]) hangLamp(B, x, H + 0.6, z, 1.5, glows, lights, 14);
+      places.unshift({ n: '야키니쿠 큐', t: '숯불에 고기를 구워 먹는 집. 파를 얹은 소금 우설이 이름났고, 아스마의 제10반이 늘 찾던 단골집이다.', b: [X0, X1, Z0, Z1 + 2], y: [0, 7] });
+      return { places, glows, lights, jumps: [['야키니쿠 큐', 0, 0, Z1 + 5, 0, 93]] };
+    }));
+  }
+
+  /* ---------- 경단 가게 ---------- */
+  {
+    const at = { x: 20.5, z: 660, ry: -PI / 2 }, X0 = -5.5, X1 = 5.5, Z0 = -4.5, Z1 = 4.5, H = 3.2, F = 0.2, T = 0.25;
+    LOTS.push({ x: at.x - 1.5, z: at.z, ry: at.ry, w: 13, d: 14 });
+    const WALLM = mat('plaster', 0xe8dcc0), TILE = mat('tile', 0x6f7a45), TRIM = M.beam, Rd = rngOf(1801);
+    take(put(scene, at, B => {
+      const glows = [], lights = [], places = [];
+      shopShell(B, X0, Z0, X1, Z1, H, WALLM, TRIM, M.floor, { s: [[-4.6, -1.8, 'w'], [-1, 1, 'd'], [1.8, 4.6, 'w']], w: [[-1.2, 1.2, 'w']], e: [[-1.2, 1.2, 'w']] });
+      gableRoof(B, TILE, X0, Z0, X1, Z1, H, 1.9, { ridge: 'x', gable: WALLM, over: 0.9 });
+      // 간판: 흰 경단 셋을 꿴 꼬치에 붉은 "だんご"
+      { const y = 3.55, z = Z1 + 1.0;
+        B.geo(M.beamLight, cyl(0.05, 0.05, 4.6, 8).rotateZ(PI / 2), mat4(0.3, y, z));
+        for (const s of [-1, 1]) beamBetween(B, TRIM, V(s * 2.1, y, Z1 + 0.1), V(s * 2.1, y, z), 0.07, 0.07);
+        ['だ', 'ん', 'ご'].forEach((ch, i) => { const x = -1.25 + i * 1.25; B.geo(mat('plain', 0xf7f3ea, { rough: 0.6 }), SPH, mat4(x, y, z, 0, 0, 0, [0.58, 0.58, 0.5])); B.geo(textMat(ch, { w: 128, h: 128, bg: '#f7f3ea', color: '#b3261a' }), new THREE.CircleGeometry(0.4, 24), mat4(x, y, z + 0.47)); });
+      }
+      noren(B, 'x', Z1 + 0.22, -1, 1, 2.58, 0.7, '', { color: '#1f3a6e', n: 3 });
+      B.box(M.stone, -1.4, 0, Z1, 1.4, 0.1, Z1 + 1.0, false);
+      teaBench(B, -3.3, Z1 + 1.3, 0, false); teaBench(B, 3.3, Z1 + 1.3, 0, true);
+      // 계산대와 경단 진열
+      B.box(M.beam, X0 + T, F, -3.0, 2.6, F + 0.95, -2.45); B.box(M.beamLight, X0 + T, F + 0.95, -3.1, 2.7, F + 1.0, -2.35, false);
+      for (let k = 0; k < 6; k++) { const x = -4.6 + k * 1.15; plate(B, x, F + 1.0, -2.72, 0.16); for (let i = 0; i < 4; i++) dango(B, mat4(x - 0.09 + i * 0.06, F + 1.045, -2.72, 0, PI / 2, 0), k % 3 === 1 ? [0xb5894a, 0xb5894a, 0xb5894a] : k % 3 === 2 ? [0x8ab06a, 0x8ab06a, 0x8ab06a] : undefined); }
+      shelfAt(B, M.beam, -2.8, F, Z0 + T + 0.2, 0, 3.0, 2.0, 4, Rd); { const p = part(B, 1.4, F, Z0 + T + 0.55, 0); p(M.iron, box(0.9, 0.8, 0.7), 0, 0.4, 0); p(M.iron, lathe([[0, 0], [0.22, 0], [0.28, 0.16], [0.24, 0.34], [0.1, 0.4], [0, 0.4]]), 0, 0.8, 0); p(mat('glow', 0xff5a1e, { power: 0.6 }), box(0.5, 0.1, 0.02), 0, 0.3, 0.36); solid(1.4, F, Z0 + T + 0.55, 0, 0.9, 0.7, 0.85); }
+      // 수수한 나무 상 넷
+      const TB = [[-3.1, -0.4], [-3.1, 2.6], [3.1, -0.4], [3.1, 2.6]];
+      for (const [x, z] of TB) { tableAt(B, M.beamLight, x, F, z, 0, 1.7, 0.75); for (const s of [-1, 1]) benchAt(B, M.beam, x, F, z + s * 0.72, 0, 1.6); }
+      // 이타치와 키사메가 앉았던 자리: 벗어 둔 삿갓 둘, 찻잔과 경단 접시
+      { const [x, z] = TB[3], y = F + 0.74; cup(B, x - 0.4, y, z - 0.15); cup(B, x + 0.35, y, z + 0.12); plate(B, x, y, z, 0.13); for (let i = 0; i < 3; i++) dango(B, mat4(x - 0.05 + i * 0.05, y + 0.04, z, 0, PI / 2 + 0.2, 0));
+        B.geo(M.iron, lathe([[0, 0], [0.07, 0], [0.09, 0.07], [0.07, 0.13], [0.03, 0.15], [0, 0.15]], 10), mat4(x + 0.6, y, z - 0.2));
+        for (const dx of [-0.45, 0.45]) { const hy = F + 0.445, hz = z + 0.72; B.geo(mat('plain', 0xd8c48a, { rough: 0.9, side: 'double' }), new THREE.ConeGeometry(0.34, 0.2, 18, 1, true), mat4(x + dx, hy + 0.1, hz)); B.geo(mat('plain', 0xb3261a), SPH, mat4(x + dx, hy + 0.2, hz, 0, 0, 0, 0.02)); for (let k = 0; k < 10; k++) B.geo(mat('plain', 0xf7f3ea, { rough: 1, side: 'double' }), box(0.05, 0.16, 0.003), mat4(x + dx + Math.cos(k * 0.628) * 0.33, hy + 0.0, hz + Math.sin(k * 0.628) * 0.33, 0, -k * 0.628 + PI / 2, 0)); }
+        places.push({ n: '창가의 구석 자리', t: '나루토를 노리고 마을에 숨어든 이타치와 키사메가 삿갓을 벗어 놓고 차를 마시던 자리. 카카시가 가게 앞에 서자 둘은 자취를 감췄다.', b: [1.8, 5.3, 1.4, 4.3], y: [0, 3] }); }
+      // 안코의 자리: 다 먹은 꼬치가 수북한 접시
+      { const [x, z] = TB[0], y = F + 0.74; plate(B, x, y, z, 0.15); for (let i = 0; i < 14; i++) B.geo(M.beamLight, cyl(0.004, 0.004, 0.2, 4).rotateZ(PI / 2), mat4(x + (Rd() - 0.5) * 0.08, y + 0.025 + i * 0.004, z + (Rd() - 0.5) * 0.08, 0, Rd() * 3, 0)); cup(B, x + 0.4, y, z - 0.1); plate(B, x - 0.45, y, z + 0.05, 0.11); for (let i = 0; i < 2; i++) dango(B, mat4(x - 0.47 + i * 0.05, y + 0.04, z + 0.05, 0, PI / 2, 0));
+        places.push({ n: '안코의 자리', t: '마을에서 단것을 가장 좋아하는 미타라시 안코가 꼬치를 수북이 쌓아 놓고 가는 자리.', b: [-5.3, -1.8, -1.5, 0.8], y: [0, 3] }); }
+      // 벽마다 걸린 차림표와 네모난 등
+      ['みたらし', '三色', '草だんご', 'あんみつ', 'ぜんざい', 'お茶'].forEach((t, i) => { const s = i % 2 ? 1 : -1, z = -1.9 + Math.floor(i / 2) * 0.45 + (Math.floor(i / 2) > 0 ? 3.2 : 0); B.geo(M.beamLight, box(0.26, 0.76, 0.02), mat4(s * (X1 - T - 0.02), F + 2.3, z, 0, s > 0 ? -PI / 2 : PI / 2, 0)); menuStrip(B, t, s * (X1 - T - 0.035), F + 2.3, z, s > 0 ? -PI / 2 : PI / 2, '#e9d6a8'); });
+      for (const [x, z] of [[-3.1, 1.1], [3.1, 1.1], [0, -1], [0, 2.6]]) hangLamp(B, x, H + 0.4, z, 1.3, glows, lights, 13, true);
+      places.unshift({ n: '경단 가게', t: '경단으로 이름난 찻집. 간판은 흰 경단 셋을 꿴 꼬치에 붉은 글씨로 "だんご".', b: [X0, X1, Z0, Z1 + 2.5], y: [0, 6] });
+      return { places, glows, lights, jumps: [['경단 가게', 0, 0, Z1 + 5, 0, 94]] };
+    }));
+  }
+
+  /* ---------- 아마구리아마 ---------- */
+  {
+    const at = { x: -28.5, z: 619, ry: PI / 2 }, X0 = -5, X1 = 5, Z0 = -3.5, Z1 = 3.5, H = 3.0, F = 0.2, T = 0.25;
+    LOTS.push({ x: at.x + 1.5, z: at.z, ry: at.ry, w: 12, d: 12 });
+    const WALLM = mat('plaster', 0xf1eadb), TILE = mat('tile', 0x8a5a2e), TRIM = M.beam, Ra = rngOf(1901), CHEST = mat('plain', 0x5a3320, { rough: 0.5 });
+    take(put(scene, at, B => {
+      const glows = [], lights = [], places = [];
+      B.box(M.stone, X0 - 0.15, 0, Z0 - 0.15, X1 + 0.15, 0.1, Z1 + 0.15, false); B.box(M.floor, X0 + T, 0, Z0 + T, X1 - T, F, Z1 - T);
+      // 앞벽: 손님이 밖에서 사 가는 넓은 판매 창과 옆문
+      wall(B, WALLM, 'x', Z1 - T, Z1, X0, X1, 0, H, [{ u0: -4.2, u1: 1.4, ys: [[1.1, 2.5]] }, { u0: 2.4, u1: 3.6, ys: [[F, 2.5]] }], true, true);
+      doorUnit(B, 'x', Z1 - T, Z1, 2.4, 3.6, F, 2.5, { frame: TRIM, leaf: null });
+      for (const u of [-4.2, 1.4]) B.box(TRIM, u - 0.06, 1.1, Z1 - T - 0.03, u + 0.06, 2.5, Z1 + 0.03, false); B.box(TRIM, -4.26, 2.5, Z1 - T - 0.03, 1.46, 2.6, Z1 + 0.03, false);
+      B.box(M.beamLight, -4.4, 1.04, Z1 - 0.6, 1.6, 1.1, Z1 + 0.55, false); for (const u of [-4.1, -1.4, 1.3]) beamBetween(B, TRIM, V(u, 0.55, Z1 + 0.02), V(u, 1.02, Z1 + 0.45), 0.06, 0.07);
+      face(B, WALLM, 'x', Z0, Z0 + T, X0, X1, 0, H, -1, [], [], TRIM, M.iron); face(B, WALLM, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, H, -1, [[-0.9, 0.9, 'w']], [], TRIM, M.iron); face(B, WALLM, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, H, 1, [[-0.9, 0.9, 'w']], [], TRIM, M.iron);
+      for (const [x, z] of [[X0, Z0], [X0, Z1], [X1, Z0], [X1, Z1]]) B.box(TRIM, x - 0.13, 0, z - 0.13, x + 0.13, H, z + 0.13, false);
+      hipRoof(B, TILE, X0, Z0, X1, Z1, H, 1.8, { over: 1.1 });
+      signBoard(B, '甘栗甘', 0, 3.4, Z1 + 0.3, 0, 2.6, 0.7, { both: false, bg: '#5a3320', color: '#f1e2b8' }); for (const s of [-1, 1]) B.box(TRIM, s * 1.1 - 0.04, 2.8, Z1 + 0.24, s * 1.1 + 0.04, 3.06, Z1 + 0.32, false);
+      noren(B, 'x', Z1 + 0.08, -4.1, 1.3, 2.5, 0.45, '甘栗甘甘栗', { color: '#7a1f1c', n: 5 });
+      B.box(M.stone, 2.0, 0, Z1, 4.0, 0.1, Z1 + 0.9, false);
+      // 판매 창의 과자: 군밤 더미, 밤 양갱, 만주와 콩떡, 경단
+      { const y = 1.1, z = Z1 + 0.15;
+        B.geo(M.beamLight, lathe([[0, 0], [0.2, 0], [0.3, 0.12], [0.28, 0.12], [0.18, 0.02], [0, 0.02]], 14), mat4(-3.6, y, z)); for (let k = 0; k < 26; k++) { const a = Ra() * 6.28, r = Ra() * 0.2; B.geo(CHEST, SPH, mat4(-3.6 + Math.cos(a) * r, y + 0.05 + (0.2 - r) * 0.5 * Ra() + 0.02, z + Math.sin(a) * r, 0, a, 0, [0.035, 0.03, 0.035])); }
+        for (let k = 0; k < 2; k++) { B.geo(M.beam, box(0.44, 0.04, 0.3), mat4(-2.7 + k * 0.56, y + 0.02, z)); for (let i = 0; i < 6; i++) B.geo(mat('plain', k ? 0x6a3a22 : 0xc9a24a, { rough: 0.4 }), box(0.1, 0.05, 0.1), mat4(-2.84 + k * 0.56 + (i % 3) * 0.14, y + 0.065, z - 0.07 + Math.floor(i / 3) * 0.14)); }
+        for (let k = 0; k < 2; k++) { plate(B, -1.5 + k * 0.5, y, z, 0.18); for (let i = 0; i < 6; i++) B.geo(mat('plain', k ? 0xf7f3ea : 0xc98a5e, { rough: 0.7 }), SPH, mat4(-1.5 + k * 0.5 + Math.cos(i * 1.047) * 0.09, y + 0.045, z + Math.sin(i * 1.047) * 0.09, 0, 0, 0, [0.045, 0.032, 0.045])); }
+        plate(B, -0.4, y, z, 0.18); for (let i = 0; i < 5; i++) dango(B, mat4(-0.5 + i * 0.05, y + 0.04, z, 0, PI / 2, 0));
+        // 다른 나라의 과자 셋
+        [['砂だんご', 0xd8c08a], ['キリンネクター', 0xe9c765], ['岩おこし', 0x8a8478]].forEach(([name, hex], i) => { const x = 0.15 + i * 0.42; B.geo(mat('plain', hex, { rough: 0.7 }), i === 1 ? cyl(0.05, 0.05, 0.2, 10) : box(0.2, 0.1, 0.16), mat4(x, y + (i === 1 ? 0.1 : 0.05), z)); B.geo(textMat(name, { w: 128, h: 48, bg: '#f4efe2', color: '#1d1a16' }), new THREE.PlaneGeometry(0.34, 0.11), mat4(x, y + 0.06, z + 0.3, -0.5, 0, 0)); });
+      }
+      // 가게 안: 밤 볶는 솥, 밤 자루, 과자 병 선반
+      { const p = part(B, -2.6, F, -1.4, 0); p(M.iron, cyl(0.42, 0.36, 0.6, 14), 0, 0.3, 0); p(mat('glow', 0xff5a1e, { power: 0.8 }), box(0.3, 0.14, 0.02), 0, 0.2, 0.4); p(M.iron, new THREE.SphereGeometry(0.55, 16, 8, 0, PI * 2, PI / 2, PI / 2), 0, 0.95, 0, 0, 0, 0, [1, 0.6, 1]); p(mat('plain', 0x2a2420, { rough: 1 }), cyl(0.5, 0.5, 0.02, 16), 0, 0.9, 0);
+        for (let k = 0; k < 30; k++) { const a = Ra() * 6.28, r = Ra() * 0.44; p(CHEST, SPH, Math.cos(a) * r, 0.93, Math.sin(a) * r, 0, a, 0, [0.035, 0.03, 0.035]); } p(M.beamLight, cyl(0.015, 0.015, 0.9, 5), 0.3, 1.1, 0.1, 0, 0, 0.9); addCollider(-3.15, F, -1.95, -2.05, F + 1.0, -0.85); glows.push([-2.6, F + 0.3, -1.0, 0.4]); }
+      for (let k = 0; k < 3; k++) { const x = -4.2 + k * 0.6, z = 0.6 + (k % 2) * 0.5; B.geo(mat('plain', 0xb89a6a, { rough: 1 }), lathe([[0, 0], [0.24, 0.02], [0.3, 0.3], [0.26, 0.55], [0.14, 0.62], [0.16, 0.7], [0, 0.66]], 10), mat4(x, F, z)); for (let i = 0; i < 6; i++) B.geo(CHEST, SPH, mat4(x + Math.cos(i) * 0.07, F + 0.66, z + Math.sin(i) * 0.07, 0, 0, 0, [0.035, 0.03, 0.035])); }
+      addCollider(-4.5, F, 0.3, -2.7, F + 0.7, 1.4);
+      for (const x of [-2.6, 0.8]) jarShelfAt(B, M.beam, x, F, Z0 + T + 0.2, 0, 3.0, 2.1, 4, Ra);
+      tableAt(B, M.beamLight, 3.4, F, -1.6, 0, 1.6, 0.8); for (let k = 0; k < 4; k++) B.geo(M.beamLight, box(0.3, 0.08, 0.22), mat4(3.0 + (k % 2) * 0.5, F + 0.78 + Math.floor(k / 2) * 0.08, -1.6, 0, k * 0.1, 0));
+      hangLamp(B, -1.5, H - 0.02, 0.6, 0.5, glows, lights, 14); hangLamp(B, 2.6, H - 0.02, 0.6, 0.5, glows, lights, 12);
+      // 밖에서 먹는 자리
+      teaBench(B, -3.0, Z1 + 3.2, 0, true); teaBench(B, 1.0, Z1 + 3.2, 0, false); teaBench(B, -1.0, Z1 + 5.0, 0, false);
+      places.push({ n: '아마구리아마', t: '군밤과 밤 과자로 이름난 단것 가게. 아스마가 제10반을 중닌 시험에 올리기 전에 여기서 한턱냈다. 판매 창 끝에는 다른 나라에서 온 과자도 놓여 있다.', b: [X0, X1, Z0, Z1 + 6], y: [0, 6] });
+      return { places, glows, lights, jumps: [['아마구리아마', -1.4, 0, Z1 + 7.5, 0, 95]] };
+    }));
+  }
+
+  /* ---------- 슈슈야 ---------- */
+  {
+    const at = { x: 275, z: 469, ry: PI }, X0 = -8.5, X1 = 8.5, Z0 = -6.5, Z1 = 6.5, H = 4.8, F = 0.2, T = 0.25;
+    LOTS.push({ x: at.x, z: at.z - 1.5, ry: at.ry, w: 19, d: 17 });
+    const WALLM = mat('plaster', 0xe6d2a8), TILE = mat('tile', 0x2f6a4a), REDW = mat('wood', 0xa82a20), Rs = rngOf(1601), GOLD = '#e9c765';
+    take(put(scene, at, B => {
+      const glows = [], lights = [], places = [];
+      const WIN = [[-7, -4.8, 'w'], [-3.6, -1.8, 'w'], [-1.1, 1.1, 'd'], [1.8, 3.6, 'w'], [4.8, 7, 'w']];
+      shopShell(B, X0, Z0, X1, Z1, H, WALLM, REDW, M.floorDark, { s: WIN, w: [[-3, -1, 'w'], [1.4, 3.4, 'w']], e: [[-3, -1, 'w'], [1.4, 3.4, 'w']] }, [2.0]);
+      hipRoof(B, TILE, X0, Z0, X1, Z1, H, 2.6, { over: 1.3 });
+      // 붉은 기둥과 현판, 처마 밑의 붉은 등
+      for (const x of [-8.3, -4.2, -1.45, 1.45, 4.2, 8.3]) { B.geo(REDW, cyl(0.2, 0.2, H, 14), mat4(x, H / 2, Z1 + 0.28)); B.geo(M.stone, cyl(0.28, 0.32, 0.25, 14), mat4(x, 0.125, Z1 + 0.28)); B.geo(mat('plain', 0xc9a24a, { rough: 0.5 }), cyl(0.23, 0.23, 0.12, 14), mat4(x, H - 0.3, Z1 + 0.28)); addCollider(x - 0.2, 0, Z1 + 0.08, x + 0.2, H, Z1 + 0.48); }
+      signBoard(B, '酒酒屋', 0, 3.25, Z1 + 0.12, 0, 2.8, 0.8, { both: false, bg: '#8a1c16', color: GOLD, frame: mat('plain', 0xc9a24a, { rough: 0.5 }) });
+      for (const x of [-6.2, -2.9, 2.9, 6.2]) { B.geo(M.iron, cyl(0.008, 0.008, 0.5, 4), mat4(x, H - 0.45, Z1 + 0.9)); glows.push(lantern(B, x, H - 1.0, Z1 + 0.9, { text: '酒', r: 0.24, h: 0.6 })); }
+      B.box(M.stone, -1.6, 0, Z1, 1.6, 0.1, Z1 + 1.2, false);
+      // 높은 천장과 작은 등 여럿, 천장을 받친 붉은 기둥 넷
+      B.box(M.floorDark, X0 + T, H - 0.12, Z0 + T, X1 - T, H - 0.04, Z1 - T, false);
+      for (const x of [-3.6, 3.6]) for (const z of [-1.2, 3.2]) { B.geo(REDW, cyl(0.2, 0.2, H - F - 0.1, 14), mat4(x, F + (H - F - 0.1) / 2, z)); B.geo(mat('plain', 0xc9a24a, { rough: 0.5 }), cyl(0.24, 0.24, 0.14, 14), mat4(x, H - 0.3, z)); B.geo(M.stone, cyl(0.26, 0.3, 0.2, 14), mat4(x, F + 0.1, z)); addCollider(x - 0.2, F, z - 0.2, x + 0.2, H, z + 0.2); }
+      for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) { const x = -6.4 + i * 3.2, z = -4.8 + j * 3.2; B.geo(M.iron, cyl(0.006, 0.006, 0.5, 4), mat4(x, H - 0.37, z)); B.geo(mat('glow', 0xffd9a0, { power: 1.2 }), SPH, mat4(x, H - 0.68, z, 0, 0, 0, 0.07)); if ((i + j) % 2 === 0) glows.push([x, H - 0.68, z, 0.4]); if (i % 2 === 0 && j % 2 === 1) lights.push([x, H - 1.0, z, 15, 16]); }
+      // 바: 술병을 늘어놓은 선반과 걸상 일곱
+      B.box(REDW, -6.2, F, -4.5, 6.2, F + 1.08, -3.85); B.box(M.beam, -6.3, F + 1.08, -4.6, 6.3, F + 1.14, -3.7, false); B.box(M.iron, -6.2, F + 0.22, -3.86, 6.2, F + 0.26, -3.72, false);
+      for (let k = 0; k < 7; k++) stoolAt(B, -5.1 + k * 1.7, F, -3.2, REDW);
+      for (const x of [-4.4, 0, 4.4]) jarShelfAt(B, M.beam, x, F, Z0 + T + 0.2, 0, 4.0, 2.9, 5, Rs);
+      for (let k = 0; k < 3; k++) { const x = 7.2, y = F + (k === 2 ? 0.62 : 0), z = -5.4 + (k === 2 ? 0.35 : k * 0.72); B.geo(mat('plain', 0xe9dfc4, { rough: 0.9 }), lathe([[0, 0], [0.3, 0], [0.34, 0.3], [0.3, 0.62], [0, 0.62]], 14), mat4(x, y, z)); B.geo(textMat('酒', { w: 64, h: 64, bg: '#e9dfc4', color: '#8a1c16' }), new THREE.PlaneGeometry(0.34, 0.34), mat4(x - 0.345, y + 0.32, z, 0, -PI / 2, 0)); for (const yy of [0.1, 0.52]) B.geo(mat('plain', 0xb89a6a), new THREE.TorusGeometry(0.33, 0.015, 4, 14).rotateX(PI / 2), mat4(x, y + yy, z)); }
+      addCollider(6.85, F, -5.75, 7.55, F + 1.25, -4.35);
+      // 숯불 닭꼬치 화로(바 안쪽 끝)
+      { const p = part(B, -7.2, F, -5.2, 0); p(M.iron, box(1.2, 0.85, 0.6), 0, 0.425, 0); p(mat('glow', 0xff5a1e, { power: 1.0 }), box(1.0, 0.02, 0.3), 0, 0.86, 0); for (let k = 0; k < 7; k++) { p(M.beamLight, cyl(0.004, 0.004, 0.44, 4).rotateX(PI / 2), -0.42 + k * 0.14, 0.89, 0); for (let i = 0; i < 3; i++) p(mat('plain', i % 2 ? 0x9a5a2e : 0xc98a4a, { rough: 0.6 }), SPH, -0.42 + k * 0.14, 0.895, -0.09 + i * 0.09, 0, 0, 0, [0.03, 0.022, 0.035]); } solid(-7.2, F, -5.2, 0, 1.2, 0.6, 0.9); glows.push([-7.2, F + 0.95, -5.2, 0.5]); }
+      // 지라이야와 츠나데가 앉았던 자리: 술병 하나에 잔 둘
+      { const y = F + 1.14, z = -4.0; B.geo(CHINA, lathe([[0, 0], [0.05, 0], [0.06, 0.08], [0.03, 0.15], [0.025, 0.19], [0.035, 0.2], [0, 0.2]], 10), mat4(0.85, y, z)); for (const dx of [-0.3, 0.25]) B.geo(CHINA, cyl(0.03, 0.02, 0.03, 10), mat4(0.85 + dx, y + 0.015, z + 0.08)); plate(B, 0.2, y, z, 0.1);
+        places.push({ n: '바 한가운데 자리', t: '아메가쿠레로 숨어들기 전날 밤, 지라이야가 츠나데와 나란히 앉아 술잔을 기울이던 자리. "돌아오면 내기에서 진 셈 치지."', b: [-1.6, 2.4, -3.8, -2.4], y: [0, 3] }); }
+      // 나무 칸막이 좌석 여섯
+      for (const s of [-1, 1]) for (const z of [-1.5, 1.3, 4.1]) boothAt(B, s * 7.45, F, z, 0, WOODSEAT, false, null);
+      // 가운데 둥근 상: 큰 접시 요리
+      { const x = 0, z = 1.4, y = F; B.geo(M.beam, cyl(1.15, 1.15, 0.06, 28), mat4(x, y + 0.74, z)); B.geo(M.beam, cyl(0.14, 0.4, 0.71, 12), mat4(x, y + 0.355, z)); B.geo(REDW, cyl(0.62, 0.62, 0.03, 24), mat4(x, y + 0.785, z)); B.geo(CHINA, cyl(0.5, 0.36, 0.035, 24), mat4(x, y + 0.817, z));
+        for (let k = 0; k < 16; k++) { const a = k * 0.4, r = 0.1 + (k % 4) * 0.09; B.geo(mat('plain', [0xc98a4a, 0x7aa650, 0xb8443a, 0xe9c765][k % 4], { rough: 0.6 }), SPH, mat4(x + Math.cos(a) * r, y + 0.86, z + Math.sin(a) * r, 0, a, 0, [0.06, 0.03, 0.045])); }
+        for (let k = 0; k < 6; k++) { const a = k * PI / 3; plate(B, x + Math.cos(a) * 0.9, y + 0.77, z + Math.sin(a) * 0.9, 0.09); chairAt(B, M.beam, x + Math.cos(a) * 1.75, y, z + Math.sin(a) * 1.75, Math.atan2(-Math.cos(a), -Math.sin(a))); }
+        addCollider(x - 1.0, y, z - 1.0, x + 1.0, y + 0.8, z + 1.0); }
+      places.unshift({ n: '슈슈야', t: '중국풍 술집. 큰 접시에 한꺼번에 담아 내는 요리와 숯불 닭꼬치, 가게에서 빚은 술이 이름났다.', b: [X0, X1, Z0, Z1 + 2], y: [0, 8] });
+      return { places, glows, lights, jumps: [['슈슈야', 0, 0, Z1 + 6, 0, 96]] };
+    }));
+  }
+}
 let _blackM = null; const BLACKM = () => _blackM || (_blackM = mat('plain', 0x1b1b1e, { rough: 0.9 }));
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
@@ -1388,6 +1616,8 @@ export async function build(scene, ctx) {
   library(scene, out);
   await ctx.say('번화가에 등을 내거는 중…');
   downtown(scene, out);
+  await ctx.say('고깃집 숯불을 피우는 중…');
+  shops(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
