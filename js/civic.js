@@ -2254,6 +2254,166 @@ function arena(scene, out) {
   out.places.push({ n: '중급닌자 시험 경기장', t: '중급닌자 선발 시험의 본선이 열리는 경기장. 영주와 손님들 앞에서 한 사람씩 맞붙는다.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
   out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights);
 }
+/* ============================ 나뭇잎 온천 ============================
+   마을 남서쪽 숲 속의 공중 목욕탕. 앞채(현관·탈의실) 뒤로 대나무 울타리를 두른 노천탕이 있다.
+   원작(나루토 위키 "Konoha Hot Springs")에 적힌 것: 한가운데서 남탕과 여탕으로 나뉜 공중 목욕탕이라는 것,
+   닌자가 물 위 걷기 수련터로도 쓴다는 것, 지라이야가 나루토를 데려와 쉬게 한 곳이라는 것.
+   지어낸 것: 건물의 생김새와 방 배치, 탁구대와 우유 냉장고, 바위 탕의 모양, 두꺼비 돌, 단풍나무,
+   울타리 밖 엿보는 구멍과 취재 수첩(지라이야가 여탕을 엿보며 "취재"하던 버릇에서 따온 것). */
+function onsen(scene, out) {
+  const Z = zone(39), at = { x: -281.25, z: 851, ry: -PI / 2 };   // 앞(제 좌표 +z)이 서쪽 길을 본다
+  const X0 = -11, X1 = 11, Z0 = 8, Z1 = 17, ZM = 12.5, H = 3.3, F = 0.2, FB = -19.5, FX = 11.6;
+  const ticks = [];
+  const res = put(scene, at, (B, holder) => {
+    const places = [], glows = [], lights = [], R = rngOf(3939);
+    const WALLM = mat('plaster', 0xe9e0c8), TRIM = mat('wood', 0x5a3f2a), FLOOR = mat('planks', 0xb08a58), TILE = mat('tile', 0x4a4f58, { rough: 0.6 }), LOG = mat('wood', 0x8c6c4a);
+    const BAMBOO = mat('plain', 0xb9b06a, { rough: 0.6 }), BAMBOO2 = mat('plain', 0x8a8448, { rough: 0.7 }), PAVE = M.pave, BLUE = '#1f3a6e', REDC = '#9a2a2a';
+    const inst = (g, m, ms, shadow = true) => { const im = new THREE.InstancedMesh(g, m, ms.length); ms.forEach((q, i) => im.setMatrixAt(i, q)); im.instanceMatrix.needsUpdate = true; im.castShadow = shadow; im.receiveShadow = true; im.computeBoundingSphere(); holder.add(im); return im; };
+    const scaled = (x, y, z, sx, sy, sz, ry = 0) => new THREE.Matrix4().multiplyMatrices(mat4(x, y, z, 0, ry, 0), new THREE.Matrix4().makeScale(sx, sy, sz));
+
+    /* ---- 앞채 ---- */
+    shopShell(B, X0, Z0, X1, Z1, H, WALLM, TRIM, FLOOR, {
+      s: [[-1.1, 1.1, 'd'], [-8.5, -6.3, 'w'], [-5, -2.8, 'w'], [2.8, 5, 'w'], [6.3, 8.5, 'w']],
+      n: [[-6.4, -4.8, 'd'], [4.8, 6.4, 'd'], [-9.6, -7.6, 'h'], [-3.6, -1.6, 'h'], [1.6, 3.6, 'h'], [7.6, 9.6, 'h']],
+      w: [[9.2, 11.4, 'h'], [13.4, 15.8, 'w']], e: [[9.2, 11.4, 'h'], [13.4, 15.8, 'w']] });
+    B.box(M.beamLight, X0, H, Z0, X1, H + 0.08, Z1, false);
+    gableRoof(B, TILE, X0, Z0, X1, Z1, H + 0.08, 2.3, { ridge: 'x', gable: WALLM, over: 0.9 });
+    gableRoof(B, TILE, -2.4, Z1, 2.4, Z1 + 2.2, 2.95, 0.9, { ridge: 'z', over: 0.4, overGable: 0.3 });        // 현관 지붕
+    for (const s of [-1, 1]) { B.box(TRIM, s * 2.2 - 0.09, 0, Z1 + 1.9, s * 2.2 + 0.09, 2.95, Z1 + 2.08); B.box(M.stone, s * 2.2 - 0.16, 0, Z1 + 1.82, s * 2.2 + 0.16, 0.14, Z1 + 2.16, false); }
+    B.box(M.stone, -2.4, 0, Z1, 2.4, 0.1, Z1 + 2.3, false);
+    noren(B, 'x', Z1 + 0.1, -1.05, 1.05, 2.58, 0.8, 'ゆ', { color: BLUE, n: 3 });
+    signBoard(B, '木ノ葉温泉', 0, 3.3, Z1 + 2.68, 0, 2.3, 0.5, { both: false });
+    for (const s of [-1, 1]) glows.push(lantern(B, s * 1.75, 2.35, Z1 + 2.0, { text: '湯', r: 0.2, h: 0.5 }));
+    // 칸막이: 현관방과 탈의실 사이, 남·여 탈의실 사이
+    partition(B, WALLM, TRIM, 'x', ZM, X0 + 0.25, X1 - 0.25, F, [[-6.4, -4.8, 'd'], [4.8, 6.4, 'd']], H - F);
+    partition(B, WALLM, TRIM, 'z', 0, Z0 + 0.25, ZM - 0.08, F, [], H - F);
+    noren(B, 'x', ZM + 0.12, -6.3, -4.9, F + 2.25, 0.7, '男', { color: BLUE, n: 1 }); noren(B, 'x', ZM + 0.12, 4.9, 6.3, F + 2.25, 0.7, '女', { color: REDC, n: 1 });
+    for (const [x, z] of [[0, 14.8], [-5.5, 10.3], [5.5, 10.3], [-7, 14.8], [7, 14.8]]) ceilLamp(B, x, H, z, glows, lights, 12);
+
+    /* ---- 현관방: 번대, 신발장, 우유 냉장고, 탁구대 ---- */
+    {
+      deskAt(B, TRIM, 0, F, 13.35, 0, 2.0, 0.7); chairAt(B, TRIM, 0, F, 12.95, 0);
+      signBoard(B, '入浴料　大人 十両　小人 五両', 0, F + 1.02, 13.72, 0, 1.7, 0.2, { both: false, bg: '#efe6cf', depth: 0.02 });
+      B.geo(mat('plain', 0xc9a24a, { rough: 0.5 }), cyl(0.09, 0.07, 0.08, 10), mat4(-0.6, F + 0.82, 13.4)); B.geo(mat('plain', 0x2b2b2e), box(0.26, 0.02, 0.18), mat4(0.5, F + 0.79, 13.35, 0, 0.2, 0));
+      signBoard(B, '忍の水面歩行修行　歓迎', -3, F + 1.9, ZM + 0.1, 0, 2.2, 0.32, { both: false, bg: '#efe6cf', depth: 0.02 }); signBoard(B, '湯あがりに牛乳', 3, F + 1.9, ZM + 0.1, 0, 1.6, 0.32, { both: false, bg: '#efe6cf', depth: 0.02 });
+      // 신발장(현관 옆 앞벽)
+      for (const s of [-1, 1]) { const x = s * 2.0; B.box(TRIM, x - 0.7, F, Z1 - 0.62, x + 0.7, F + 1.2, Z1 - 0.27); for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { B.box(M.beamLight, x - 0.64 + c * 0.33, F + 0.06 + r * 0.29, Z1 - 0.64, x - 0.36 + c * 0.33, F + 0.3 + r * 0.29, Z1 - 0.62, false); if ((r * 3 + c + (s > 0 ? 1 : 0)) % 3 === 0) B.geo(mat('plain', 0x8a2a2a), box(0.05, 0.02, 0.05), mat4(x - 0.5 + c * 0.33, F + 0.18 + r * 0.29, Z1 - 0.65)); } }
+      // 우유 냉장고: 흰 우유, 커피 우유, 과일 우유
+      {
+        const x = -10.3, z = 14.6; B.box(M.white, x - 0.35, F, z - 0.6, x + 0.35, F + 1.8, z + 0.6); B.box(M.glass, x + 0.35, F + 0.35, z - 0.52, x + 0.37, F + 1.7, z + 0.52, false); B.box(mat('glow', 0xf4fbff, { power: 0.5 }), x - 0.3, F + 0.35, z - 0.52, x - 0.28, F + 1.7, z + 0.52, false);
+        for (let r = 0; r < 3; r++) { B.box(M.iron, x - 0.28, F + 0.5 + r * 0.4, z - 0.52, x + 0.33, F + 0.52 + r * 0.4, z + 0.52, false); for (let i = 0; i < 8; i++) { B.geo(mat('plain', [0xf7f3ea, 0x8a5a3a, 0xf0c95a][r], { rough: 0.3 }), cyl(0.035, 0.04, 0.16, 8), mat4(x + 0.18, F + 0.6 + r * 0.4, z - 0.42 + i * 0.12)); B.geo(mat('plain', [0x3f6fb5, 0x6a3a22, 0xd0483a][r]), cyl(0.03, 0.03, 0.02, 8), mat4(x + 0.18, F + 0.69 + r * 0.4, z - 0.42 + i * 0.12)); } }
+        signBoard(B, '牛乳', x + 0.36, F + 1.9, z, PI / 2, 0.8, 0.26, { both: false, bg: '#f4efe2', depth: 0.02 }); glows.push([x + 0.3, F + 1.0, z, 0.5]);
+        B.box(mat('plain', 0x4a6a8a), x - 0.3, F, z + 0.8, x + 0.1, F + 0.5, z + 1.2); for (let i = 0; i < 5; i++) B.geo(M.glass, cyl(0.035, 0.04, 0.16, 8), mat4(x - 0.2 + (i % 3) * 0.1, F + 0.56, z + 0.9 + Math.floor(i / 3) * 0.12));   // 빈 병 상자
+      }
+      benchAt(B, LOG, -7.2, F, 16.2, 0, 2.2);
+      // 탁구대
+      {
+        const x = 8.3, z = 14.9, G = mat('plain', 0x2f6a5a, { rough: 0.6 }), W = mat('plain', 0xf2efe6);
+        B.box(G, x - 1.37, F + 0.72, z - 0.76, x + 1.37, F + 0.76, z + 0.76, false); for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) B.box(M.iron, x + sx * 1.15 - 0.03, F, z + sz * 0.6 - 0.03, x + sx * 1.15 + 0.03, F + 0.72, z + sz * 0.6 + 0.03, false);
+        B.box(W, x - 1.37, F + 0.761, z - 0.01, x + 1.37, F + 0.763, z + 0.01, false); for (const s of [-1, 1]) { B.box(W, x - 1.37, F + 0.761, z + s * 0.75 - 0.01, x + 1.37, F + 0.763, z + s * 0.75 + 0.01, false); B.box(W, x + s * 1.36 - 0.01, F + 0.761, z - 0.76, x + s * 1.36 + 0.01, F + 0.763, z + 0.76, false); }
+        B.box(mat('plain', 0x1f2a3a, { rough: 0.9 }), x - 0.006, F + 0.76, z - 0.84, x + 0.006, F + 0.91, z + 0.84, false);
+        for (const [px, pz, hex] of [[x - 1.0, z + 0.3, 0xb5392b], [x + 0.9, z - 0.35, 0x24211e]]) { B.geo(mat('plain', hex), cyl(0.075, 0.075, 0.012, 14), mat4(px, F + 0.77, pz)); B.geo(LOG, box(0.025, 0.012, 0.1), mat4(px, F + 0.77, pz + 0.12)); }
+        B.geo(mat('plain', 0xf0a03a, { rough: 0.4 }), SPH, mat4(x - 0.4, F + 0.78, z - 0.2, 0, 0, 0, 0.02)); addCollider(x - 1.37, F, z - 0.76, x + 1.37, F + 0.92, z + 0.76);
+      }
+      places.push({ n: '온천 현관방', t: '번대에서 값을 치르고 들어간다. 탕에서 나오면 우유 한 병, 그리고 탁구.', b: [X0, X1, ZM, Z1], y: [0, H] });
+    }
+
+    /* ---- 탈의실(남 = 서, 여 = 동) ---- */
+    for (const s of [-1, 1]) {
+      const BASK = mat('plain', 0xc9a86a, { rough: 0.9 });
+      // 바구니 선반(바깥벽 쪽)
+      { const x = s * 10.45; B.box(TRIM, x - 0.25, F, 8.6, x + 0.25, F + 1.8, 12.1); for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) { const z = 8.95 + c * 0.7, y = F + 0.12 + r * 0.43; B.box(M.beamLight, x - s * 0.26, y, z - 0.3, x - s * 0.24, y + 0.36, z + 0.3, false); if ((r * 2 + c + (s > 0 ? 0 : 1)) % 3) B.geo(BASK, new THREE.CylinderGeometry(0.22, 0.18, 0.2, 10, 1, true), mat4(x - s * 0.2, y + 0.11, z)); if ((r + c * 2) % 4 === 0) B.geo(mat('plain', s > 0 ? 0xe58aa0 : 0x5a7aa0), box(0.28, 0.06, 0.3), mat4(x - s * 0.2, y + 0.08, z)); } }
+      benchAt(B, LOG, s * 3.0, F, 10.3, PI / 2, 2.4);
+      // 거울과 세면대(가운데 칸막이 쪽), 체중계
+      { const x = s * 0.1; B.box(M.glass, x + s * 0.0, F + 1.0, 9.0, x + s * 0.02, F + 1.9, 10.6, false); B.box(TRIM, x, F + 0.95, 8.95, x + s * 0.03, F + 1.0, 10.65, false); B.box(M.white, x, F + 0.7, 9.1, x + s * 0.45, F + 0.82, 10.5); B.box(TRIM, x, F, 9.15, x + s * 0.4, F + 0.7, 10.45, false); for (const z of [9.45, 10.15]) { B.geo(mat('plain', 0xd8dde0, { rough: 0.3 }), cyl(0.16, 0.12, 0.03, 14), mat4(x + s * 0.24, F + 0.83, z)); B.geo(M.iron, cyl(0.012, 0.012, 0.14, 6), mat4(x + s * 0.06, F + 0.89, z)); } }
+      { const x = s * 1.2, z = 11.7; B.box(M.iron, x - 0.2, F, z - 0.25, x + 0.2, F + 0.06, z + 0.25, false); B.box(M.iron, x - 0.03, F, z - 0.27, x + 0.03, F + 1.2, z - 0.22, false); B.geo(M.white, cyl(0.16, 0.16, 0.04, 16).rotateX(PI / 2), mat4(x, F + 1.25, z - 0.25)); }
+      signBoard(B, s < 0 ? '男湯' : '女湯', s * 5.6, F + 2.55, Z0 + 0.3, 0, 0.9, 0.3, { both: false, bg: s < 0 ? BLUE : REDC, color: '#f4efe2', depth: 0.02 });
+      places.push({ n: s < 0 ? '남탕 탈의실' : '여탕 탈의실', t: '옷을 바구니에 담아 두고 탕으로 나간다.', b: [s < 0 ? X0 : 0, s < 0 ? 0 : X1, Z0, ZM], y: [0, H] });
+    }
+
+    /* ---- 노천탕 마당: 대나무 울타리, 돌바닥 ---- */
+    B.box(PAVE, -FX, 0, FB, FX, 0.05, Z0, false);
+    {
+      const POLE = cyl(0.045, 0.045, 2.7, 6), ms = [];
+      const run = (ax, c, u0, u1) => {
+        const n = Math.round((u1 - u0) / 0.095);
+        for (let i = 0; i <= n; i++) { const u = u0 + (u1 - u0) * i / n, y = 1.35 + ((i * 7) % 5) * 0.012; ms.push(ax === 'x' ? mat4(u, y, c) : mat4(c, y, u)); }
+        for (const y of [0.5, 1.5, 2.4]) for (const d of [-0.06, 0.06]) (ax === 'x' ? B.box(BAMBOO2, u0, y - 0.03, c + d - 0.02, u1, y + 0.03, c + d + 0.02, false) : B.box(BAMBOO2, c + d - 0.02, y - 0.03, u0, c + d + 0.02, y + 0.03, u1, false));
+        for (let u = u0; u <= u1 + 0.01; u += (u1 - u0) / Math.max(1, Math.round((u1 - u0) / 2.8))) (ax === 'x' ? B.box(TRIM, u - 0.07, 0, c - 0.07, u + 0.07, 2.85, c + 0.07, false) : B.box(TRIM, c - 0.07, 0, u - 0.07, c + 0.07, 2.85, u + 0.07, false));
+        if (ax === 'x') B.box(BAMBOO2, u0, 0, c - 0.012, u1, 2.6, c + 0.012, false); else B.box(BAMBOO2, c - 0.012, 0, u0, c + 0.012, 2.6, u1, false);   // 대 사이로 들여다보이지 않게 속에 댄 널
+        if (ax === 'x') addCollider(u0, 0, c - 0.08, u1, 2.8, c + 0.08); else addCollider(c - 0.08, 0, u0, c + 0.08, 2.8, u1);
+      };
+      run('x', FB, -FX, FX); run('z', -FX, FB, Z0); run('z', FX, FB, Z0); run('z', 0, FB, Z0);
+      run('x', Z0 - 0.02, -FX, -X1 - 0.02); run('x', Z0 - 0.02, X1 + 0.02, FX);
+      inst(POLE, BAMBOO, ms);
+      signBoard(B, 'のぞき厳禁', 5.8, 2.0, FB + 0.1, 0, 1.5, 0.34, { both: false, bg: '#efe6cf', color: '#8a2a20', depth: 0.02 });
+    }
+    const steam = [];
+    for (const s of [-1, 1]) {
+      const cx = s * 5.6, cz = -8.5, pa = 3.9, pb = 6.6;
+      // 문 앞 마루와 씻는 자리
+      B.box(FLOOR, s < 0 ? -FX + 0.1 : 0.1, 0, 5.4, s < 0 ? -0.1 : FX - 0.1, F, Z0);
+      for (let i = 0; i < 3; i++) {
+        const x = s * 10.9, z = 4.2 - i * 1.5;
+        B.box(M.stone, x - 0.12, 0.05, z - 0.1, x + 0.12, 0.75, z + 0.1); B.geo(M.iron, cyl(0.015, 0.015, 0.16, 6).rotateZ(PI / 2), mat4(x - s * 0.18, 0.55, z)); B.geo(M.iron, cyl(0.02, 0.02, 0.05, 6), mat4(x - s * 0.26, 0.52, z));
+        B.geo(LOG, cyl(0.17, 0.17, 0.26, 12), mat4(x - s * 0.85, 0.18, z)); addCollider(x - s * 0.85 - 0.17, 0, z - 0.17, x - s * 0.85 + 0.17, 0.31, z + 0.17);
+        B.geo(LOG, new THREE.CylinderGeometry(0.15, 0.13, 0.14, 12, 1, true), mat4(x - s * 0.45, 0.12, z + 0.35)); B.geo(LOG, cyl(0.13, 0.13, 0.015, 12), mat4(x - s * 0.45, 0.058, z + 0.35));
+        B.box(M.glass, x + s * 0.1, 0.8, z - 0.25, x + s * 0.12, 1.3, z + 0.25, false);
+      }
+      // 바위 탕
+      B.geo(mat('plain', 0x4a5258, { rough: 0.9 }), new THREE.CircleGeometry(1, 40).rotateX(-PI / 2), scaled(cx, 0.06, cz, pa, 1, pb));
+      { const w = new THREE.Mesh(new THREE.CircleGeometry(1, 40).rotateX(-PI / 2), M.water); w.matrixAutoUpdate = false; w.matrix.copy(scaled(cx, 0.36, cz, pa, 1, pb)); w.receiveShadow = true; holder.add(w); }
+      const ROCKG = new THREE.IcosahedronGeometry(1, 1);
+      for (let i = 0; i < 40; i++) {
+        const a = i / 40 * PI * 2 + R() * 0.06, k = 1.02 + R() * 0.07, x = cx + Math.cos(a) * pa * k, z = cz + Math.sin(a) * pb * k;
+        const gap = Math.abs(a - PI / 2) < 0.2, sz = gap ? 0.3 : 0.38 + R() * 0.38;
+        B.geo(M.rock, ROCKG, scaled(x, gap ? 0.05 : sz * 0.35, z, sz * 1.25, gap ? 0.16 : sz * 0.8, sz, R() * 6));
+        if (!gap && sz > 0.6) addCollider(x - sz * 0.6, 0, z - sz * 0.6, x + sz * 0.6, sz, z + sz * 0.6);
+      }
+      // 물이 나오는 대나무 홈통과 바위 더미
+      { const x = cx - s * 0.6, z = cz - pb - 0.5; for (const [dx, dz, sz] of [[0, 0, 0.9], [0.9, 0.3, 0.6], [-0.8, 0.4, 0.55]]) B.geo(M.rock, ROCKG, scaled(x + dx, sz * 0.5, z + dz, sz * 1.1, sz * 0.9, sz, dx)); B.geo(BAMBOO, cyl(0.05, 0.05, 1.5, 8).rotateX(PI / 2 - 0.15), mat4(x, 1.05, z + 0.9)); B.geo(mat('plain', 0xcfe6ea, { rough: 0.1 }), cyl(0.025, 0.03, 0.62, 6), mat4(x, 0.66, z + 1.66)); addCollider(x - 1, 0, z - 0.6, x + 1, 1.2, z + 0.6); }
+      // 돌등, 단풍나무, 나무 물통 더미, 수건 걸이
+      { const x = s * 1.3, z = -17.6; B.geo(M.stone, cyl(0.3, 0.36, 0.14, 6), mat4(x, 0.12, z)); B.geo(M.stone, cyl(0.12, 0.15, 0.75, 8), mat4(x, 0.56, z)); B.geo(M.stone, cyl(0.28, 0.15, 0.12, 6), mat4(x, 0.99, z)); B.geo(mat('glow', 0xffe6b0, { power: 1 }), box(0.24, 0.24, 0.24), mat4(x, 1.17, z)); for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) B.box(M.stone, x + dx * 0.15 - 0.035, 1.05, z + dz * 0.15 - 0.035, x + dx * 0.15 + 0.035, 1.3, z + dz * 0.15 + 0.035, false); B.geo(M.stone, new THREE.ConeGeometry(0.42, 0.28, 6), mat4(x, 1.44, z)); addCollider(x - 0.3, 0, z - 0.3, x + 0.3, 1.6, z + 0.3); glows.push([x, 1.17, z, 0.5]); lights.push([x, 1.4, z, 10, 12]); }
+      { const tg = treeGeometry(390 + s, { height: 7, depth: 4, sprays: 6, leaves: 7, leafLen: 0.3, spread: 1.3 }), m = [mat4(s * 10, 0, -17.2, 0, s, 0, 1)]; inst(tg.wood, mat('bark', 0x5c483c), m); inst(tg.leaves, mat('leaf', s < 0 ? 0xc9442f : 0xd9772a), m); addCollider(s * 10 - 0.25, 0, -17.45, s * 10 + 0.25, 4, -16.95); B.geo(mat('leaf', 0x3f7a30), BUSH.leaves, mat4(s * 9.6, 0, -15.6, 0, 1, 0, 0.8)); }
+      for (const [dx, dy] of [[0, 0], [0.32, 0], [0.64, 0], [0.16, 0.15], [0.48, 0.15], [0.32, 0.3]]) { B.geo(LOG, new THREE.CylinderGeometry(0.15, 0.13, 0.14, 12, 1, true), mat4(s * 1.2 + s * dx, F + 0.07 + dy, 6.3)); B.geo(LOG, cyl(0.13, 0.13, 0.015, 12), mat4(s * 1.2 + s * dx, F + 0.01 + dy, 6.3)); }
+      { const x = s * 9.2, z = 6.2; for (const d of [-0.6, 0.6]) B.box(LOG, x + d - 0.03, F, z - 0.03, x + d + 0.03, F + 1.3, z + 0.03, false); B.box(LOG, x - 0.66, F + 1.25, z - 0.025, x + 0.66, F + 1.3, z + 0.025, false); for (const [d, hex] of [[-0.35, 0xf2efe6], [0.05, s < 0 ? 0x5a7aa0 : 0xe58aa0], [0.4, 0xf2efe6]]) B.geo(mat('cloth', hex), new THREE.PlaneGeometry(0.3, 0.7), mat4(x + d, F + 0.93, z + 0.03)); }
+      for (let i = 0; i < 9; i++) steam.push({ x: cx + (R() - 0.5) * pa * 1.4, z: cz + (R() - 0.5) * pb * 1.4, p: R(), v: 0.07 + R() * 0.05, s: 0.7 + R() * 0.8 });
+      places.push({ n: s < 0 ? '남탕(노천탕)' : '여탕(노천탕)', t: '대나무 울타리를 두른 바위 탕. 뜨거운 물 위에 서는 수련을 하는 닌자도 있다.', b: [s < 0 ? -FX : 0, s < 0 ? 0 : FX, FB, Z0], y: [0, 3] });
+    }
+    // 남탕의 두꺼비 돌(입에서 물이 나온다)
+    {
+      const x = -9.3, z = -6, G = mat('stone', 0x7f8a72);
+      for (const m of [scaled(x, 0.41, z, 0.5, 0.36, 0.44)]) B.geo(G, SPH, m);
+      B.geo(G, SPH, scaled(x + 0.3, 0.62, z, 0.3, 0.2, 0.34)); for (const d of [-0.17, 0.17]) { B.geo(G, SPH, mat4(x + 0.3, 0.8, z + d, 0, 0, 0, 0.09)); B.geo(mat('plain', 0x1b1b1e), SPH, mat4(x + 0.37, 0.82, z + d, 0, 0, 0, 0.04)); B.geo(G, SPH, scaled(x + 0.15, 0.2, z + d * 2.4, 0.26, 0.16, 0.14)); }
+      B.geo(mat('plain', 0xcfe6ea, { rough: 0.1 }), tube([V(x + 0.58, 0.6, z), V(x + 1.0, 0.55, z), V(x + 1.3, 0.38, z)], 0.02, 6, false)); addCollider(x - 0.45, 0, z - 0.45, x + 0.55, 0.9, z + 0.45);
+    }
+    // 김: 탕에서 천천히 피어오른다
+    {
+      const g = new THREE.SphereGeometry(0.5, 8, 6), sm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.17, depthWrite: false });
+      for (const f of steam) { f.m = new THREE.Mesh(g, sm); f.m.matrixAutoUpdate = false; f.m.frustumCulled = false; holder.add(f.m); }
+      const puff = t => { for (const f of steam) { const u = (f.p + t * f.v) % 1, k = Math.sin(u * PI) * f.s * (0.6 + u); f.m.matrix.copy(scaled(f.x + Math.sin(t * 0.4 + f.p * 9) * 0.3 * u, 0.5 + u * 3.2, f.z + Math.cos(t * 0.3 + f.p * 7) * 0.3 * u, k, k * 0.8, k)); } };
+      puff(0); ticks.push(puff);
+    }
+
+    /* ---- 울타리 밖: 엿보는 구멍과 취재 수첩(여탕 쪽 뒤 울타리) ---- */
+    {
+      const x = 7.2, z = FB - 0.1;
+      B.geo(mat('plain', 0x14110e), new THREE.CircleGeometry(0.05, 10).rotateY(PI), mat4(x, 1.45, z - 0.06));
+      B.geo(M.rock, new THREE.IcosahedronGeometry(1, 1), scaled(x + 0.9, 0.2, z - 0.8, 0.5, 0.3, 0.42)); B.geo(mat('paper', 0xf2ead2), box(0.2, 0.02, 0.28), mat4(x + 0.9, 0.51, z - 0.8, 0, 0.4, 0)); B.geo(mat('plain', 0x8a2a2a), box(0.2, 0.006, 0.28), mat4(x + 0.9, 0.497, z - 0.8, 0, 0.4, 0)); B.geo(LOG, cyl(0.007, 0.007, 0.16, 5).rotateZ(PI / 2), mat4(x + 0.95, 0.53, z - 0.72, 0, -0.5, 0));
+      B.geo(LOG, box(0.4, 0.3, 0.3), mat4(x, 0.15, z - 0.45)); addCollider(x - 0.2, 0, z - 0.6, x + 0.2, 0.3, z - 0.3);
+    }
+
+    /* ---- 앞마당: 길에서 현관까지 디딤돌, 걸상, 안내 기둥 ---- */
+    for (let i = 0; i < 5; i++) B.geo(M.stone, cyl(0.42, 0.45, 0.06, 9), mat4((i % 2 ? 0.18 : -0.18), 0.03, Z1 + 3.0 + i * 0.95, 0, i, 0));
+    benchAt(B, LOG, -5.5, 0, Z1 + 0.9, 0, 2.2); benchAt(B, LOG, 5.5, 0, Z1 + 0.9, 0, 2.2);
+    { const x = 4.2, z = Z1 + 5.2; B.box(TRIM, x - 0.1, 0, z - 0.1, x + 0.1, 2.6, z + 0.1); signBoard(B, '温泉', x, 2.0, z + 0.12, 0, 0.5, 1.0, { vertical: true, both: false }); }
+    return { places, glows, lights, jumps: [['나뭇잎 온천', 0, 0, Z1 + 6.5, 0, 103], ['온천 노천탕(남탕)', -5.9, F, 6.8, 0, 104]] };
+  });
+  OPEN.push([at.x, at.z, 27], [at.x - 26, at.z, 8]);
+  BARE.push((x, z) => Math.abs(x - at.x) < 21.5 && Math.abs(z - at.z) < 12.5);
+  out.places.push({ n: '나뭇잎 온천', t: '마을의 공중 목욕탕. 한가운데서 남탕과 여탕으로 나뉜다. 지라이야가 나루토를 데려와 쉬게 한 곳.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
+  out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights); out.ticks.push(...ticks);
+}
 let _blackM = null; const BLACKM = () => _blackM || (_blackM = mat('plain', 0x1b1b1e, { rough: 0.9 }));
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
@@ -2283,6 +2443,8 @@ export async function build(scene, ctx) {
   park(scene, out);
   await ctx.say('경기장 마당을 고르는 중…');
   arena(scene, out);
+  await ctx.say('온천 물을 데우는 중…');
+  onsen(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
