@@ -14,6 +14,7 @@ import { terrainH, inPoly } from './village.js';
 
 export const LOTS = [];        // 구역의 특별한 건물이 선 터 { x, z, ry, w, d } — 집·나무·풀이 피한다
 export const OPEN = [];        // 나무를 심지 않을 자리 [x, z, 반지름] — 문 앞처럼 트여 있어야 하는 곳
+export const BARE = [];        // 풀포기가 나지 않을 자리를 가리는 함수 (x, z) => 참 — 흙을 깐 산책길·놀이터
 const GROUPS = [];             // 구역의 집 묶음 { polys, land, ok(x, z), style(R), deco(B, h) }
 export const zoneGroups = () => GROUPS;
 

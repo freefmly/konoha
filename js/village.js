@@ -39,15 +39,15 @@ export const inPoly = (x, z, poly) => { let c = false; for (let i = 0, j = poly.
 const ringDist = (x, z, poly) => segDist(x, z, [...poly, poly[0]]) * (inPoly(x, z, poly) ? -1 : 1);   // 다각형 가장자리까지(안쪽은 음수)
 const WT = PLAN.water;
 const RIVERS = [WT.naka, WT.stream, WT.brook].map(r => { const pts = smooth(r.pts); return { pts, w: r.w, box: bbox(pts, r.w / 2 + 6) }; });
-const POOLS = [WT.lake, WT.isle, ...WT.ponds].map(poly => ({ poly, box: bbox(poly, 6) }));
-const ISLAND = { poly: WT.isleLand, box: bbox(WT.isleLand, 4) };
+const POOLS = [WT.lake, WT.isle, WT.parkPond, ...WT.ponds].map(poly => ({ poly, box: bbox(poly, 6) }));
+const ISLANDS = [WT.isleLand, WT.parkIsle].map(poly => ({ poly, box: bbox(poly, 4) }));
 const inBox = (x, z, b) => x > b[0] && x < b[2] && z > b[1] && z < b[3];
 // 물길이 땅을 파내는 깊이(0 = 그대로, 1 = 바닥까지)
 function carve(x, z) {
   let k = 0;
   for (const r of RIVERS) if (inBox(x, z, r.box)) k = Math.max(k, 1 - sstep(-2.5, 1.5, segDist(x, z, r.pts) - r.w / 2));
   for (const p of POOLS) if (inBox(x, z, p.box)) k = Math.max(k, 1 - sstep(-3, 1.5, ringDist(x, z, p.poly)));
-  if (k > 0 && inBox(x, z, ISLAND.box)) k *= sstep(-2.5, 1, ringDist(x, z, ISLAND.poly));   // 못 가운데 섬은 파지 않는다
+  if (k > 0) for (const s of ISLANDS) if (inBox(x, z, s.box)) k *= sstep(-2.5, 1, ringDist(x, z, s.poly));   // 못 가운데 섬은 파지 않는다
   return k;
 }
 export function terrainH(x, z) {

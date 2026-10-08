@@ -11,7 +11,7 @@ import { treeGeometry, bushGeometry, tuftGeometry } from './flora.js';
 import { PLAN } from './plan-data.js';
 import { WALL, CLIFF, STAIR, SITE } from './layout.js';
 import { terrainH, inPoly } from './village.js';
-import { zoneGroups, LOTS, OPEN } from './zones.js';
+import { zoneGroups, LOTS, OPEN, BARE } from './zones.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const HC = 80, TC = 40, SC = 160;             // 집 칸, 나무·풀 칸, 먼 나무를 묶는 큰 칸의 한 변(m)
@@ -349,7 +349,7 @@ export async function build(scene, ctx) {
     for (let z = WALL.cz - lim; z < WALL.cz + lim; z += st) for (let x = WALL.cx - lim; x < WALL.cx + lim; x += st) {
       const px = x + R() * st, pz = z + R() * st, lu = landAt(px, pz);
       if (lu === DIRT || lu === HOUSE || lu === HILL || Math.hypot(px - WALL.cx, pz - WALL.cz) > lim || (lu === OUT && R() < 0.5)) continue;
-      const y = terrainH(px, pz); if (y < -0.02) continue;
+      const y = terrainH(px, pz); if (y < -0.02 || BARE.some(f => f(px, pz))) continue;
       tcell(px, pz).tufts.push(mat4(px, y, pz, 0, R() * 6.283, 0, 0.8 + R() * 1.1));
     } }
 

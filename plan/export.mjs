@@ -40,6 +40,7 @@ const data = {
     brook: { pts: TP(P.BROOK), w: 3 * U },                         // 제3 훈련장의 냇물
     lake: TP(ellPoly(P.LAKE)), isle: TP(ellPoly(P.ISLE)), isleLand: TP(ellPoly({ ...P.ISLE, rx: 9, ry: 5.5 })),
     ponds: P.PONDS.map(([x, y, rx, ry]) => TP(ellPoly({ x, y, rx, ry }, 24))),
+    parkPond: TP(ellPoly(P.PARK_POND)), parkIsle: TP(ellPoly({ ...P.PARK_POND, rx: P.PARK_POND.isle, ry: P.PARK_POND.isle }, 24)),
     pier: TP(P.PIER),
   },
   bridges: P.BRIDGES.map(TP),

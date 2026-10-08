@@ -7,7 +7,7 @@ import { beamBetween, hipRoof, gableRoof, coneRoof, roundWall, roundWindow, roun
 import { treeGeometry, bushGeometry } from './flora.js';
 import { uchihaKit } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
-import { LOTS, OPEN, zoneGroups } from './zones.js';
+import { LOTS, OPEN, BARE, zoneGroups } from './zones.js';
 import { inPoly } from './village.js';
 
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -1786,6 +1786,340 @@ function homes3(scene, out) {
     }));
   }
 }
+/* ============================ 센주 공원 ============================
+   번화가 동쪽의 큰 공원. 못 한가운데 섬에 아주 큰 나무가 서 있고, 남쪽에 놀이터가 있다.
+   원작(나루토 위키 "Senju Park")에 적힌 것: 이름(千手公園), 센주 일족과 얽힌 넓은 숲이라는 것,
+   못에 둘러싸인 큰 나무와 놀이터가 있다는 것.
+   지어낸 것: 섬으로 건너가는 붉은 다리, 나무에 두른 금줄, 정자, 벚나무, 돌등, 꽃밭, 울타리와 문기둥,
+   놀이 기구의 종류와 놓인 자리, 못의 잉어와 연잎. */
+// 줄(pts)을 따라 폭 w로 까는 납작한 띠(산책길)
+function ribbon(pts, w, y = 0.04, closed = false) {
+  const n = pts.length, pos = [], uv = [], idx = [];
+  let L = 0;
+  for (let i = 0; i < n; i++) {
+    const a = pts[closed ? (i - 1 + n) % n : Math.max(0, i - 1)], b = pts[closed ? (i + 1) % n : Math.min(n - 1, i + 1)];
+    const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l * w / 2, nz = dx / l * w / 2;
+    if (i) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    pos.push(pts[i][0] + nx, y, pts[i][1] + nz, pts[i][0] - nx, y, pts[i][1] - nz); uv.push(0, L, w, L);
+  }
+  for (let i = 0; i < (closed ? n : n - 1); i++) { const a = i * 2, b = ((i + 1) % n) * 2; idx.push(a, b, a + 1, a + 1, b, b + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  g.computeVertexNormals();
+  if (g.attributes.normal.getY(0) < 0) { const ix = g.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; } g.computeVertexNormals(); }
+  return g;
+}
+// 굽은 줄기의 높이 y에서 한가운데와 굵기를 잰다(금줄을 두르거나 막을 자리를 잡을 때). gap = 줄기 마디 사이의 높이.
+// 마디가 드문드문하므로 y 아래 마디와 위 마디를 따로 재서 그 사이를 잇는다.
+function trunkAt(geo, y, gap, lim = 6) {
+  const p = geo.attributes.position;
+  const ring = (y0, y1) => {
+    let sx = 0, sy = 0, sz = 0, n = 0, r = 0;
+    for (let i = 0; i < p.count; i++) { const v = p.getY(i); if (v >= y0 && v < y1 && Math.hypot(p.getX(i), p.getZ(i)) < lim) { sx += p.getX(i); sy += v; sz += p.getZ(i); n++; } }
+    if (!n) return null;
+    sx /= n; sy /= n; sz /= n;
+    for (let i = 0; i < p.count; i++) { const v = p.getY(i); if (v >= y0 && v < y1 && Math.hypot(p.getX(i), p.getZ(i)) < lim) r += Math.hypot(p.getX(i) - sx, p.getZ(i) - sz); }
+    return { x: sx, y: sy, z: sz, r: r / n };
+  };
+  const a = ring(y - gap, y), b = ring(y, y + gap);
+  if (!a || !b) return a || b || { x: 0, z: 0, r: 1 };
+  const t = (y - a.y) / (b.y - a.y || 1);
+  return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, r: a.r + (b.r - a.r) * t };
+}
+function park(scene, out) {
+  const Z = zone(20), at = { x: 235, z: 596, ry: 0 };
+  const C = [0, -11], PA = 30, PB = 24;                      // 못 한가운데와 반지름(동서, 남북). 섬은 반지름 11
+  const HX = 65, HZ = 92.5;                                   // 공원 터의 반 너비
+  const PG = [-22, 32, 22, 66];                               // 놀이터 모래 마당
+  const AZ = [28, -42];                                       // 정자
+  const R = rngOf(2020), WY = -0.45;
+  const ell = (x, z, a, b) => ((x - C[0]) / a) ** 2 + ((z - C[1]) / b) ** 2;
+  const ticks = [];
+  let bare = null;
+  const res = put(scene, at, (B, holder) => {
+    const places = [], jumps = [], glows = [], lights = [];
+    const SAND = mat('dirt', 0xe6dab4), PATH = mat('dirt', 0xc8b78c), LOG = mat('wood', 0x8c6c4a), RED = mat('plain', 0xb5392b, { rough: 0.55 }), TILE = mat('tile', 0x3f4a47, { rough: 0.6 });
+    const PAINT = hex => mat('plain', hex, { rough: 0.5 }), CONC = mat('plain', 0xa3a59f, { rough: 0.95 }), STRAW = mat('plain', 0xd9c58a, { rough: 0.95 }), PAPER = mat('paper', 0xf6f3ea);
+    const BARK = mat('bark', 0x7b6349), GLOW = mat('glow', 0xffe6b0, { power: 1.0 });
+    const inst = (g, m, ms, shadow = true) => { const im = new THREE.InstancedMesh(g, m, ms.length); ms.forEach((q, i) => im.setMatrixAt(i, q)); im.instanceMatrix.needsUpdate = true; im.castShadow = shadow; im.receiveShadow = true; im.computeBoundingSphere(); holder.add(im); return im; };
+
+    /* ---- 산책길: 못을 한 바퀴 도는 길과 네 문에서 들어오는 길 ---- */
+    const RA = PA + 6, RB = PB + 6;
+    B.geo(PATH, ribbon(Array.from({ length: 96 }, (_, i) => [C[0] + Math.cos(i / 96 * PI * 2) * RA, C[1] + Math.sin(i / 96 * PI * 2) * RB]), 3.2, 0.04, true));
+    const WAYS = [[[-HX, C[1]], [-RA, C[1]]], [[RA, C[1]], [HX, C[1]]], [[0, -HZ], [0, C[1] - RB]], [[0, C[1] + RB], [0, PG[1]]], [[0, PG[3]], [0, HZ]], [[-HX, 50], [PG[0], 50]]];
+    for (const w of WAYS) B.geo(PATH, ribbon(w, 3.2, 0.045));
+    B.box(SAND, PG[0], 0, PG[1], PG[2], 0.035, PG[3], false);
+    const wayDist = (x, z) => { let d = Math.abs(Math.sqrt(ell(x, z, RA, RB)) - 1) * RB; for (const [a, b] of WAYS) d = Math.min(d, polyEdge(x, z, [a, b])); return d; };
+    const inPG = (x, z, pad = 0) => x > PG[0] - pad && x < PG[2] + pad && z > PG[1] - pad && z < PG[3] + pad;
+    const free = (x, z, pad = 3.5) => Math.abs(x) < HX - 4 && Math.abs(z) < HZ - 4 && ell(x, z, PA + 2, PB + 2) > 1 && wayDist(x, z) > pad && !inPG(x, z, pad) && Math.hypot(x - AZ[0], z - AZ[1]) > 7;
+
+    bare = (x, z) => inPG(x, z, 0.4) || wayDist(x, z) < 2 || (Math.abs(x - AZ[0]) < 3.2 && Math.abs(z - AZ[1]) < 3.2) || (x < -51 && x > -57 && Math.abs(Math.abs(z - C[1]) - 8) < 3);
+
+    /* ---- 울타리와 문 ---- */
+    const GATES = [[-64, C[1], 'z', 7, -PI / 2], [64, C[1], 'z', 7, PI / 2], [0, -91.5, 'x', 7, PI], [0, 91.5, 'x', 7, 0], [-64, 50, 'z', 5, -PI / 2]];
+    const fence = (ax, c, u0, u1) => {   // ax 'x': z = c인 줄, 'z': x = c인 줄
+      const n = Math.max(1, Math.round((u1 - u0) / 2.4));
+      for (let i = 0; i <= n; i++) { const u = u0 + (u1 - u0) * i / n; B.geo(LOG, cyl(0.085, 0.1, 1.0, 7), ax === 'x' ? mat4(u, 0.5, c) : mat4(c, 0.5, u)); }
+      for (const y of [0.42, 0.8]) (ax === 'x' ? B.box(LOG, u0, y, c - 0.04, u1, y + 0.09, c + 0.04, false) : B.box(LOG, c - 0.04, y, u0, c + 0.04, y + 0.09, u1, false));
+      if (ax === 'x') addCollider(u0, 0, c - 0.1, u1, 1.0, c + 0.1); else addCollider(c - 0.1, 0, u0, c + 0.1, 1.0, u1);
+    };
+    for (const [ax, c, lim] of [['z', -64, 91.5], ['z', 64, 91.5], ['x', -91.5, 64], ['x', 91.5, 64]]) {
+      const cuts = GATES.filter(g => g[2] === ax && Math.abs((ax === 'z' ? g[0] : g[1]) - c) < 0.1).map(g => [(ax === 'z' ? g[1] : g[0]) - g[3] / 2, (ax === 'z' ? g[1] : g[0]) + g[3] / 2]).sort((a, b) => a[0] - b[0]);
+      let u = -lim; for (const [a, b] of cuts) { fence(ax, c, u, a); u = b; } fence(ax, c, u, lim);
+    }
+    GATES.forEach(([gx, gz, ax, w, ry], gi) => {
+      for (const s of [-1, 1]) {
+        const x = ax === 'z' ? gx : gx + s * w / 2, z = ax === 'z' ? gz + s * w / 2 : gz;
+        B.box(M.stone, x - 0.28, 0, z - 0.28, x + 0.28, 1.9, z + 0.28); B.box(M.stone, x - 0.36, 1.9, z - 0.36, x + 0.36, 2.02, z + 0.36, false);
+        B.geo(M.stone, new THREE.ConeGeometry(0.42, 0.26, 4).rotateY(PI / 4), mat4(x, 2.15, z));
+        if (s === (ry === 0 || ry === PI / 2 ? -1 : 1) && gi !== 4) signBoard(B, gi % 2 ? 'せんじゅこうえん' : '千手公園', x + Math.sin(ry) * 0.29, 1.15, z + Math.cos(ry) * 0.29, ry, 0.3, 1.25, { vertical: true, both: false, bg: '#d9d4c6', depth: 0.02 });
+      }
+    });
+
+    /* ---- 섬의 큰 나무 ---- */
+    {
+      const tg = treeGeometry(2001, { height: 54, depth: 6, sprays: 11, leaves: 8, leafLen: 1.05, spread: 1.1 });
+      const GAP = 54 * 0.36 / 7, t0 = trunkAt(tg.wood, 0.3, GAP), tx = C[0] - t0.x, tz = C[1] - t0.z, ms = [mat4(tx, 0, tz)];
+      inst(tg.wood, BARK, ms); inst(tg.leaves, mat('leaf', 0x3a7430), ms);
+      for (let y = 0; y < 12; y += 1.5) { const t = trunkAt(tg.wood, y + 0.75, GAP), r = t.r * 0.8; addCollider(tx + t.x - r, y, tz + t.z - r, tx + t.x + r, y + 1.5, tz + t.z + r); }
+      // 땅 위로 불거진 뿌리
+      for (let i = 0; i < 9; i++) {
+        const a = i / 9 * PI * 2 + R() * 0.4, L = 4.6 + R() * 2.2, w = (R() - 0.5) * 1.2, pts = [];
+        for (let k = 0; k <= 6; k++) { const t = k / 6, d = t0.r * 0.55 + L * t, sw = Math.sin(t * PI) * w; pts.push(V(C[0] + Math.cos(a) * d - Math.sin(a) * sw, 1.5 * (1 - t) ** 2.2 - 0.14 * t, C[1] + Math.sin(a) * d + Math.cos(a) * sw)); }
+        B.geo(mat('wood', 0x7b6349), tube(pts, t => 0.62 * (1 - 0.74 * t), 7, false));
+      }
+      // 금줄(굵은 새끼줄)과 종이 오리
+      const t2 = trunkAt(tg.wood, 2.3, GAP), rx = tx + t2.x, rz = tz + t2.z, rr = t2.r + 0.1;
+      B.geo(STRAW, new THREE.TorusGeometry(rr, 0.13, 7, 36).rotateX(PI / 2), mat4(rx, 2.3, rz));
+      for (let i = 0; i < 10; i++) {
+        const a = i / 10 * PI * 2, x = rx + Math.cos(a) * (rr + 0.12), z = rz + Math.sin(a) * (rr + 0.12), p = part(B, x, 2.2, z, -a + PI / 2);
+        if (i % 2) { p(STRAW, cyl(0.02, 0.07, 0.42, 6), 0, -0.2, 0); }
+        else for (let k = 0; k < 4; k++) p(PAPER, box(0.13, 0.15, 0.008), (k % 2 ? 0.05 : -0.05), -0.08 - k * 0.14, 0);
+      }
+      // 나무 앞의 알림판
+      { const x = C[0] + 3.4, z = C[1] + 6.2; for (const s of [-1, 1]) B.box(LOG, x + s * 0.62 - 0.05, 0, z - 0.05, x + s * 0.62 + 0.05, 1.45, z + 0.05, false); signBoard(B, '千手公園の大樹', x, 1.22, z, 0, 1.3, 0.3, { both: false, bg: '#efe6cf' }); signBoard(B, '木に登らないこと', x, 0.9, z, 0, 1.3, 0.24, { both: false, bg: '#efe6cf', color: '#8a2a20' }); addCollider(x - 0.7, 0, z - 0.08, x + 0.7, 1.45, z + 0.08); }
+      places.push({ n: '센주 공원의 큰 나무', t: '못 한가운데 섬에 선 아주 큰 나무. 공원이 생기기 전부터 이 자리에 있었다고 한다.', b: [C[0] - 9, C[0] + 9, C[1] - 9, C[1] + 9], y: [-1, 45] });
+    }
+
+    /* ---- 섬으로 건너가는 붉은 다리 ---- */
+    {
+      const z0 = C[1] + 7.6, z1 = C[1] + PB + 2.4, n = Math.round((z1 - z0) / 0.5), top = t => 0.18 + 1.25 * Math.sin(PI * t), HW = 1.3;
+      for (let i = 0; i < n; i++) { const a = z0 + (z1 - z0) * i / n, b = z0 + (z1 - z0) * (i + 1) / n, y = top((i + 0.5) / n); B.box(M.floorDark, -HW, y - 0.14, a, HW, y, b); }
+      const posts = 9;
+      for (const s of [-1, 1]) {
+        let prev = null;
+        for (let k = 0; k <= posts; k++) {
+          const t = k / posts, z = z0 + (z1 - z0) * t, y = top(t), x = s * (HW - 0.06);
+          B.box(RED, x - 0.07, y - 0.2, z - 0.07, x + 0.07, y + 0.98, z + 0.07, false);
+          if (k === 0 || k === posts) B.geo(mat('metal', 0x8a6a2a, { rough: 0.5 }), lathe([[0, 0], [0.1, 0.02], [0.11, 0.1], [0.07, 0.16], [0.1, 0.24], [0.04, 0.34], [0, 0.4]], 10), mat4(x, y + 0.98, z));
+          if (prev) { for (const h of [0.9, 0.5]) beamBetween(B, RED, V(x, prev[1] + h, prev[0]), V(x, y + h, z), 0.09, 0.09); addCollider(x - 0.08, Math.min(prev[1], y), prev[0], x + 0.08, Math.max(prev[1], y) + 1.05, z); }
+          prev = [z, y];
+        }
+        for (const t of [0.25, 0.5, 0.75]) B.geo(RED, cyl(0.11, 0.11, top(t) + 1.6, 8), mat4(s * (HW - 0.2), (top(t) - 1.6) / 2 - 0.14, z0 + (z1 - z0) * t));
+      }
+      for (const t of [0.25, 0.5, 0.75]) B.box(RED, -HW, top(t) - 0.34, z0 + (z1 - z0) * t - 0.08, HW, top(t) - 0.2, z0 + (z1 - z0) * t + 0.08, false);
+    }
+
+    /* ---- 못: 물가의 바위, 연잎, 잉어 ---- */
+    {
+      const ROCKG = new THREE.IcosahedronGeometry(1, 1);
+      for (let i = 0; i < 22; i++) {
+        const a = i / 22 * PI * 2 + R() * 0.2; if (Math.abs(a - PI / 2) < 0.22) continue;
+        const k = 1.03 + R() * 0.03, s = 0.45 + R() * 0.7;
+        B.geo(M.rock, ROCKG, new THREE.Matrix4().multiplyMatrices(mat4(C[0] + Math.cos(a) * PA * k, -0.1, C[1] + Math.sin(a) * PB * k, 0, R() * 6, 0), new THREE.Matrix4().makeScale(s * 1.3, s * 0.75, s)));
+      }
+      const PAD = new THREE.CircleGeometry(1, 12, 0.25, PI * 2 - 0.5).rotateX(-PI / 2), padM = mat('plain', 0x4f8a3c, { rough: 0.6 }), padMs = [];
+      const PETAL = new THREE.ConeGeometry(0.05, 0.16, 5), pink = mat('plain', 0xf0a6c0, { rough: 0.6 });
+      let tries = 0;
+      while (padMs.length < 46 && tries++ < 900) {
+        const a = R() * PI * 2, k = 0.55 + R() * 0.36, x = C[0] + Math.cos(a) * PA * k, z = C[1] + Math.sin(a) * PB * k;
+        if (Math.hypot(x - C[0], z - C[1]) < 14 || (Math.abs(x) < 3 && z > C[1])) continue;
+        const s = 0.22 + R() * 0.2; padMs.push(new THREE.Matrix4().multiplyMatrices(mat4(x, WY + 0.015, z, 0, R() * 6, 0), new THREE.Matrix4().makeScale(s, 1, s)));
+        if (padMs.length % 6 === 0) { for (let p = 0; p < 7; p++) B.geo(pink, PETAL, mat4(x + Math.cos(p * 0.9) * 0.05, WY + 0.1, z + Math.sin(p * 0.9) * 0.05, Math.sin(p * 0.9) * 0.5, 0, -Math.cos(p * 0.9) * 0.5)); B.geo(mat('plain', 0xe9c765), SPH, mat4(x, WY + 0.1, z, 0, 0, 0, 0.035)); }
+      }
+      inst(PAD, padM, padMs, false);
+      // 잉어: 못을 천천히 돈다
+      const body = new THREE.SphereGeometry(1, 10, 7).scale(0.085, 0.07, 0.3), tail = new THREE.ConeGeometry(0.11, 0.2, 4).rotateX(-PI / 2).scale(0.25, 1, 1).translate(0, 0, -0.36), fin = new THREE.ConeGeometry(0.05, 0.12, 3).rotateX(PI).scale(0.3, 1, 1).translate(0, 0.07, 0);
+      const koiG = mergeGeos([body, tail, fin]);
+      const kois = [0xf2efe8, 0xe8642c, 0xd9a83a, 0xe8642c, 0xf2efe8, 0x2b2b2e, 0xe8642c, 0xd9a83a, 0xf2efe8].map((hex, i) => {
+        const m = new THREE.Mesh(koiG, mat('plain', hex, { rough: 0.35 })); m.matrixAutoUpdate = false; holder.add(m);
+        return { m, k: 0.52 + (i % 4) * 0.1, w: (i % 2 ? -1 : 1) * (0.045 + (i % 3) * 0.012), p: i * 0.71, s: 0.9 + (i % 3) * 0.25 };
+      });
+      const swim = t => { for (const f of kois) { const a = f.p + t * f.w, wob = Math.sin(t * 0.7 + f.p * 3) * 0.05, x = C[0] + Math.cos(a) * PA * (f.k + wob), z = C[1] + Math.sin(a) * PB * (f.k + wob), dx = -Math.sin(a) * PA * f.w, dz = Math.cos(a) * PB * f.w; f.m.matrix.copy(mat4(x, WY - 0.09, z, 0, Math.atan2(dx, dz) + Math.sin(t * 3 + f.p) * 0.12, 0, f.s)); } };
+      swim(0); ticks.push(swim);
+      places.push({ n: '센주 공원의 못', t: '큰 나무를 둘러싼 못. 연잎 사이로 잉어가 돈다.', b: [C[0] - PA, C[0] + PA, C[1] - PB, C[1] + PB], y: [-2, 3] });
+    }
+
+    /* ---- 돌등·가로등·걸상 ---- */
+    const ishidoro = (x, z) => {
+      B.geo(M.stone, cyl(0.34, 0.4, 0.16, 6), mat4(x, 0.08, z)); B.geo(M.stone, cyl(0.13, 0.16, 0.8, 8), mat4(x, 0.56, z)); B.geo(M.stone, cyl(0.3, 0.16, 0.14, 6), mat4(x, 1.03, z));
+      for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) B.box(M.stone, x + dx * 0.17 - 0.04, 1.1, z + dz * 0.17 - 0.04, x + dx * 0.17 + 0.04, 1.42, z + dz * 0.17 + 0.04, false);
+      B.geo(GLOW, box(0.26, 0.26, 0.26), mat4(x, 1.26, z)); B.geo(M.stone, new THREE.ConeGeometry(0.46, 0.3, 6), mat4(x, 1.57, z)); B.geo(M.stone, SPH, mat4(x, 1.76, z, 0, 0, 0, 0.08));
+      addCollider(x - 0.3, 0, z - 0.3, x + 0.3, 1.8, z + 0.3); glows.push([x, 1.26, z, 0.55]);
+    };
+    for (const [x, z] of [[-2.3, C[1] + PB + 3.3], [2.3, C[1] + PB + 3.3], [-PA - 3.2, C[1] + 4], [PA + 3.2, C[1] - 4], [-6, C[1] - PB - 3.2], [AZ[0] - 4.6, AZ[1] + 4.2]]) ishidoro(x, z);
+    const lamp = (x, z) => {
+      B.geo(M.iron, cyl(0.06, 0.09, 3.3, 8), mat4(x, 1.65, z)); B.geo(M.iron, cyl(0.16, 0.16, 0.05, 8), mat4(x, 3.3, z));
+      B.geo(GLOW, box(0.3, 0.38, 0.3), mat4(x, 3.52, z)); for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) B.geo(M.iron, box(0.03, 0.4, 0.03), mat4(x + dx * 0.15, 3.52, z + dz * 0.15));
+      B.geo(M.iron, new THREE.ConeGeometry(0.34, 0.2, 4).rotateY(PI / 4), mat4(x, 3.82, z));
+      addCollider(x - 0.1, 0, z - 0.1, x + 0.1, 3.9, z + 0.1); glows.push([x, 3.52, z, 0.85]); lights.push([x, 3.3, z, 18, 16]);
+    };
+    for (const [x, z] of [[-59, C[1] - 2.6], [59, C[1] + 2.6], [2.6, -86], [-2.6, 87], [-27, C[1] - 24], [27, C[1] + 23.5], [-27, C[1] + 23.5], [-20.6, 33.4], [20.6, 64.6], [-2.6, 26]]) lamp(x, z);
+    const seat = (x, z, ry) => {   // 등받이 있는 걸상. 앉는 쪽이 +z
+      const p = part(B, x, 0, z, ry);
+      for (const s of [-1, 1]) { p(CONC, box(0.1, 0.42, 0.5), s * 0.7, 0.21, 0); p(CONC, box(0.1, 0.5, 0.08), s * 0.7, 0.65, -0.24, -0.16); }
+      for (const dz of [-0.14, 0.02, 0.18]) p(LOG, box(1.7, 0.04, 0.13), 0, 0.45, dz);
+      for (const dy of [0.62, 0.8]) p(LOG, box(1.7, 0.13, 0.035), 0, dy, -0.22 - (dy - 0.6) * 0.16, -0.16);
+      solid(x, 0, z, ry, 1.7, 0.56, 0.9);
+    };
+    const zs = C[1] + RB * Math.sqrt(1 - (9 / RA) ** 2), xs = RA * Math.sqrt(1 - (8 / RB) ** 2);
+    for (const s of [-1, 1]) { seat(s * 9, C[1] - (zs - C[1]) - 2.5, 0); seat(s * 9, zs + 2.5, PI); seat(-xs - 2.5, C[1] + s * 8, PI / 2); seat(xs + 2.5, C[1] + s * 8, -PI / 2); }
+    for (const [x, z, ry] of [[-2.6, -64, PI / 2], [2.6, -72, -PI / 2], [-12, PG[1] + 1, 0], [13, PG[1] + 1, 0], [-12, PG[3] - 1, PI], [12, PG[3] - 1, PI], [PG[2] - 1, 40, -PI / 2], [PG[2] - 1, 52, -PI / 2]]) seat(x, z, ry);
+
+    /* ---- 정자 ---- */
+    {
+      const [ax, az] = AZ, h = 2.6;
+      B.box(M.stone, ax - 3, 0, az - 3, ax + 3, 0.22, az + 3);
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) { B.box(LOG, ax + sx * 2.4 - 0.1, 0.22, az + sz * 2.4 - 0.1, ax + sx * 2.4 + 0.1, 0.22 + h, az + sz * 2.4 + 0.1); B.box(M.stone, ax + sx * 2.4 - 0.18, 0.22, az + sz * 2.4 - 0.18, ax + sx * 2.4 + 0.18, 0.34, az + sz * 2.4 + 0.18, false); }
+      for (const s of [-1, 1]) { B.box(LOG, ax - 2.6, 0.22 + h - 0.2, az + s * 2.4 - 0.07, ax + 2.6, 0.22 + h, az + s * 2.4 + 0.07, false); B.box(LOG, ax + s * 2.4 - 0.07, 0.22 + h - 0.2, az - 2.6, ax + s * 2.4 + 0.07, 0.22 + h, az + 2.6, false); }
+      hipRoof(B, TILE, ax - 2.5, az - 2.5, ax + 2.5, az + 2.5, 0.22 + h, 1.5, { over: 0.9 });
+      benchAt(B, LOG, ax, 0.22, az - 2.05, 0, 3.6); benchAt(B, LOG, ax + 2.05, 0.22, az + 0.2, PI / 2, 3.2);
+      for (const y of [0.6, 0.95]) { B.box(LOG, ax - 2.3, 0.22 + y, az - 2.44, ax + 2.3, 0.3 + y, az - 2.36, false); B.box(LOG, ax + 2.36, 0.22 + y, az - 2.3, ax + 2.44, 0.3 + y, az + 2.3, false); }
+      addCollider(ax - 2.4, 0.22, az - 2.5, ax + 2.4, 1.3, az - 2.34); addCollider(ax + 2.34, 0.22, az - 2.4, ax + 2.5, 1.3, az + 2.4);
+      B.box(M.beamLight, ax - 3.3, 0.22 + h, az - 3.3, ax + 3.3, 0.22 + h + 0.05, az + 3.3, false);   // 천장(지붕 속이 들여다보이지 않게)
+      hangLamp(B, ax, 0.22 + h, az, 0.1, glows, lights, 14);
+      places.push({ n: '공원의 정자', t: '못을 내려다보며 쉬어 가는 정자.', b: [ax - 3, ax + 3, az - 3, az + 3], y: [0, 5] });
+    }
+
+    /* ---- 나무: 벚나무는 못 둘레에, 큰 나무들은 빈 풀밭에 ---- */
+    {
+      const sg = treeGeometry(77, { height: 8.5, depth: 4, sprays: 7, leaves: 7, leafLen: 0.32, spread: 1.3 }), sm = [];
+      for (let i = 0; i < 16; i++) {
+        const a = (i + 0.5) / 16 * PI * 2, x = C[0] + Math.cos(a) * (RA + 6.5), z = C[1] + Math.sin(a) * (RB + 6.5);
+        if (!free(x, z, 3) || Math.hypot(x - AZ[0], z - AZ[1]) < 9) continue;
+        sm.push(mat4(x, 0, z, 0, R() * 6.28, 0, 0.9 + R() * 0.3)); addCollider(x - 0.3, 0, z - 0.3, x + 0.3, 5, z + 0.3);
+      }
+      inst(sg.wood, mat('bark', 0x5c483c), sm); inst(sg.leaves, mat('leaf', 0xf3b4c9), sm);
+      const tm = grove(B, holder, 2024, 46, [-HX, -HZ, HX, HZ], (x, z) => free(x, z, 5) && ell(x, z, RA + 12, RB + 12) > 1, 11);
+      for (let i = 0; i < tm.length; i += 3) B.geo(mat('leaf', 0x3f7a30), BUSH.leaves, mat4(tm[i][0] + 2.2, 0, tm[i][1] + 1.4, 0, i, 0, 1.1));
+    }
+
+    /* ---- 꽃밭: 서쪽 문 안쪽 양옆 ---- */
+    {
+      const FL = new THREE.SphereGeometry(0.07, 6, 4), hexes = [0xf2efe6, 0xe9c765, 0xe58aa0, 0xd0483a, 0xb07ad0], fm = [], fc = [];
+      for (const s of [-1, 1]) {
+        const x = -54, z = C[1] + s * 8;
+        B.geo(M.stone, new THREE.TorusGeometry(2.6, 0.16, 6, 28).rotateX(PI / 2), mat4(x, 0.1, z)); B.geo(mat('dirt', 0x6a5238), cyl(2.55, 2.55, 0.14, 28), mat4(x, 0.07, z));
+        for (let i = 0; i < 7; i++) { const a = i / 7 * PI * 2, d = i ? 1.5 : 0; B.geo(mat('leaf', 0x4c8a3a), BUSH.leaves, mat4(x + Math.cos(a) * d, 0.1, z + Math.sin(a) * d, 0, a, 0, 0.42)); }
+        for (let i = 0; i < 110; i++) { const a = R() * PI * 2, d = Math.sqrt(R()) * 2.3; fm.push(mat4(x + Math.cos(a) * d, 0.36 + R() * 0.2, z + Math.sin(a) * d)); fc.push(hexes[Math.floor(d * 2 + s + 2) % 5]); }
+        addCollider(x - 2.4, 0, z - 2.4, x + 2.4, 0.5, z + 2.4);
+      }
+      const im = inst(FL, mat('plain', 0xffffff, { rough: 0.7 }), fm, false), col = new THREE.Color(); fc.forEach((h, i) => im.setColorAt(i, col.setHex(h))); im.instanceColor.needsUpdate = true;
+    }
+
+    /* ---- 놀이터 ---- */
+    {
+      const BLUE = PAINT(0x3f6fb5), YEL = PAINT(0xe2b93a), RD = PAINT(0xc9442f), GRN = PAINT(0x4f9a56), STEEL = mat('metal', 0xb9bec2, { rough: 0.35 });
+      const pipe = (m, a, b, r = 0.03) => B.geo(m, tube([a, b], r, 7, true));
+      // 그네 둘
+      {
+        const x = -14, z = 39.5, H = 2.4;
+        for (const s of [-1, 1]) { for (const d of [-1, 1]) pipe(BLUE, V(x + s * 2.2, H, z), V(x + s * 2.2, 0, z + d * 1.1), 0.045); addCollider(x + s * 2.2 - 0.08, 0, z - 1.1, x + s * 2.2 + 0.08, 1.2, z - 0.7); addCollider(x + s * 2.2 - 0.08, 0, z + 0.7, x + s * 2.2 + 0.08, 1.2, z + 1.1); }
+        pipe(BLUE, V(x - 2.3, H, z), V(x + 2.3, H, z), 0.045);
+        [[-1, 0.0], [1, 0.42]].forEach(([s, sw]) => {
+          const L = 1.9, sy = H - Math.cos(sw) * L, sz = z + Math.sin(sw) * L, sx = x + s * 1.0;
+          for (const d of [-1, 1]) pipe(M.iron, V(sx + d * 0.22, H, z), V(sx + d * 0.22, sy, sz), 0.012);
+          B.geo(RD, box(0.52, 0.04, 0.2), mat4(sx, sy, sz, -sw, 0, 0)); addCollider(sx - 0.26, sy - 0.05, sz - 0.1, sx + 0.26, sy + 0.05, sz + 0.1);
+        });
+        for (const d of [-1, 1]) { pipe(YEL, V(x - 2.6, 0.5, z + d * 2.3), V(x + 2.6, 0.5, z + d * 2.3), 0.03); for (const s of [-1, 0, 1]) pipe(YEL, V(x + s * 2.6, 0.5, z + d * 2.3), V(x + s * 2.6, 0, z + d * 2.3), 0.03); addCollider(x - 2.6, 0, z + d * 2.3 - 0.04, x + 2.6, 0.55, z + d * 2.3 + 0.04); }
+      }
+      // 미끄럼틀: 서쪽 계단으로 올라 동쪽으로 내려온다
+      {
+        const x = -3, z = 49, T = 1.8, n = 6;
+        B.box(YEL, x - 0.6, T - 0.06, z - 0.6, x + 0.6, T, z + 0.6); for (const sx of [-1, 1]) for (const sz of [-1, 1]) pipe(BLUE, V(x + sx * 0.56, 0, z + sz * 0.56), V(x + sx * 0.56, T + 0.9, z + sz * 0.56), 0.035);
+        for (const sz of [-1, 1]) { pipe(BLUE, V(x - 0.56, T + 0.9, z + sz * 0.56), V(x + 0.56, T + 0.9, z + sz * 0.56), 0.03); pipe(BLUE, V(x - 0.56, T + 0.45, z + sz * 0.56), V(x + 0.56, T + 0.45, z + sz * 0.56), 0.02); addCollider(x - 0.6, T, z + sz * 0.56 - 0.04, x + 0.6, T + 0.95, z + sz * 0.56 + 0.04); }
+        for (let k = 0; k < n; k++) { const xa = x - 0.6 - (n - k) * 0.36, y = T * (k + 1) / (n + 1); B.box(BLUE, xa, y - 0.05, z - 0.42, xa + 0.36, y, z + 0.42); }
+        for (const sz of [-1, 1]) { pipe(YEL, V(x - 0.6 - n * 0.36, 0.95, z + sz * 0.45), V(x - 0.56, T + 0.9, z + sz * 0.45), 0.025); pipe(YEL, V(x - 0.6 - n * 0.36, 0, z + sz * 0.45), V(x - 0.6 - n * 0.36, 0.95, z + sz * 0.45), 0.025); addCollider(x - 0.6 - n * 0.36, 0, z + sz * 0.45 - 0.03, x - 0.6, T + 0.9, z + sz * 0.45 + 0.03); }
+        const L = 4.2, p0 = V(x + 0.6, T - 0.03, z), p1 = V(x + 0.6 + L, 0.22, z);
+        beamBetween(B, STEEL, p0, p1, 0.74, 0.04); for (const sz of [-1, 1]) beamBetween(B, RD, V(p0.x, p0.y + 0.1, z + sz * 0.39), V(p1.x, p1.y + 0.1, z + sz * 0.39), 0.05, 0.24);
+        B.box(STEEL, p1.x, 0.2, z - 0.37, p1.x + 0.7, 0.24, z + 0.37, false); pipe(BLUE, V(p1.x + 0.5, 0.2, z), V(p1.x + 0.5, 0, z), 0.03); pipe(BLUE, V(x + 0.6 + L * 0.5, T * 0.5, z), V(x + 0.6 + L * 0.5, 0, z), 0.03);
+        for (let k = 0; k < 9; k++) { const xa = p0.x + L * k / 9, y = T - (T - 0.22) * (k + 0.5) / 9; addCollider(xa, y - 0.3, z - 0.37, xa + L / 9, y, z + 0.37); }
+        for (const sz of [-1, 1]) for (let k = 0; k < 9; k++) { const xa = p0.x + L * k / 9, y = T - (T - 0.22) * (k + 0.5) / 9; addCollider(xa, y, z + sz * 0.4 - 0.03, xa + L / 9, y + 0.3, z + sz * 0.4 + 0.03); }
+      }
+      // 시소 둘
+      [[11, 38.5, 0.2, RD, BLUE], [11, 41.7, -0.2, GRN, YEL]].forEach(([x, z, tilt, c1, c2]) => {
+        B.geo(BLUE, cyl(0.07, 0.1, 0.5, 8), mat4(x, 0.25, z)); B.geo(M.iron, cyl(0.03, 0.03, 0.5, 6).rotateX(PI / 2), mat4(x, 0.5, z));
+        const p = (m, g, lx, ly, lz) => B.geo(m, g, new THREE.Matrix4().multiplyMatrices(mat4(x, 0.55, z, 0, 0, tilt), mat4(lx, ly, lz)));
+        p(LOG, box(3.4, 0.05, 0.26), 0, 0, 0); p(c1, box(0.5, 0.03, 0.3), -1.42, 0.04, 0); p(c2, box(0.5, 0.03, 0.3), 1.42, 0.04, 0);
+        for (const s of [-1, 1]) { p(M.iron, cyl(0.014, 0.014, 0.24, 5), s * 1.05, 0.14, 0); p(M.iron, cyl(0.014, 0.014, 0.3, 5).rotateX(PI / 2), s * 1.05, 0.26, 0); }
+        B.geo(mat('plain', 0x2a2a2c, { rough: 0.9 }), cyl(0.2, 0.2, 0.1, 10).rotateX(PI / 2), mat4(x + (tilt > 0 ? -1.55 : 1.55), 0.1, z));
+        addCollider(x - 1.7, 0, z - 0.15, x + 1.7, 0.75, z + 0.15);
+      });
+      // 정글짐
+      {
+        const x = 14.5, z = 56, c = 0.55, n = 4, cols = [RD, YEL, BLUE, GRN];
+        for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) pipe(cols[(i + j) % 4], V(x + (i - 2) * c, 0, z + (j - 2) * c), V(x + (i - 2) * c, (i % 4 && j % 4 ? 2.2 : 1.65), z + (j - 2) * c), 0.022);
+        for (let l = 1; l <= 4; l++) for (let i = 0; i <= n; i++) {
+          const y = l * c, in4 = l === 4; if (in4 && !(i % 4)) continue;
+          pipe(cols[l % 4], V(x - (in4 ? 1 : 2) * c, y, z + (i - 2) * c), V(x + (in4 ? 1 : 2) * c, y, z + (i - 2) * c), 0.02);
+          pipe(cols[(l + 1) % 4], V(x + (i - 2) * c, y, z - (in4 ? 1 : 2) * c), V(x + (i - 2) * c, y, z + (in4 ? 1 : 2) * c), 0.02);
+        }
+        addCollider(x - 1.12, 0, z - 1.12, x + 1.12, 1.65, z + 1.12);
+      }
+      // 철봉 셋(낮은 것부터)
+      {
+        const x = -18, z = 55;
+        [0.95, 1.25, 1.6].forEach((h, i) => { pipe(STEEL, V(x + i * 1.5, h, z), V(x + (i + 1) * 1.5, h, z), 0.018); });
+        for (let i = 0; i <= 3; i++) { const h = [0.95, 1.25, 1.6, 1.6][i] + 0.1; B.geo(BLUE, cyl(0.045, 0.045, h, 8), mat4(x + i * 1.5, h / 2, z)); addCollider(x + i * 1.5 - 0.06, 0, z - 0.06, x + i * 1.5 + 0.06, h, z + 0.06); }
+        for (let i = 0; i < 3; i++) addCollider(x + i * 1.5, [0.95, 1.25, 1.6][i] - 0.05, z - 0.03, x + (i + 1) * 1.5, [0.95, 1.25, 1.6][i] + 0.03, z + 0.03);
+      }
+      // 모래밭: 모래성과 들통, 삽
+      {
+        const x0 = -3, z0 = 57, x1 = 3, z1 = 62, SD = mat('dirt', 0xead9a8);
+        B.box(SD, x0, 0, z0, x1, 0.1, z1, false);
+        for (const [a, b, c, d] of [[x0 - 0.16, z0 - 0.16, x1 + 0.16, z0], [x0 - 0.16, z1, x1 + 0.16, z1 + 0.16], [x0 - 0.16, z0, x0, z1], [x1, z0, x1 + 0.16, z1]]) B.box(LOG, a, 0, b, c, 0.2, d, false);
+        for (const [mx, mz, s] of [[-1, 58.4, 0.7], [1.9, 60.8, 0.5], [-1.6, 61, 0.4]]) B.geo(SD, SPH, new THREE.Matrix4().multiplyMatrices(mat4(mx, 0.08, mz), new THREE.Matrix4().makeScale(s, s * 0.32, s)));
+        { const cx = 0.4, cz = 59.2; B.geo(SD, cyl(0.5, 0.58, 0.26, 14), mat4(cx, 0.22, cz)); for (let i = 0; i < 4; i++) { const a = i * PI / 2 + PI / 4; B.geo(SD, cyl(0.13, 0.15, 0.5, 8), mat4(cx + Math.cos(a) * 0.44, 0.34, cz + Math.sin(a) * 0.44)); B.geo(SD, new THREE.ConeGeometry(0.15, 0.2, 8), mat4(cx + Math.cos(a) * 0.44, 0.69, cz + Math.sin(a) * 0.44)); } B.geo(SD, cyl(0.2, 0.24, 0.4, 8), mat4(cx, 0.55, cz)); B.geo(SD, new THREE.ConeGeometry(0.24, 0.26, 8), mat4(cx, 0.88, cz)); pipe(LOG, V(cx, 1.0, cz), V(cx, 1.22, cz), 0.006); B.geo(RD, box(0.12, 0.08, 0.004), mat4(cx + 0.06, 1.17, cz)); }
+        B.geo(RD, new THREE.CylinderGeometry(0.13, 0.1, 0.2, 12, 1, true), mat4(1.5, 0.2, 58.2)); B.geo(RD, cyl(0.1, 0.1, 0.01, 12), mat4(1.5, 0.105, 58.2)); B.geo(M.iron, new THREE.TorusGeometry(0.13, 0.006, 4, 12, PI), mat4(1.5, 0.3, 58.2));
+        { const p = part(B, 2.1, 0.12, 58.9, 0.7); p(YEL, box(0.03, 0.02, 0.3), 0, 0.02, 0, 0.3); p(YEL, box(0.1, 0.015, 0.14), 0, -0.02, 0.2, 0.3); }
+        B.geo(PAINT(0xd0483a), SPH, mat4(5.2, 0.18, 56.2, 0, 0, 0, 0.15));
+      }
+      // 토관 셋
+      {
+        const x = -11, z = 62, PG_ = lathe([[0.48, -1.1], [0.6, -1.1], [0.6, 1.1], [0.48, 1.1], [0.48, -1.1]], 20).rotateZ(PI / 2);
+        for (const [dz, y] of [[-0.62, 0.6], [0.62, 0.6], [0, 1.66]]) B.geo(CONC, PG_, mat4(x, y, z + dz));
+        addCollider(x - 1.1, 0, z - 1.22, x + 1.1, 1.2, z + 1.22); addCollider(x - 1.1, 1.06, z - 0.6, x + 1.1, 2.26, z + 0.6);
+      }
+      // 수리검 과녁: 아이들이 닌자 놀이를 하던 자리
+      {
+        const x = 20.6, z = 46, p = part(B, x, 0, z, -PI / 2);
+        p(LOG, box(0.12, 1.9, 0.12), 0, 0.95, -0.08); p(LOG, cyl(0.5, 0.5, 0.08, 20).rotateX(PI / 2), 0, 1.5, 0);
+        [[0.46, 0xf2efe6], [0.32, 0x2b2b2e], [0.18, 0xf2efe6], [0.07, 0xc9442f]].forEach(([r, hex], i) => p(mat('plain', hex, { rough: 0.8 }), new THREE.CircleGeometry(r, 20), 0, 1.5, 0.042 + i * 0.002));
+        for (const [sx, sy, rz] of [[0.12, 0.1, 0.4], [-0.22, -0.16, 1.1], [0.3, -0.28, 0.2]]) for (const a of [0, PI / 4]) p(M.iron, box(0.15, 0.03, 0.006), sx, 1.5 + sy, 0.07, 0.25, 0.2, rz + a);
+        p(M.iron, new THREE.ConeGeometry(0.02, 0.16, 4).rotateX(-PI / 2), -0.04, 1.47, 0.1); p(M.iron, cyl(0.012, 0.012, 0.1, 5).rotateX(PI / 2), -0.04, 1.47, 0.22); p(M.iron, new THREE.TorusGeometry(0.022, 0.006, 4, 10), -0.04, 1.47, 0.29);
+        p(M.iron, box(0.15, 0.006, 0.03), -0.9, 0.045, 1.4, 0, 0.6); p(M.iron, box(0.03, 0.006, 0.15), -0.9, 0.045, 1.4, 0, 0.6);
+        addCollider(x - 0.1, 0, z - 0.5, x + 0.12, 2.0, z + 0.5);
+      }
+      // 땅에 그린 동그라미 놀이(켄켄파)
+      { const RING = new THREE.RingGeometry(0.3, 0.34, 20).rotateX(-PI / 2), wm = mat('plain', 0xf2efe6, { rough: 0.9 }); let z = 43.2; for (const k of [1, 1, 2, 1, 2, 1]) { for (let i = 0; i < k; i++) B.geo(wm, RING, mat4(5 + (k === 2 ? (i ? 0.38 : -0.38) : 0), 0.045, z)); z += 0.78; } }
+      // 시계 기둥과 마실 물
+      {
+        const x = 2.8, z = 27; B.geo(M.iron, cyl(0.05, 0.08, 3.4, 8), mat4(x, 1.7, z)); B.geo(PAINT(0xf2efe6), cyl(0.36, 0.36, 0.16, 20).rotateZ(PI / 2), mat4(x, 3.6, z)); B.geo(M.iron, new THREE.TorusGeometry(0.36, 0.03, 6, 20).rotateY(PI / 2), mat4(x, 3.6, z));
+        for (const s of [-1, 1]) { for (let i = 0; i < 12; i++) { const a = i / 12 * PI * 2; B.geo(M.iron, box(0.006, i % 3 ? 0.04 : 0.07, 0.014), mat4(x + s * 0.083, 3.6 + Math.cos(a) * 0.29, z + Math.sin(a) * 0.29, a, 0, 0)); } B.geo(M.iron, box(0.008, 0.2, 0.02), mat4(x + s * 0.086, 3.6 + 0.07, z + s * 0.045, s * 0.6, 0, 0)); B.geo(M.iron, box(0.008, 0.27, 0.014), mat4(x + s * 0.088, 3.6 + 0.02, z - s * 0.12, -s * 1.4, 0, 0)); }
+        addCollider(x - 0.08, 0, z - 0.08, x + 0.08, 3.4, z + 0.08);
+        const fx = -6.2, fz = 27; B.box(CONC, fx - 0.25, 0, fz - 0.25, fx + 0.25, 0.85, fz + 0.25); B.geo(STEEL, cyl(0.2, 0.14, 0.06, 14), mat4(fx, 0.88, fz)); B.geo(STEEL, cyl(0.015, 0.015, 0.1, 6), mat4(fx, 0.95, fz)); B.geo(STEEL, SPH, mat4(fx, 1.0, fz, 0, 0, 0, 0.03));
+        B.geo(STEEL, cyl(0.012, 0.012, 0.14, 6).rotateX(PI / 2), mat4(fx, 0.45, fz + 0.3)); B.geo(STEEL, cyl(0.03, 0.03, 0.02, 8), mat4(fx, 0.47, fz + 0.36)); B.box(CONC, fx - 0.3, 0, fz + 0.25, fx + 0.3, 0.06, fz + 0.75, false);
+      }
+      places.push({ n: '센주 공원 놀이터', t: '그네, 미끄럼틀, 시소, 정글짐, 철봉, 모래밭, 토관이 있는 놀이터. 과녁에는 아이들이 던진 수리검이 꽂혀 있다.', b: [PG[0], PG[2], PG[1], PG[3]], y: [0, 5] });
+    }
+    return { places, glows, lights, jumps: [['센주 공원', -57, 0, C[1], -PI / 2, 91], ['센주 공원 놀이터', 0, 0, PG[1] - 2, PI, 92]] };
+  });
+  // 공원 터에는 숲의 나무를 심지 않는다(나무는 여기서 심었다)
+  for (let x = -HX + 7; x < HX; x += 13) for (let z = -HZ + 7; z < HZ; z += 13) OPEN.push([at.x + x, at.z + z, 11.5]);
+  BARE.push((x, z) => Math.abs(x - at.x) < HX && Math.abs(z - at.z) < HZ && bare(x - at.x, z - at.z));   // 흙길과 모래 마당에는 풀포기가 나지 않는다
+  out.places.push({ n: '센주 공원', t: '센주 일족의 이름이 붙은 큰 공원. 못에 둘러싸인 큰 나무와 놀이터가 있다.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
+  out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights); out.ticks.push(...ticks);
+}
 let _blackM = null; const BLACKM = () => _blackM || (_blackM = mat('plain', 0x1b1b1e, { rough: 0.9 }));
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
@@ -1811,6 +2145,8 @@ export async function build(scene, ctx) {
   shops(scene, out);
   await ctx.say('텐텐네 무기를 닦는 중…');
   homes3(scene, out);
+  await ctx.say('공원의 잉어에게 먹이를 주는 중…');
+  park(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }
