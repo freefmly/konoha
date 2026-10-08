@@ -1947,6 +1947,244 @@ function buildAburame(B, R, out) {
   out.lights.push([5, 2.6, 6.5, 16, 18], [12.6, 2.6, 4.5, 14, 15], [5, 5.5, 9.4, 14, 15], [4.6, 5.5, 3, 13, 15]);
 }
 
+/* ============================ 나라 본가(시카마루네 집) ============================
+   나라 일족 우두머리의 2층 살림집(집 좌표: x 0~16, z 0~13, 남쪽이 앞). 아버지 시카쿠가 전쟁에서 세상을 떠난 뒤로 시카마루가 우두머리가 되었고, 어머니 요시노와 둘이 산다.
+   1층: 거실(장기판·시카쿠의 사진) | 약방 | 부엌 | 현관과 계단 / 2층: 시카마루의 방 | 요시노의 다다미방 | 복도.
+   원작(나루토 위키)에 적힌 것: 일족이 사슴을 돌보고 약 짓는 법을 책으로 전해 왔다는 것, 시카마루가 장기와 바둑을 두고 낮잠·구름 보기를 즐긴다는 것, 어머니 요시노가 엄하다는 것.
+   집의 생김새와 방 배치, 가구는 원작에 없어 지어냈다. 책상 위 아스마의 라이터는 만화 장면의 기억으로 놓았다(위키로 확인하지 못함). */
+function buildNara(B, R, out) {
+  const X0 = 0, X1 = 16, Z0 = 0, Z1 = 13, T = 0.2, F1 = 0.4, F2 = 3.4, CE = 6.1, TOP = 6.2, wl = mat('plaster', 0xd2c2a0), tile = mat('tile', 0x4f6e4c);
+  const { glows } = out, horn = mat('plain', 0xd9cdb2, { rough: 0.7 }), kaya = mat('wood', 0xd9b56a), herb = mat('plain', 0x6f8a4a, { rough: 0.9 }), dry = mat('plain', 0x9a8450, { rough: 0.9 }), vest = mat('plain', 0x5d7a4e, { rough: 0.9 });
+  // 나라 일족의 문장(둥근 테 안에 비스듬한 물결 띠 셋)
+  const crest = textMat('    ', { w: 256, h: 256, bg: '#f3ead6', color: '#f3ead6', draw: (g, w, h) => {
+    g.strokeStyle = '#1a1410'; g.lineWidth = 22; g.beginPath(); g.arc(w / 2, h / 2, 104, 0, 7); g.stroke();
+    g.save(); g.beginPath(); g.arc(w / 2, h / 2, 104, 0, 7); g.clip(); g.lineWidth = 20; g.lineCap = 'round';
+    for (const dy of [-52, 0, 52]) { g.beginPath(); g.moveTo(40, h / 2 + dy + 46); g.bezierCurveTo(100, h / 2 + dy + 40, 110, h / 2 + dy - 6, 216, h / 2 + dy - 46); g.stroke(); }
+    g.restore();
+  } });
+  // 줄눈 그은 판(장기판 9칸, 바둑판 12칸)
+  const grid = n => textMat(' '.repeat(n), { w: 256, h: 256, bg: '#d9b56a', color: '#d9b56a', draw: (g, w, h) => { g.strokeStyle = '#3a2a18'; g.lineWidth = 2; for (let i = 0; i <= n; i++) { const p = 14 + (w - 28) * i / n; g.beginPath(); g.moveTo(p, 14); g.lineTo(p, h - 14); g.moveTo(14, p); g.lineTo(w - 14, p); g.stroke(); } } });
+  // 시카쿠의 사진: 높이 묶은 머리, 턱수염, 얼굴의 흉터 둘
+  const shikaku = textMat('     ', { w: 192, h: 240, bg: '#cfd8c2', color: '#cfd8c2', draw: (g, w, h) => {
+    g.fillStyle = '#5d7a4e'; g.beginPath(); g.roundRect(w / 2 - 62, h * 0.62, 124, h, 18); g.fill(); g.fillStyle = '#2a2a2e'; g.fillRect(w / 2 - 20, h * 0.62, 40, h);
+    g.fillStyle = '#f2cfa8'; g.beginPath(); g.arc(w / 2, h * 0.42, 40, 0, 7); g.fill();
+    g.fillStyle = '#2a2420'; g.beginPath(); g.arc(w / 2, h * 0.4, 42, PI * 1.02, PI * 1.98); g.fill(); g.beginPath(); g.moveTo(w / 2 - 14, h * 0.25); g.lineTo(w / 2, h * 0.04); g.lineTo(w / 2 + 14, h * 0.25); g.fill();
+    g.beginPath(); g.moveTo(w / 2 - 10, h * 0.56); g.lineTo(w / 2, h * 0.63); g.lineTo(w / 2 + 10, h * 0.56); g.fill();
+    g.fillStyle = '#222'; g.fillRect(w / 2 - 18, h * 0.4, 8, 6); g.fillRect(w / 2 + 10, h * 0.4, 8, 6);
+    g.strokeStyle = '#8a4a3a'; g.lineWidth = 3; g.beginPath(); g.moveTo(w / 2 + 16, h * 0.3); g.lineTo(w / 2 + 30, h * 0.5); g.moveTo(w / 2 - 6, h * 0.31); g.lineTo(w / 2 + 2, h * 0.38); g.stroke();
+  } });
+  // 사슴뿔 한 가닥: 밑동이 (x, y, z), ry로 돌리고 s로 키운다
+  const antler = (x, y, z, ry, s = 1, flip = 1) => {
+    const m = mat4(x, y, z, 0, ry, 0, s), P3 = (a, b, c) => V3(a * flip, b, c);
+    const main = [P3(0, 0, 0), P3(0.06, 0.14, 0.02), P3(0.16, 0.28, 0), P3(0.2, 0.44, -0.03), P3(0.16, 0.6, -0.05)];
+    B.geo(horn, tube(main, t => 0.022 * (1 - 0.7 * t), 6, false), m);
+    for (const [k, d] of [[1, [0.02, 0.12, 0.1]], [2, [0.12, 0.1, 0.08]], [3, [0.1, 0.12, 0.06]]]) B.geo(horn, tube([main[k], V3(main[k].x + flip * d[0] * 0.5, main[k].y + d[1] * 0.6, main[k].z + d[2] * 0.6), V3(main[k].x + flip * d[0], main[k].y + d[1], main[k].z + d[2])], t => 0.014 * (1 - 0.75 * t), 5, false), m);
+  };
+  // 말리는 약초 다발(거꾸로 매단다)
+  const bundle = (x, y, z, m = herb) => { B.geo(m, new THREE.ConeGeometry(0.07, 0.3, 6), mat4(x, y - 0.17, z, PI, 0, 0)); B.geo(P.kraft, cyl(0.012, 0.012, 0.06, 5), mat4(x, y, z)); };
+  // 바깥벽(아래위층 한 번에)과 창
+  side(B, wl, 'x', Z0, Z0 + T, X0, X1, 0, TOP, -1, [[2, 4.5, 1.3, 2.7], [2, 4.5, 4.3, 5.7], [6, 8.5, 1.3, 2.7], [6, 8.5, 4.3, 5.7], [11.5, 13.5, 1.5, 2.6], [11.5, 13.5, 4.3, 5.7]]);
+  side(B, wl, 'x', Z1 - T, Z1, X0, X1, 0, TOP, 1, [[1.4, 3.8, 1.3, 2.7], [1.4, 3.8, 4.3, 5.7], [5.6, 8, 1.3, 2.7], [5.6, 8, 4.3, 5.7], [11.5, 12.7, 0, 2.4, 'd'], [11.5, 12.7, 4.3, 5.7]]);
+  side(B, wl, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, TOP, -1, [[2, 4, 1.3, 2.7], [2, 4, 4.3, 5.7], [7.6, 10, 1.3, 2.7], [7.6, 10, 4.3, 5.7]]);
+  side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
+  trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
+  for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
+  gableRoof(B, tile, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+  photo(B, crest, 9.4, 4.2, Z1 + 0.012, 0, 0.7, 0.7);
+
+  // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
+  B.box(M.floor, X0 + T, 0, Z0 + T, 10, F1, Z1 - T); B.box(M.floor, 10, 0, Z0 + T, X1 - T, F1, 11.5);
+  B.box(M.pave, 10, 0, 11.5, X1 - T, 0.12, Z1 - T); B.box(M.beam, 10, 0.12, 11.47, X1 - T, F1 + 0.025, 11.53, false);
+  B.box(M.pave, 11.1, 0, Z1 - T - 0.02, 13.1, 0.135, 14.2);
+  B.box(M.floor, X0 + T, 3.2, Z0 + T, 14.4, F2, Z1 - T); B.box(M.floor, 14.4, 3.2, Z0 + T, X1 - T, F2, 6.4); B.box(M.floor, 14.4, 3.2, 10.9, X1 - T, F2, Z1 - T);
+  B.box(M.beamLight, X0 + T, CE, Z0 + T, X1 - T, TOP, Z1 - T);
+  // 1층 칸막이: 거실·약방 | 부엌·현관, 부엌 | 현관. 계단은 동쪽 벽을 따라 북으로 오른다
+  wall(B, M.white, 'z', 9.8, 10, Z0 + T, Z1 - T, F1, 3.2, [{ u0: 2.2, u1: 5.2, ys: [[F1, 2.7]] }, { u0: 8.6, u1: 10, ys: [[F1, 2.6]] }]);
+  wall(B, M.white, 'x', 6.2, 6.4, 10, X1 - T, F1, 3.2, [{ u0: 11, u1: 12.3, ys: [[F1, 2.6]] }]);
+  doorUnit(B, 'z', 9.8, 10, 2.2, 5.2, F1, 2.7, { leaf: null }); doorUnit(B, 'z', 9.8, 10, 8.6, 10, F1, 2.6, { leaf: null }); doorUnit(B, 'x', 6.2, 6.4, 11, 12.3, F1, 2.6, { leaf: null });
+  B.box(M.white, 14.25, F1, 6.4, 14.4, 3.2, 10.6);
+  stairs(B, M.floor, 'z', 6.4, 1, F1, F2, 14.4, X1 - T, 0.3);
+  beamBetween(B, M.beam, V3(14.46, F1 + 1.1, 10.5), V3(14.46, F2 + 0.9, 6.5), 0.05, 0.06);
+  railing(B, M.beamLight, [[14.3, 6.5], [14.3, 10.95], [X1 - T, 10.95]], F2, 1.0);
+  // 2층 칸막이: 시카마루의 방(남서) | 요시노의 방(북서) | 복도(동)
+  wall(B, M.white, 'z', 9.8, 10, Z0 + T, Z1 - T, F2, CE, [{ u0: 2.4, u1: 3.8, ys: [[F2, 5.6]] }, { u0: 8.2, u1: 9.5, ys: [[F2, 5.6]] }]);
+  wall(B, M.white, 'x', 5.8, 6, X0 + T, 9.8, F2, CE);
+  doorUnit(B, 'z', 9.8, 10, 8.2, 9.5, F2, 5.6, { leaf: 'swing', inward: -1 });
+  doorUnit(B, 'z', 9.8, 10, 2.4, 3.8, F2, 5.6, { leaf: 'slide', inward: -1, paper: true });
+  // 현관문과 포렴(奈良), 문 위 눈썹지붕
+  doorUnit(B, 'x', Z1 - T, Z1, 11.5, 12.7, 0.12, 2.4, { leaf: 'swing', inward: -1 });
+  noren(B, 'x', Z1 + 0.14, 11.5, 12.7, 2.36, 0.62, ' 鹿 ', { color: '#3a4f3a' });
+  const pv = V3(0, 0.45, -1.2).normalize();
+  tilePanel(B, tile, V3(10.8, 2.65, 14.2), V3(1, 0, 0), pv, 2.6, Math.hypot(0.45, 1.2));
+  beamBetween(B, M.beam, V3(12.1, 2.6, 14.2), V3(12.1, 3.05, 13), 2.6, 0.04);
+  beamBetween(B, M.beam, V3(10.8, 2.58, 14.2), V3(13.4, 2.58, 14.2), 0.07, 0.12);
+  for (const x of [10.95, 13.25]) { beamBetween(B, M.beam, V3(x, 2.1, 13.02), V3(x, 2.56, 14.1), 0.07, 0.09); B.box(M.beam, x - 0.035, 2.0, Z1, x + 0.035, 3.0, Z1 + 0.06, false); }
+
+  /* 1층 거실: 다다미 한가운데 장기판, 벽에 사슴뿔, 장 위에 시카쿠의 사진 */
+  {
+    B.box(M.tatami, 0.6, F1, 6.8, 9.2, F1 + 0.03, 12.5, false);
+    // 다리 달린 장기판과 두던 판, 말 받침 둘
+    const bx = 4.9, bz = 9.7, by = F1 + 0.03;
+    B.box(kaya, bx - 0.18, by + 0.1, bz - 0.2, bx + 0.18, by + 0.26, bz + 0.2, false); for (const [a, c] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B.geo(kaya, cyl(0.035, 0.025, 0.1, 6), mat4(bx + a * 0.13, by + 0.05, bz + c * 0.15));
+    B.geo(grid(9), new THREE.PlaneGeometry(0.36, 0.4).rotateX(-PI / 2), mat4(bx, by + 0.262, bz));
+    const KOMA = new THREE.CylinderGeometry(0.012, 0.016, 0.007, 5).rotateY(PI / 10);
+    for (const [c, r] of [[0, 0], [1, 0], [3, 0], [4, 0], [5, 0], [7, 0], [8, 0], [1, 1], [4, 1], [0, 2], [2, 2], [3, 3], [6, 2], [8, 2], [5, 4], [4, 5], [0, 6], [2, 6], [3, 6], [6, 5], [7, 6], [8, 6], [1, 7], [7, 7], [0, 8], [2, 8], [3, 8], [4, 8], [5, 8], [8, 8]]) B.geo(P.kraft, KOMA, mat4(bx - 0.152 + c * 0.038, by + 0.267, bz - 0.168 + r * 0.042, 0, r < 4 ? PI : 0, 0));
+    for (const s of [-1, 1]) { B.box(kaya, bx + s * 0.34 - 0.07, by, bz + s * 0.12 - 0.07, bx + s * 0.34 + 0.07, by + 0.16, bz + s * 0.12 + 0.07, false); B.geo(P.kraft, KOMA, mat4(bx + s * 0.34, by + 0.166, bz + s * 0.12)); B.put(P.green, G.zabuton, bx, by + 0.04, bz + s * 0.85, s * 0.1, 1.15); }
+    addCollider(bx - 0.2, by, bz - 0.22, bx + 0.2, by + 0.27, bz + 0.22);
+    const T2 = local(B, 7.4, by, 11.2, 0); lowTable(T2, 0.5); teaSet(T2, 0, 0.34, 0, 2);
+    kakejiku(B, '奈良', X0 + T + 0.012, F1 + 1.75, 11.5, PI / 2, 0.42, 1.2, P.green);
+    // 남쪽 벽 두 창 사이: 사슴뿔 한 쌍
+    B.box(M.beam, 4.42, F1 + 1.45, 12.76, 4.98, F1 + 1.85, 12.79, false); antler(4.62, F1 + 1.6, 12.75, PI, 1.0, 1); antler(4.78, F1 + 1.6, 12.75, PI, 1.0, -1);
+    // 서쪽 벽의 장: 시카쿠의 사진과 향, 꽃
+    tansu(local(B, X0 + T, F1, 8.4, 1), 1.6, 0.45, 0.82, 3);
+    photo(B, shikaku, 0.34, F1 + 1.02, 8.4, PI / 2, 0.26, 0.32, 0.15);
+    B.put(P.porcelain, G.bowl, 0.5, F1 + 0.82, 7.95, 0, 0.7); for (const d of [-0.012, 0.012]) B.geo(mat('plain', 0x6a4a36), cyl(0.003, 0.003, 0.13, 4), mat4(0.5 + d, F1 + 0.93, 7.95 + d));
+    vaseOf(B, R, [F.lily, F.cosW], 0.48, F1 + 0.82, 8.9, 3, 0.8);
+    potOf(B, F.fern, 9.3, F1, 12.3, 1.8); addCollider(9.1, F1, 12.1, 9.5, F1 + 0.8, 12.5);
+    lamp(B, 4.9, 3.2, 9.7, glows);
+  }
+  /* 1층 약방: 서랍 많은 약장, 약 짓는 상(약연·저울·사슴뿔), 대대로 전해 온 약 책, 말리는 약초 */
+  {
+    // 약장: 작은 서랍이 여덟 줄 다섯 층
+    { const x0 = 0.8, x1 = 4.4, z = Z0 + T; B.box(M.beam, x0, F1, z, x1, F1 + 1.9, z + 0.42); for (let r = 0; r < 5; r++) for (let c = 0; c < 8; c++) { const a = x0 + 0.05 + c * 0.44, y = F1 + 0.12 + r * 0.35; B.box(M.beamLight, a, y, z + 0.42, a + 0.4, y + 0.31, z + 0.435, false); B.put(P.brass, G.knob, a + 0.2, y + 0.15, z + 0.445); B.box(P.paper, a + 0.12, y + 0.22, z + 0.435, a + 0.28, y + 0.28, z + 0.437, false); } }
+    bookcase(local(B, 8.7, F1, Z0 + T, 0), 1.9, 0.34, 2.1, ['vases', 'pots', 'vases', 'scrolls', 'books'], R);
+    const Wt = local(B, 5.0, F1, 3.5, 0);
+    table(Wt, 3.4, 1.0, 0.8, M.beam); Wt.col(-1.7, 0, -0.5, 1.7, 0.85, 0.5);
+    const ty = F1 + 0.8;
+    // 약연(배 모양 갈이틀과 바퀴)
+    B.box(M.iron, 3.6, ty, 3.38, 4.2, ty + 0.04, 3.62, false); for (const s of [-1, 1]) B.geo(M.iron, new THREE.BoxGeometry(0.6, 0.1, 0.03), mat4(3.9, ty + 0.08, 3.5 + s * 0.07, s * 0.5, 0, 0)); B.geo(M.iron, cyl(0.09, 0.09, 0.025, 14).rotateX(PI / 2), mat4(3.95, ty + 0.13, 3.5)); B.geo(M.beam, cyl(0.014, 0.014, 0.34, 6).rotateX(PI / 2), mat4(3.95, ty + 0.13, 3.5));
+    // 막자사발
+    B.put(P.porcelain, G.bowl, 4.75, ty, 3.25, 0, 1.3); B.geo(P.porcelain, cyl(0.018, 0.026, 0.2, 8), mat4(4.8, ty + 0.12, 3.25, 0, 0, 0.5));
+    // 접시저울
+    B.box(M.beam, 5.3, ty, 3.6, 5.6, ty + 0.03, 3.74, false); B.geo(P.brass, cyl(0.01, 0.012, 0.36, 6), mat4(5.45, ty + 0.2, 3.67)); B.geo(P.brass, cyl(0.006, 0.006, 0.5, 5).rotateZ(PI / 2), mat4(5.45, ty + 0.37, 3.67, 0, 0, 0.08));
+    for (const s of [-1, 1]) { B.geo(P.brass, cyl(0.07, 0.05, 0.012, 12), mat4(5.45 + s * 0.24, ty + 0.18 + s * 0.02, 3.67)); for (const d of [-0.05, 0.05]) B.geo(P.brass, cyl(0.002, 0.002, 0.19, 3), mat4(5.45 + s * 0.24 + d * 0.4, ty + 0.275 + s * 0.02, 3.67 + d)); }
+    B.geo(dry, new THREE.ConeGeometry(0.045, 0.05, 8), mat4(5.21, ty + 0.19, 3.67));
+    // 떨어진 사슴뿔(약재)과 저민 조각, 종이에 싼 약첩
+    antler(5.9, ty + 0.03, 3.2, 0.6, 0.8); B.geo(horn, cyl(0.02, 0.02, 0.4, 6).rotateZ(PI / 2), mat4(6.2, ty + 0.02, 3.55, 0, 0.3, 0)); for (let k = 0; k < 5; k++) B.geo(horn, cyl(0.02, 0.02, 0.006, 8), mat4(6.05 + k * 0.05, ty + 0.004, 3.78 - (k % 2) * 0.04));
+    for (let k = 0; k < 6; k++) B.geo(P.paper, new THREE.BoxGeometry(0.11, 0.02, 0.08), mat4(3.55 + (k % 3) * 0.14, ty + 0.01 + Math.floor(k / 3) * 0.02, 3.85, 0, (k % 2) * 0.15, 0));
+    // 일족이 대대로 전해 온 약 책(펼쳐 놓은 책과 받침)
+    { const D = local(B, 5.25, F1, 0.62, 0); desk(D, 1.4, 0.7); chair(local(B, 5.25, F1, 1.5, 2), P.green); B.geo(M.beam, new THREE.BoxGeometry(0.5, 0.02, 0.34), mat4(5.25, F1 + 0.83, 0.58, -0.45, 0, 0)); for (const s of [-1, 1]) B.geo(P.paper, new THREE.BoxGeometry(0.22, 0.025, 0.3), mat4(5.25 + s * 0.115, F1 + 0.85, 0.585, -0.45, 0, s * 0.06)); B.geo(mat('plain', 0x3a4f3a), new THREE.BoxGeometry(0.47, 0.012, 0.32), mat4(5.25, F1 + 0.838, 0.582, -0.45, 0, 0)); signBoard(B, '奈良一族 秘伝 薬方', 5.25, F1 + 1.5, Z0 + T + 0.03, 0, 1.2, 0.2, { both: false, bg: '#efe6cf', depth: 0.02 }); }
+    // 서쪽 벽 위에 매달아 말리는 약초
+    B.box(M.beam, X0 + T + 0.12, F1 + 2.3, 4.4, X0 + T + 0.16, F1 + 2.34, 6.1, false); for (let k = 0; k < 7; k++) bundle(X0 + T + 0.14, F1 + 2.27, 4.55 + k * 0.24, k % 3 ? herb : dry);
+    lamp(B, 4.8, 3.2, 3.4, glows);
+  }
+  /* 부엌: 개수대와 화구, 냉장고, 둘이 앉는 식탁, 요시노의 앞치마 */
+  {
+    cabinet(local(B, 10.85, F1, Z0 + T, 0), 1.3, 0.6, 0.85, 2, P.steel);
+    sinkUnit(local(B, 12.5, F1, Z0 + T, 0), 2.0, 0.6, 0.85);
+    cabinet(local(B, 14.35, F1, Z0 + T, 0), 1.7, 0.6, 0.85, 3, P.steel, true);
+    const E = local(B, X1 - T, F1, 2.0, 3);
+    cabinet(E, 1.8, 0.6, 0.85, 2, P.steel); stove(E, 0, 0.85, 0.3);
+    E.box(P.steel, -0.6, 1.85, 0, 0.6, 2.0, 0.5); E.box(P.steel, -0.3, 2.0, 0, 0.3, 2.8, 0.3);
+    fridge(local(B, 15.35, F1, 6.2, 2), 0.85, 0.7, 1.8);
+    const L = local(B, 12.3, F1, 4.3, 0);
+    table(L, 1.2, 0.9); chair(local(B, 12.3, F1, 3.55, 0), P.green); chair(local(B, 12.3, F1, 5.05, 2), P.green);
+    for (const v of [-0.22, 0.22]) { L.put(P.porcelain, G.bowl, -0.1, 0.74, v); L.put(P.porcelain, G.plate, 0.16, 0.74, v, 0, 0.7); }
+    B.box(M.beam, 10.02, F1 + 1.5, 4.9, 10.08, F1 + 1.55, 5.5, false); B.box(P.white, 10.02, F1 + 0.6, 5.0, 10.06, F1 + 1.52, 5.4, false); B.box(P.white, 10.02, F1 + 1.4, 4.95, 10.05, F1 + 1.52, 5.45, false);   // 벽에 건 앞치마
+    lamp(B, 12.4, 3.2, 3.6, glows);
+  }
+  /* 현관과 복도: 신발 두 켤레, 벽에 건 닌자 조끼 */
+  {
+    const S = local(B, X1 - T, 0.12, 12.2, 3);
+    cabinet(S, 1.0, 0.38, 0.9, 2);
+    [[11.0, 11.85, 0.1, P.black, 1.1], [10.6, 11.9, -0.1, P.red, 0.9]].forEach(([x, z, r, m, s]) => { for (const k of [-1, 1]) B.put(m, G.sandal, x + k * 0.08 * s, 0.12, z, PI + r + k * 0.06, s); });
+    B.box(M.beam, 10.02, 1.75, 11.7, 10.08, 1.8, 12.7, false); B.box(vest, 10.02, 1.05, 12.0, 10.09, 1.77, 12.5, false); for (const z of [12.08, 12.3]) B.box(mat('plain', 0x4a6240), 10.09, 1.35, z, 10.1, 1.6, z + 0.12, false);
+    lamp(B, 12.3, 3.2, 9.2, glows, 0.45);
+  }
+  /* 2층 — 시카마루의 방: 개지 않은 침대, 바둑판, 장기 책, 책상 위에 10반 사진과 아스마의 라이터 */
+  {
+    bed(local(B, 1.5, F2, 6.78, 1), 1.2, 1.9, P.green);
+    const nt = local(B, 3.0, F2, 6.0, 0);
+    tansu(nt, 0.5, 0.42, 0.5, 2);
+    bookcase(local(B, 5.2, F2, 6.0, 0), 1.6, 0.34, 1.8, ['books', 'books', 'scrolls', 'books'], R);
+    wardrobe(local(B, 9.8, F2, 7.0, 3), 1.4, 0.6, 2.0);
+    const D = local(B, 0.62, F2, 9.9, 1);
+    desk(D, 1.5, 0.65); chair(local(B, 1.4, F2, 9.9, 3), P.green);
+    photo(B, teamPhoto('               ', [[0.14, 0.34, '#2a2420', '#5d7a4e', 'spiky'], [0.38, 0.5, '#e8d27a', '#8466b5', 'pony'], [0.62, 0.5, '#2a2420', '#8a8f96', 'tail'], [0.86, 0.46, '#b0623a', '#b5303a', 'big']]), 0.45, F2 + 0.87, 10.35, PI / 2, 0.32, 0.24, 0.22);
+    B.geo(P.steel, new THREE.BoxGeometry(0.035, 0.055, 0.012), mat4(0.62, F2 + 0.77, 9.7, 0, 0.5, 0)); B.geo(P.steel, new THREE.BoxGeometry(0.036, 0.004, 0.013), mat4(0.62, F2 + 0.785, 9.7, 0, 0.5, 0));   // 아스마의 라이터
+    B.box(P.paper, 0.5, F2 + 0.745, 9.3, 0.8, F2 + 0.75, 9.52, false);
+    // 다리 달린 바둑판과 돌 통 둘
+    const gx = 6.2, gz = 10.4;
+    B.put(P.kraft, G.tableTop, gx, F2 + 0.004, gz, 0, [1.3, 0.3, 1.3]);
+    B.box(kaya, gx - 0.22, F2 + 0.1, gz - 0.23, gx + 0.22, F2 + 0.26, gz + 0.23, false); for (const [a, c] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B.geo(kaya, cyl(0.04, 0.028, 0.1, 6), mat4(gx + a * 0.16, F2 + 0.05, gz + c * 0.17));
+    B.geo(grid(12), new THREE.PlaneGeometry(0.44, 0.46).rotateX(-PI / 2), mat4(gx, F2 + 0.262, gz));
+    const STONE_G = new THREE.SphereGeometry(0.014, 8, 5).scale(1, 0.4, 1);
+    for (let i = 0; i < 34; i++) { const c = Math.floor(R() * 13), r = Math.floor(R() * 13); B.geo(i % 2 ? P.black : P.white, STONE_G, mat4(gx - 0.2 + c * 0.0333, F2 + 0.266, gz - 0.21 + r * 0.035)); }
+    for (const [s, m] of [[-1, P.black], [1, P.white]]) { B.put(M.beam, G.bowl, gx + s * 0.4, F2 + 0.004, gz + s * 0.2, 0, 1.0); B.geo(m, cyl(0.055, 0.055, 0.01, 10), mat4(gx + s * 0.4, F2 + 0.05, gz + s * 0.2)); }
+    B.put(P.green, G.zabuton, gx, F2 + 0.05, gz + 0.9, 0.2, 1.1); B.put(P.green, G.zabuton, gx, F2 + 0.05, gz - 0.9, -0.1, 1.1);
+    addCollider(gx - 0.24, F2, gz - 0.25, gx + 0.24, F2 + 0.27, gz + 0.25);
+    B.box(M.beam, 4.3, F2 + 1.9, 12.75, 5.3, F2 + 1.95, 12.79, false); B.box(vest, 4.5, F2 + 1.15, 12.7, 5.1, F2 + 1.9, 12.77, false);   // 남쪽 벽에 건 조끼
+    B.put(P.white, G.pillow, 8.6, F2 + 0.06, 12.0, 0.5); B.put(P.green, G.zabuton, 8.5, F2 + 0.04, 11.5, 0.2, 1.3);                 // 창가의 낮잠 자리
+    lamp(B, 5, CE, 9.6, glows);
+  }
+  /* 2층 — 요시노의 방: 다다미에 화장대와 장, 개어 둔 이불, 시카쿠가 입던 조끼 */
+  {
+    B.box(M.tatami, X0 + T, F2, Z0 + T, 9.8, F2 + 0.02, 5.8, false);
+    const T2 = local(B, 4.4, F2 + 0.02, 3, 0);
+    lowTable(T2, 0.55); teaSet(T2, 0, 0.34, 0, 1); T2.put(P.pink, G.zabuton, 0, 0.04, 0.95, 0, 1.2);
+    kakejiku(B, '鹿鳴', 5.25, F2 + 1.55, Z0 + T + 0.01, 0, 0.4, 1.1, P.green);
+    tansu(local(B, 2.2, F2, 5.8, 2), 1.4, 0.45, 1.05, 4);
+    B.box(vest, 1.8, F2 + 1.05, 5.42, 2.4, F2 + 1.13, 5.72, false); photo(B, shikaku, 2.75, F2 + 1.2, 5.6, PI, 0.2, 0.26, 0.15);   // 개어 둔 조끼와 사진
+    for (let i = 0; i < 3; i++) B.put(i % 2 ? P.pink : P.white, G.futon, 8.4, F2 + 0.1 + i * 0.15, 0.95, 0, 1.1);
+    B.put(P.white, G.pillow, 8.4, F2 + 0.57, 0.95, 0.2); addCollider(7.5, F2, 0.4, 9.3, F2 + 0.6, 1.5);
+    dresser(local(B, 7.4, F2, 5.8, 2), P.pink);
+    wardrobe(local(B, X0 + T, F2, 5.0, 1), 1.5, 0.6, 2.0);
+    vaseOf(B, R, [F.cosP, F.cosW], 1.6, F2 + 0.02, 0.7, 4, 1.2);
+    lamp(B, 4.4, CE, 3, glows);
+  }
+  /* 2층 복도 */
+  {
+    cabinet(local(B, 12.5, F2, Z0 + T, 0), 1.4, 0.4, 0.8, 2);
+    antler(12.3, F2 + 0.8, 0.45, 0, 0.9, 1); antler(12.7, F2 + 0.8, 0.45, 0, 0.9, -1);
+    potOf(B, F.broad, 10.5, F2, 12.3, 1.6); addCollider(10.3, F2, 12.1, 10.7, F2 + 0.6, 12.5);
+    lamp(B, 12.3, CE, 4, glows);
+  }
+
+  /* 마당: 낮은 돌담과 대문 기둥·문패, 디딤돌, 구름 보는 긴 의자, 약초 말리는 채반, 사슴 먹이통 */
+  const gx0 = -3.6, gx1 = 19.6, gz0 = -3.6, gz1 = 19.2;
+  for (const [a, b, c, d] of [[gx0, gz0, gx0 + 0.3, gz1], [gx1 - 0.3, gz0, gx1, gz1], [gx0, gz0, gx1, gz0 + 0.3], [gx0, gz1 - 0.3, 11.0, gz1], [13.2, gz1 - 0.3, gx1, gz1]]) {
+    B.box(M.stone, a, 0, b, c, 0.85, d); B.box(M.concrete, a - 0.04, 0.85, b - 0.04, c + 0.04, 0.93, d + 0.04, false);
+  }
+  for (const x of [10.89, 13.31]) { B.box(M.beam, x - 0.14, 0, gz1 - 0.36, x + 0.14, 1.75, gz1 + 0.06); B.prism(tile, 'z', [[x - 0.2, 1.75], [x + 0.2, 1.75], [x, 1.9]], gz1 - 0.42, gz1 + 0.12); }
+  signBoard(B, '奈良', 10.89, 1.25, gz1 + 0.085, 0, 0.13, 0.36, { vertical: true, both: false, depth: 0.03 });
+  for (let i = 0; i < 6; i++) B.put(M.pave, G.stone, 12.1 + (i % 2 ? 0.14 : -0.12), 0, 18.3 - i * 0.78, i * 1.3, [1 + (i % 3) * 0.12, 1, 0.9 + (i % 2) * 0.2]);
+  {
+    // 구름 보는 긴 의자(등받이를 뒤로 눕혔다)와 옆의 작은 상
+    const x = 4.0, z = 16.0, wd = M.beamLight;
+    for (const s of [-1, 1]) { B.box(wd, x + s * 0.3 - 0.03, 0, z - 0.9, x + s * 0.3 + 0.03, 0.32, z - 0.84, false); B.box(wd, x + s * 0.3 - 0.03, 0, z + 0.5, x + s * 0.3 + 0.03, 0.32, z + 0.56, false); B.box(wd, x + s * 0.3 - 0.03, 0.3, z - 0.9, x + s * 0.3 + 0.03, 0.36, z + 0.6, false); }
+    for (let k = 0; k < 7; k++) B.box(wd, x - 0.32, 0.36, z - 0.88 + k * 0.21, x + 0.32, 0.385, z - 0.72 + k * 0.21, false);
+    for (let k = 0; k < 5; k++) B.geo(wd, new THREE.BoxGeometry(0.64, 0.025, 0.16), mat4(x, 0.44 + k * 0.12, z + 0.62 + k * 0.15, -0.9, 0, 0));
+    for (const s of [-1, 1]) beamBetween(B, wd, V3(x + s * 0.3, 0.36, z + 0.58), V3(x + s * 0.3, 0.98, z + 1.36), 0.05, 0.05);
+    B.put(P.white, G.pillow, x, 0.86, z + 1.1, 0, 0.9, -0.9);
+    addCollider(x - 0.34, 0, z - 0.9, x + 0.34, 0.4, z + 0.6); addCollider(x - 0.34, 0, z + 0.6, x + 0.34, 1.0, z + 1.4);
+    B.put(M.beamLight, G.tableTop, x + 0.75, 0.4, z, 0, [0.22, 1, 0.22]); B.geo(M.beamLight, cyl(0.03, 0.04, 0.4, 8), mat4(x + 0.75, 0.2, z)); B.put(P.porcelain, G.cup, x + 0.75, 0.42, z);
+  }
+  for (const [x, z] of [[1.2, 15.0], [1.2, 16.6]]) {                                                     // 약초 말리는 채반
+    for (const [a, c] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) B.box(M.beam, x + a * 0.5 - 0.025, 0, z + c * 0.4 - 0.025, x + a * 0.5 + 0.025, 0.8, z + c * 0.4 + 0.025, false);
+    for (const y of [0.42, 0.8]) { B.geo(P.kraft, cyl(0.6, 0.6, 0.03, 20), mat4(x, y, z, 0, 0, 0, [1, 1, 0.8])); for (let k = 0; k < 9; k++) { const a = k * 0.7 + y * 9, d = 0.12 + (k % 4) * 0.11; B.geo(k % 3 ? herb : dry, G.ball, mat4(x + Math.cos(a) * d, y + 0.03, z + Math.sin(a) * d * 0.8, 0, a, 0, [0.07, 0.015, 0.04])); } }
+    addCollider(x - 0.55, 0, z - 0.45, x + 0.55, 0.85, z + 0.45);
+  }
+  {                                                                                                   // 사슴 먹이통과 주운 뿔 바구니(동쪽 마당)
+    const x = 17.2, z = 16.2;
+    for (const s of [-1, 1]) { B.box(M.beam, x - 0.7, 0, z + s * 0.28 - 0.03, x - 0.64, 0.42, z + s * 0.28 + 0.03, false); B.box(M.beam, x + 0.64, 0, z + s * 0.28 - 0.03, x + 0.7, 0.42, z + s * 0.28 + 0.03, false); B.geo(M.beamLight, new THREE.BoxGeometry(1.5, 0.03, 0.3), mat4(x, 0.42, z + s * 0.14, s * 0.6, 0, 0)); }
+    B.box(dry, x - 0.7, 0.36, z - 0.1, x + 0.7, 0.44, z + 0.1, false); addCollider(x - 0.75, 0, z - 0.32, x + 0.75, 0.55, z + 0.32);
+    B.geo(P.kraft, new THREE.CylinderGeometry(0.3, 0.24, 0.3, 12, 1, true), mat4(x - 0.2, 0.15, z - 1.6)); for (let k = 0; k < 4; k++) antler(x - 0.3 + k * 0.07, 0.12, z - 1.62 + (k % 2) * 0.08, k * 1.7, 0.75, k % 2 ? 1 : -1); addCollider(x - 0.5, 0, z - 1.9, x + 0.1, 0.6, z - 1.3);
+  }
+  for (let i = 0; i < 14; i++) putF(B, i % 3 ? F.fern : F.broad, 14.6 + R() * 4.2, 0, 17.4 + R() * 1.2, R() * 6, 0.8 + R() * 0.5);
+
+  out.places.push(
+    { n: '나라 본가(시카마루네 집)', t: '나라 일족 우두머리의 집. 아버지 시카쿠가 세상을 떠난 뒤로 시카마루와 어머니 요시노가 산다.', b: [gx0, gx1, gz0, gz1] },
+    { n: '시카마루네 현관', t: '신을 벗고 마루로 올라선다. 벽에 닌자 조끼가 걸려 있다.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
+    { n: '시카마루네 거실', t: '다다미 한가운데 장기판. 아버지와 아들이 마주 앉아 두던 자리다. 장 위에 시카쿠의 사진.', b: [0.2, 9.8, 6.2, 12.8], y: [0, 3.2] },
+    { n: '나라 일족의 약방', t: '서랍 많은 약장과 약연, 저울. 일족이 대대로 전해 온 약 책이 펼쳐져 있다. 떨어진 사슴뿔도 약재다.', b: [0.2, 9.8, 0.2, 6.2], y: [0, 3.2] },
+    { n: '시카마루네 부엌', t: '둘이 앉는 식탁. 벽에 요시노의 앞치마.', b: [10, 15.8, 0.2, 6.2], y: [0, 3.2] },
+    { n: '시카마루의 방', t: '개지 않은 침대와 바둑판, 장기 책. 책상에는 10반 사진과 스승 아스마의 라이터.', b: [0.2, 9.8, 6, 12.8], y: [F2, TOP] },
+    { n: '요시노의 방', t: '시카마루의 어머니 요시노의 방. 장 위에 남편 시카쿠의 조끼와 사진.', b: [0.2, 9.8, 0.2, 5.8], y: [F2, TOP] },
+    { n: '시카마루네 2층 복도', t: '계단을 오르면 왼쪽 안쪽이 시카마루의 방이다.', b: [10, 15.8, 0.2, 12.8], y: [F2, TOP] },
+  );
+  out.jumps.push(['나라 본가(시카마루네 집) 앞', 12.1, 0, 21, 0, 50.5], ['시카마루의 방', 7.2, F2, 11.2, 0.9, 50.6]);
+  out.lights.push([5, 2.6, 6.5, 16, 18], [12.6, 2.6, 4.5, 14, 15], [5, 5.5, 9.4, 14, 15], [4.6, 5.5, 3, 13, 15]);
+}
 export function build(scene, ctx) {
   P = palette(); G = makeGeos(); F = makeFlowers();
   const out = { places: [], jumps: [], lights: [], glows: [], skip: [] };
@@ -1959,6 +2197,7 @@ export function build(scene, ctx) {
   if (ctx.which === 'sarutobi') buildSarutobi(B, rng(4106), out);
   if (ctx.which === 'inuzuka') buildInuzuka(B, rng(4107), out);
   if (ctx.which === 'aburame') buildAburame(B, rng(4108), out);
+  if (ctx.which === 'nara') buildNara(B, rng(4109), out);
   B.finish(scene);
   return out;
 }

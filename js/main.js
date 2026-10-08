@@ -22,7 +22,7 @@ const BUILDINGS = [
   // [이름(SITE의 이름), 알림, 짓는 파일(이름과 다를 때)]
   ['hokage', '호카게 관저를 올리는 중…'], ['academy', '닌자 아카데미를 짓는 중…'], ['swing', '아카데미 마당에 그네를 다는 중…'],
   ['naruto', '나루토의 집을 짓는 중…'], ['sakura', '사쿠라의 집을 짓는 중…', 'homes'], ['ino', '야마나카 꽃집을 여는 중…', 'homes'],
-  ['ichiraku', '이치라쿠 라멘의 국물을 끓이는 중…'], ['choji', '쵸지네 밥상을 차리는 중…', 'homes'], ['inoichi', '야마나카 본가의 꽃병에 물을 가는 중…', 'homes'], ['hyuga', '휴가 종가의 다다미를 까는 중…', 'homes'], ['sarutobi', '사루토비 본가의 서가를 채우는 중…', 'homes'], ['inuzuka', '이누즈카 본가의 밥그릇을 채우는 중…', 'homes'], ['aburame', '아부라메 본가의 사육 상자를 살피는 중…', 'homes'], ['sasuke', '사스케의 집을 짓는 중…', 'uchiha'], ['shrine', '남가 신사를 세우는 중…', 'uchiha'],
+  ['ichiraku', '이치라쿠 라멘의 국물을 끓이는 중…'], ['choji', '쵸지네 밥상을 차리는 중…', 'homes'], ['inoichi', '야마나카 본가의 꽃병에 물을 가는 중…', 'homes'], ['hyuga', '휴가 종가의 다다미를 까는 중…', 'homes'], ['sarutobi', '사루토비 본가의 서가를 채우는 중…', 'homes'], ['inuzuka', '이누즈카 본가의 밥그릇을 채우는 중…', 'homes'], ['aburame', '아부라메 본가의 사육 상자를 살피는 중…', 'homes'], ['nara', '시카마루네 장기판을 펴는 중…', 'homes'], ['sasuke', '사스케의 집을 짓는 중…', 'uchiha'], ['shrine', '남가 신사를 세우는 중…', 'uchiha'],
 ];
 
 async function init() {

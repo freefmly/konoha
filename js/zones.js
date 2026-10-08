@@ -187,15 +187,7 @@ function nara(scene, out) {
     crestDisc(B, drawNara, 'nara', 0, 4.04, 0.13, 0, 0.4); crestDisc(B, drawNara, 'nara', 0, 4.04, -0.13, Math.PI, 0.4);
   });
 
-  // 우두머리 집터: 아직 빈 터. 길 쪽에 문패만 세워 둔다
-  {
-    const front = [hc[0] - u[0] * 21, hc[1] - u[1] * 21];
-    put(scene, { x: front[0], z: front[1], ry: Math.atan2(-u[0], -u[1]) }, B => {
-      for (const s of [-1, 1]) B.box(M.beam, s * 0.75 - 0.07, 0, -0.07, s * 0.75 + 0.07, 2.1, 0.07);
-      signBoard(B, '奈良', 0, 1.65, 0, 0, 1.36, 0.62, {});
-    });
-    out.places.push({ n: '시카마루네 집터', t: '나라 일족 우두머리의 집이 들어설 자리. 가운데 길이 곧장 이 터로 닿는다.', poly: Z.blocks[HOME], b: bound(Z.blocks[HOME]) });
-  }
+  // 우두머리 집터(블록 HOME)에는 나라 본가가 선다 — b_homes.js의 buildNara, 자리는 layout.js의 SITE.nara
 
   // 사슴 목장: 나무 울타리를 두른 풀밭. 문은 집터 쪽으로 난다
   {
