@@ -712,6 +712,29 @@ function buildSakura(B, R, out) {
   out.lights.push([36, 2.6, 69.5, 15, 17], [42.4, 2.6, 68.5, 14, 15], [36.2, 5.5, 72.4, 14, 15], [39.6, 5.5, 66, 13, 15]);
 }
 
+/* ---------- 본가마다 다른 뼈대를 짓는 조각 ---------- */
+// 층 사이에 두르는 눈썹지붕: 네 면이 모서리에서 맞물린다. y = 처마 끝 높이, d = 내민 길이, r = 벽 쪽으로 오르는 높이
+function skirtRoof(B, tile, x0, z0, x1, z1, y, d, r) {
+  const len = Math.hypot(d, r), wx = x1 - x0 + 2 * d, wz = z1 - z0 + 2 * d, cut = w => v => { const k = v / len * d; return [k, w - k]; };
+  tilePanel(B, tile, V3(x0 - d, y, z1 + d), V3(1, 0, 0), V3(0, r, -d).normalize(), wx, len, cut(wx));
+  tilePanel(B, tile, V3(x1 + d, y, z0 - d), V3(-1, 0, 0), V3(0, r, d).normalize(), wx, len, cut(wx));
+  tilePanel(B, tile, V3(x1 + d, y, z1 + d), V3(0, 0, -1), V3(-d, r, 0).normalize(), wz, len, cut(wz));
+  tilePanel(B, tile, V3(x0 - d, y, z0 - d), V3(0, 0, 1), V3(d, r, 0).normalize(), wz, len, cut(wz));
+  const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  beamBetween(B, M.beam, V3(cx, y - 0.03, z1 + d), V3(cx, y + r - 0.03, z1), wx - 2 * d, 0.04); beamBetween(B, M.beam, V3(cx, y - 0.03, z0 - d), V3(cx, y + r - 0.03, z0), wx - 2 * d, 0.04);
+  beamBetween(B, M.beam, V3(x1 + d, y - 0.03, cz), V3(x1, y + r - 0.03, cz), wz - 2 * d, 0.04); beamBetween(B, M.beam, V3(x0 - d, y - 0.03, cz), V3(x0, y + r - 0.03, cz), wz - 2 * d, 0.04);
+  for (const [a, b, e, f] of [[x0 - d, z1 + d - 0.06, x1 + d, z1 + d], [x0 - d, z0 - d, x1 + d, z0 - d + 0.06], [x1 + d - 0.06, z0 - d, x1 + d, z1 + d], [x0 - d, z0 - d, x0 - d + 0.06, z1 + d]]) B.box(M.beam, a, y - 0.12, b, e, y - 0.02, f, false);
+}
+// 벽에 붙여 한쪽으로 기울인 달개지붕. dir = 낮아지는 쪽('n' 'e' 's' 'w'), f = 벽의 자리, out = 내민 길이, a0~a1 = 벽을 따라 덮는 범위
+function leanRoof(B, tile, a0, a1, f, out, yHigh, yLow, dir) {
+  const dy = yHigh - yLow, len = Math.hypot(out, dy), w = a1 - a0, m = (a0 + a1) / 2;
+  if (dir === 'n') { tilePanel(B, tile, V3(a1, yLow, f - out), V3(-1, 0, 0), V3(0, dy, out).normalize(), w, len); beamBetween(B, M.beam, V3(m, yLow - 0.03, f - out), V3(m, yHigh - 0.03, f), w, 0.04); }
+  if (dir === 's') { tilePanel(B, tile, V3(a0, yLow, f + out), V3(1, 0, 0), V3(0, dy, -out).normalize(), w, len); beamBetween(B, M.beam, V3(m, yLow - 0.03, f + out), V3(m, yHigh - 0.03, f), w, 0.04); }
+  if (dir === 'e') { tilePanel(B, tile, V3(f + out, yLow, a1), V3(0, 0, -1), V3(-out, dy, 0).normalize(), w, len); beamBetween(B, M.beam, V3(f + out, yLow - 0.03, m), V3(f, yHigh - 0.03, m), w, 0.04); }
+  if (dir === 'w') { tilePanel(B, tile, V3(f - out, yLow, a0), V3(0, 0, 1), V3(out, dy, 0).normalize(), w, len); beamBetween(B, M.beam, V3(f - out, yLow - 0.03, m), V3(f, yHigh - 0.03, m), w, 0.04); }
+}
+const postAt = (B, x, z, y0, y1, m = M.beam, t = 0.07) => B.box(m, x - t, y0, z - t, x + t, y1, z + t);
+
 /* ============================ 쵸지의 집 ============================
    아키미치 집안의 2층 살림집(집 좌표: x 0~16, z 0~13, 남쪽이 앞). 아버지 쵸자가 일족의 우두머리라 여느 집보다 크고, 무엇보다 식당과 부엌이 넓다.
    1층: 큰 식당(긴 식탁·다다미 자리) | 부엌 | 현관과 계단 / 2층: 쵸지의 방 | 부모의 다다미방 | 복도. 집 안 꾸밈은 원작에 없어 일족의 특징에서 지어냈다. */
@@ -733,7 +756,7 @@ function buildChoji(B, R, out) {
   side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
   trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
   for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
-  gableRoof(B, P.roofS, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+  hipRoof(B, P.roofS, X0, Z0, X1, Z1, TOP, 3.0, { over: 1.3 });   // 넉넉한 처마의 우진각지붕
 
   // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
   B.box(M.floor, X0 + T, 0, Z0 + T, 10, F1, Z1 - T); B.box(M.floor, 10, 0, Z0 + T, X1 - T, F1, 11.5);
@@ -881,7 +904,39 @@ function buildChoji(B, R, out) {
   B.box(P.soil, 14.4, 0, 14.6, 18.8, 0.07, 18.2, false);                                              // 텃밭
   for (let i = 0; i < 24; i++) putF(B, i % 3 ? F.fern : F.broad, 14.8 + (i % 6) * 0.72, 0.06, 15.0 + Math.floor(i / 6) * 0.95, R() * 6, 0.5 + R() * 0.2);
 
+  /* 아키미치다운 뼈대: 북쪽에 붙인 곳간, 부엌의 큰 굴뚝, 동쪽 처마 밑의 가마솥 부뚜막 */
+  {
+    const kw = mat('plaster', 0xf4f0e6), brick = mat('brick', 0x9a5a44);
+    const bale = (x, y, z) => { B.geo(P.kraft, cyl(0.26, 0.26, 0.7, 12).rotateZ(PI / 2), mat4(x, y + 0.26, z)); for (const d of [-0.22, 0, 0.22]) B.geo(M.beam, new THREE.TorusGeometry(0.265, 0.018, 4, 12).rotateY(PI / 2), mat4(x + d, y + 0.26, z)); };
+    // 곳간(x 1~9, z -3~0): 두꺼운 흰 벽에 검은 아랫도리, 문은 동쪽
+    B.box(kw, 1, 0, -3, 9, 2.3, -2.75); B.box(kw, 1, 0, -2.75, 1.25, 2.3, 0); B.box(kw, 8.75, 0, -2.75, 9, 2.3, -2.2); B.box(kw, 8.75, 0, -0.9, 9, 2.3, 0); B.box(kw, 8.75, 2.0, -2.2, 9, 2.3, -0.9, false);
+    for (const [a, b, e, f] of [[1, -3.03, 9, -3], [0.97, -3, 1, 0], [9, -3, 9.03, -2.2], [9, -0.9, 9.03, 0]]) B.box(P.black, a, 0, b, e, 0.8, f, false);
+    B.box(M.stone, 1.25, 0, -2.75, 8.75, 0.08, 0, false);
+    leanRoof(B, P.roofS, 0.6, 9.4, 0, 3.4, 3.1, 2.3, 'n');
+    B.box(M.beam, 9.03, 0, -3.5, 9.1, 2.0, -2.25, false); for (const y of [0.4, 1.0, 1.6]) B.box(M.iron, 9.1, y, -3.45, 9.12, y + 0.08, -2.3, false);   // 열어 젖힌 두꺼운 문짝
+    signBoard(B, '蔵', 9.04, 1.75, -0.45, PI / 2, 0.42, 0.42, { both: false, depth: 0.03 });
+    for (let i = 0; i < 4; i++) { bale(1.75 + i * 0.75, 0.08, -2.4); bale(1.75 + i * 0.75, 0.08, -1.85); } for (let i = 0; i < 3; i++) bale(2.1 + i * 0.75, 0.56, -2.12);
+    addCollider(1.3, 0, -2.75, 4.5, 1.1, -1.55);
+    for (const [x, z] of [[5.5, -2.3], [6.35, -2.3]]) { B.geo(M.beamLight, cyl(0.32, 0.28, 0.85, 14), mat4(x, 0.5, z)); for (const y of [0.3, 0.75]) B.geo(M.iron, new THREE.TorusGeometry(0.315, 0.012, 4, 16).rotateX(PI / 2), mat4(x, y, z)); B.geo(M.beam, cyl(0.3, 0.3, 0.03, 14), mat4(x, 0.94, z)); }
+    addCollider(5.15, 0, -2.65, 6.7, 0.96, -1.95);
+    for (let i = 0; i < 3; i++) B.put(P.paper, G.sack, 7.6, 0.18 + i * 0.2, -2.3, PI / 2 + i * 0.2, 0.9); addCollider(7.3, 0, -2.65, 7.95, 0.75, -1.9);
+    for (let i = 0; i < 6; i++) { B.geo(P.kraft, cyl(0.004, 0.004, 0.3, 3), mat4(2 + i * 1.1, 2.1, -0.5)); B.geo(mat('plain', i % 2 ? 0xd9d2b8 : 0xb5523a), cyl(0.04, 0.025, 0.36, 6), mat4(2 + i * 1.1, 1.78, -0.5)); }   // 매달아 말리는 무와 고추
+    // 부엌 밖의 큰 굴뚝
+    B.box(brick, 16, 0, 1.4, 16.9, 9.6, 2.5); B.box(M.stone, 15.94, 9.6, 1.34, 16.96, 9.76, 2.56, false); B.box(P.black, 16.15, 9.76, 1.6, 16.75, 9.9, 2.3, false);
+    // 가마솥 부뚜막(동쪽 처마 밑): 큰 솥 둘과 장작더미
+    leanRoof(B, P.roofS, 4.0, 9.2, 16, 3.0, 3.1, 2.35, 'e'); postAt(B, 18.8, 4.2, 0, 2.38); postAt(B, 18.8, 9.0, 0, 2.38);
+    B.box(M.stone, 16.05, 0, 5.0, 17.15, 0.75, 8.2);
+    for (const z of [5.8, 7.4]) {
+      B.geo(M.iron, new THREE.SphereGeometry(0.42, 16, 8, 0, PI * 2, PI / 2, PI / 2), mat4(16.6, 1.0, z)); B.geo(M.iron, new THREE.TorusGeometry(0.43, 0.03, 5, 18).rotateX(PI / 2), mat4(16.6, 1.0, z));
+      B.box(P.black, 17.15, 0.12, z - 0.22, 17.17, 0.5, z + 0.22, false); B.box(P.glow, 17.1, 0.14, z - 0.16, 17.16, 0.3, z + 0.16, false); glows.push([17.25, 0.3, z, 0.45]);
+    }
+    B.geo(M.beamLight, cyl(0.45, 0.45, 0.05, 16), mat4(16.6, 1.03, 5.8)); B.box(M.beam, 16.3, 1.055, 5.76, 16.9, 1.1, 5.84, false);                                 // 한 솥은 나무 뚜껑을 덮었다
+    B.geo(P.white, new THREE.CircleGeometry(0.39, 16).rotateX(-PI / 2), mat4(16.6, 0.96, 7.4));                                                                        // 다른 솥에는 흰 쌀밥
+    for (let i = 0; i < 12; i++) B.geo(M.beam, cyl(0.07, 0.07, 0.6, 6).rotateX(PI / 2), mat4(18.0 + (i % 4) * 0.16, 0.08 + Math.floor(i / 4) * 0.15, 4.75)); addCollider(17.9, 0, 4.45, 18.6, 0.5, 5.05);
+  }
+
   out.places.push(
+    { n: '아키미치 곳간', t: '쌀가마와 통이 쌓인 곳간. 이 집 식구가 한 철에 먹는 양이다.', b: [1, 9, -3, 0], y: [0, 3] },
     { n: '쵸지의 집', t: '아키미치 집안의 2층 살림집. 아버지 쵸자가 일족의 우두머리다. 포렴에 먹을 식(食) 자.', b: [gx0, gx1, gz0, gz1] },
     { n: '쵸지네 현관', t: '신을 벗고 마루로 올라선다. 문간에 봉이 세워져 있다.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
     { n: '쵸지네 식당', t: '여덟이 둘러앉는 긴 식탁. 이 집에서는 밥상이 곧 집의 한가운데다.', b: [0.2, 9.8, 0.2, 12.8], y: [0, 3.2] },
@@ -1116,7 +1171,7 @@ function buildInoichi(B, R, out) {
   side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
   trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
   for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
-  gableRoof(B, P.roofI, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+  gableRoof(B, P.roofI, X0, Z0, X1, Z1, TOP, 3.0, { ridge: 'z', gable: wl });   // 박공이 앞(남쪽)을 본다
 
   // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
   B.box(M.floor, X0 + T, 0, Z0 + T, 10, F1, Z1 - T); B.box(M.floor, 10, 0, Z0 + T, X1 - T, F1, 11.5);
@@ -1256,7 +1311,36 @@ function buildInoichi(B, R, out) {
   }
   for (const [x, z] of [[10.2, 14.5], [13.9, 14.5]]) { bucketOf(B, R, [F.sun, F.cosP, F.lily], x, 0, z, 5, 1); addCollider(x - 0.25, 0, z - 0.25, x + 0.25, 0.5, z + 0.25); }
 
+  /* 야마나카다운 뼈대: 서쪽에 붙인 유리 온실, 2층 창 밑 꽃 상자, 대문 길 위의 장미 시렁, 박공의 둥근 꽃 창 */
+  {
+    const gw = M.glass, fr = M.white, x0 = -3.0, z0 = 2, z1 = 11;
+    B.box(M.pave, x0, 0, z0, 0, 0.06, z1, false);
+    B.box(gw, x0, 0.5, z0, 0, 2.2, z0 + 0.04); B.box(fr, x0, 0, z0, 0, 0.5, z0 + 0.08, false);
+    B.box(gw, x0, 0.5, z0, x0 + 0.04, 2.2, z1); B.box(fr, x0, 0, z0, x0 + 0.08, 0.5, z1, false);
+    B.box(gw, x0, 0.5, z1 - 0.04, -1.3, 2.2, z1); B.box(fr, x0, 0, z1 - 0.08, -1.3, 0.5, z1, false);
+    for (let z = z0; z <= z1 + 0.01; z += 1.5) { B.box(fr, x0 - 0.02, 0, z - 0.03, x0 + 0.06, 2.2, z + 0.03, false); beamBetween(B, fr, V3(x0, 2.2, z), V3(0, 3.0, z), 0.05, 0.05); }
+    B.box(fr, x0, 2.16, z0, x0 + 0.06, 2.24, z1, false); beamBetween(B, gw, V3(x0, 2.23, (z0 + z1) / 2), V3(0, 3.03, (z0 + z1) / 2), z1 - z0, 0.02);
+    B.box(fr, -1.33, 0, z1 - 0.06, -1.27, 2.2, z1, false); B.box(fr, -1.3, 2.1, z1 - 0.06, 0, 2.2, z1, false);
+    B.box(M.beamLight, x0 + 0.15, 0.7, z0 + 0.3, x0 + 0.8, 0.75, z1 - 0.3, false); for (let z = z0 + 0.4; z < z1; z += 2.05) B.box(M.beam, x0 + 0.2, 0, z - 0.03, x0 + 0.75, 0.7, z + 0.03, false); addCollider(x0 + 0.1, 0, z0 + 0.3, x0 + 0.82, 0.8, z1 - 0.3);
+    const pots = [F.roseR, F.tulY, F.cosP, F.lily, F.sun, F.roseP, F.tulR, F.cosW, F.roseW, F.tulO, F.cosM];
+    pots.forEach((f, i) => potOf(B, f, x0 + 0.47, 0.75, z0 + 0.7 + i * 0.76, 1.0, i));
+    for (const [z, f] of [[3.2, F.broad], [5.6, F.fern], [8.0, F.broad]]) { potOf(B, f, -0.45, 0.06, z, 1.7); addCollider(-0.65, 0, z - 0.2, -0.25, 0.7, z + 0.2); }
+    for (const z of [3.5, 6.5, 9.5]) { B.geo(M.iron, cyl(0.005, 0.005, 0.4, 4), mat4(-1.6, 2.55, z)); B.put(P.terra, G.bowl, -1.6, 2.28, z, 0, 2.2); putF(B, F.trail, -1.6, 2.38, z, z, 1.1); }
+    B.put(P.zinc, G.can, -0.6, 0.06, 10.2, 0.6);
+    // 2층 창 밑 꽃 상자
+    for (const [a, b] of [[1.4, 3.8], [5.6, 8]]) { B.box(M.beam, a, 4.04, Z1, b, 4.27, Z1 + 0.3, false); for (let x = a + 0.2; x < b; x += 0.3) putF(B, [F.cosP, F.tulR, F.cosW, F.tulY][Math.round(x * 3.4) % 4], x, 4.25, Z1 + 0.15, x * 2, 0.55); }
+    // 박공의 둥근 꽃 창
+    B.geo(M.beam, new THREE.TorusGeometry(0.62, 0.07, 6, 28), mat4(8, 7.3, Z1 + 0.02)); B.geo(mat('glow', 0xf3d9ea, { power: 0.25 }), new THREE.CircleGeometry(0.6, 28), mat4(8, 7.3, Z1 + 0.015));
+    for (let i = 0; i < 6; i++) B.geo(M.beam, new THREE.BoxGeometry(0.04, 1.2, 0.03), mat4(8, 7.3, Z1 + 0.03, 0, 0, i * PI / 6));
+    // 대문 길 위의 장미 덩굴 시렁
+    for (const z of [15.2, 17.4]) { for (const x of [11.1, 13.1]) B.box(M.white, x - 0.05, 0, z - 0.05, x + 0.05, 2.4, z + 0.05); B.box(M.white, 10.9, 2.4, z - 0.04, 13.3, 2.48, z + 0.04, false); }
+    for (let x = 11.1; x <= 13.11; x += 0.5) B.box(M.white, x - 0.03, 2.48, 15.0, x + 0.03, 2.54, 17.6, false);
+    for (let i = 0; i < 20; i++) putF(B, i % 2 ? F.roseR : F.roseP, 11.1 + (i % 5) * 0.5, 2.5, 15.25 + Math.floor(i / 5) * 0.7 + R() * 0.2, R() * 6, 0.6, (R() - 0.5) * 1.2);
+    for (const z of [15.2, 17.4]) for (const x of [11.1, 13.1]) for (const y of [0.9, 1.7]) putF(B, F.trail, x, y, z, y * 3 + x, 0.7);
+  }
+
   out.places.push(
+    { n: '야마나카 온실', t: '집 옆에 붙인 유리 온실. 꽃집에 낼 꽃 가운데 손이 많이 가는 것을 여기서 돌본다.', b: [-3, 0, 2, 11], y: [0, 3.2] },
     { n: '야마나카 본가', t: '야마나카 일족 우두머리 집안의 집. 지금은 이노와 어머니가 살고, 아침마다 큰길을 따라 꽃집으로 나간다.', b: [gx0, gx1, gz0, gz1] },
     { n: '야마나카 본가 현관', t: '신을 벗고 마루로 올라선다. 문간에도 꽃 양동이.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
     { n: '야마나카 본가 거실', t: '다다미 거실. 도코노마에는 "花鳥風月" 족자와 꽃꽂이.', b: [0.2, 9.8, 6.2, 12.8], y: [0, 3.2] },
@@ -1436,7 +1520,7 @@ function buildSarutobi(B, R, out) {
   side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
   trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
   for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
-  gableRoof(B, tile, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+  hipRoof(B, tile, X0, Z0, X1, Z1, TOP, 2.6, { over: 1.0 });
 
   // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
   B.box(M.floor, X0 + T, 0, Z0 + T, 10, F1, Z1 - T); B.box(M.floor, 10, 0, Z0 + T, X1 - T, F1, 11.5);
@@ -1583,7 +1667,37 @@ function buildSarutobi(B, R, out) {
   B.box(P.soil, 14.6, 0, 15.0, 18.6, 0.07, 17.8, false);
   for (let i = 0; i < 15; i++) putF(B, [F.sun, F.cosW, F.fern][i % 3], 15.0 + (i % 5) * 0.8, 0.06, 15.4 + Math.floor(i / 5) * 0.95, R() * 6, 0.7 + R() * 0.2);
 
+  /* 사루토비다운 뼈대: 층 사이의 눈썹지붕, 붉은 모서리 기둥, 지붕 위의 망루, 대문 안의 원숭이 돌상 */
+  {
+    const RED = mat('plain', 0xa8382c, { rough: 0.7 });
+    skirtRoof(B, tile, X0, Z0, X1, Z1, 3.0, 1.0, 0.5);
+    for (const [x, z] of [[X0 - 0.03, Z0 - 0.03], [X1 + 0.03, Z0 - 0.03], [X0 - 0.03, Z1 + 0.03], [X1 + 0.03, Z1 + 0.03]]) B.box(RED, x - 0.17, 0, z - 0.17, x + 0.17, TOP, z + 0.17, false);
+    // 망루: 지붕 한가운데 솟은 작은 다락. 사방에 살창과 난간
+    const tx0 = 6.2, tx1 = 9.8, tz0 = 4.7, tz1 = 8.3, ty0 = TOP + 1.0, ty1 = TOP + 4.6, cx = 8, cz = 6.5;
+    B.box(wl, tx0, ty0, tz0, tx1, ty1, tz1, false);
+    for (const [x, z] of [[tx0, tz0], [tx1, tz0], [tx0, tz1], [tx1, tz1]]) B.box(RED, x - 0.12, ty0, z - 0.12, x + 0.12, ty1, z + 0.12, false);
+    for (const s of [-1, 1]) {
+      const zf = s > 0 ? tz1 : tz0, xf = s > 0 ? tx1 : tx0;
+      B.box(P.black, cx - 1.0, ty1 - 1.5, zf - 0.02 * s - 0.01, cx + 1.0, ty1 - 0.5, zf + 0.02 * s + 0.01, false); for (let k = -4; k <= 4; k++) B.box(RED, cx + k * 0.22 - 0.025, ty1 - 1.5, zf + s * 0.03 - 0.02, cx + k * 0.22 + 0.025, ty1 - 0.5, zf + s * 0.03 + 0.02, false);
+      B.box(P.black, xf - 0.02 * s - 0.01, ty1 - 1.5, cz - 1.0, xf + 0.02 * s + 0.01, ty1 - 0.5, cz + 1.0, false); for (let k = -4; k <= 4; k++) B.box(RED, xf + s * 0.03 - 0.02, ty1 - 1.5, cz + k * 0.22 - 0.025, xf + s * 0.03 + 0.02, ty1 - 0.5, cz + k * 0.22 + 0.025, false);
+    }
+    B.box(M.beam, tx0 - 0.55, ty1 - 1.85, tz0 - 0.55, tx1 + 0.55, ty1 - 1.75, tz1 + 0.55, false);
+    railing(B, RED, [[tx0 - 0.5, tz0 - 0.5], [tx1 + 0.5, tz0 - 0.5], [tx1 + 0.5, tz1 + 0.5], [tx0 - 0.5, tz1 + 0.5], [tx0 - 0.5, tz0 - 0.5]], ty1 - 1.75, 0.6, { collide: false, gap: 0.3 });
+    hipRoof(B, tile, tx0, tz0, tx1, tz1, ty1, 1.6, { over: 0.9 });
+    signBoard(B, '火', cx, ty0 + 1.0, tz1 + 0.04, 0, 0.8, 0.8, { round: true, both: false, color: '#b3261a', bg: '#f1e9d4' });
+    // 대문 안 양옆의 원숭이 돌상(일족이 부르는 원숭이 왕 엔마에서 따왔다)
+    for (const s of [-1, 1]) {
+      const x = 12.1 + s * 2.0, z = 17.6, st = M.stone;
+      B.box(st, x - 0.32, 0, z - 0.32, x + 0.32, 0.5, z + 0.32); B.box(st, x - 0.38, 0.5, z - 0.38, x + 0.38, 0.58, z + 0.38, false);
+      B.geo(st, G.ball, mat4(x, 0.86, z, 0, 0, 0, [0.24, 0.3, 0.22])); B.geo(st, G.ball, mat4(x, 1.28, z + 0.04, 0, 0, 0, 0.17)); B.geo(st, G.ball, mat4(x, 1.24, z + 0.17, 0, 0, 0, [0.1, 0.08, 0.08]));
+      for (const e of [-1, 1]) { B.geo(st, G.ball, mat4(x + e * 0.17, 1.3, z, 0, 0, 0, [0.05, 0.07, 0.03])); B.geo(st, G.ball, mat4(x + e * 0.16, 0.66, z + 0.16, 0, 0, 0, [0.07, 0.07, 0.12])); B.geo(st, cyl(0.045, 0.045, 0.36, 6), mat4(x + e * 0.2, 0.9, z + 0.12, 0.5, 0, e * 0.25)); }
+      B.geo(st, tube([V3(x, 0.64, z - 0.2), V3(x - s * 0.2, 0.7, z - 0.34), V3(x - s * 0.3, 0.95, z - 0.3), V3(x - s * 0.24, 1.1, z - 0.22)], 0.03, 6, true));
+      B.geo(st, cyl(0.022, 0.022, 1.3, 6), mat4(x + s * 0.27, 1.05, z + 0.2));   // 여의봉
+    }
+  }
+
   out.places.push(
+    { n: '사루토비 본가의 망루', t: '지붕 위에 솟은 작은 다락. 관저와 호카게 바위가 바로 보인다. 올라가는 길은 없다.', b: [6.2, 9.8, 4.7, 8.3], y: [7, 13] },
     { n: '사루토비 본가', t: '3대 호카게 히루젠의 집. 손자 코노하마루가 함께 산다. 관저가 바로 코앞이다.', b: [gx0, gx1, gz0, gz1] },
     { n: '사루토비네 현관', t: '신을 벗고 마루로 올라선다.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
     { n: '사루토비네 거실', t: '다다미 거실. 도코노마에 "火の意志" 족자, 장 위에는 식구 사진.', b: [0.2, 9.8, 6.2, 12.8], y: [0, 3.2] },
@@ -1601,7 +1715,7 @@ function buildSarutobi(B, R, out) {
    이누즈카 구역 가운데 골목가. 1층은 다다미 거실과 츠메의 방, 부엌, 2층은 키바의 방과 하나의 방. 방마다 식구의 닌견이 있다.
    츠메(쿠로마루), 하나(하이마루 삼형제), 키바(아카마루)는 원작의 식구와 닌견이고, 집의 생김새와 꾸밈은 지어낸 것이다. */
 function buildInuzuka(B, R, out) {
-  const X0 = 0, X1 = 16, Z0 = 0, Z1 = 13, T = 0.2, F1 = 0.4, F2 = 3.4, CE = 6.1, TOP = 6.2, wl = mat('plaster', 0xe8dcc0), tile = mat('tile', 0x77706a);
+  const X0 = 0, X1 = 16, Z0 = 0, Z1 = 13, T = 0.2, F1 = 0.4, F2 = 3.4, CE = 6.1, TOP = 6.2, wl = mat('wood', 0x8a6844), tile = mat('tile', 0x80694a);   // 통나무 벽에 흙빛 지붕
   const { glows } = out, grey = mat('plain', 0x8a8f96);
   // 닌견 한 마리를 세워 둔다(ci: 0 흰 개, 1 검은 개, 2 잿빛 개). 발밑에 충돌 상자
   const dog = (ci, x, y, z, ry, s) => { const Tm = mat4(x, y, z, 0, ry, 0, s); for (const [hex, g, m] of dogStatue(ci)) B.geo(mat('plain', hex, { rough: 0.95 }), g, Tm.clone().multiply(m)); addCollider(x - 0.3 * s, y, z - 0.3 * s, x + 0.3 * s, y + 0.8 * s, z + 0.3 * s); };
@@ -1614,7 +1728,7 @@ function buildInuzuka(B, R, out) {
   side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
   trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
   for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
-  gableRoof(B, tile, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+  gableRoof(B, tile, X0, Z0, X1, Z1, TOP, 4.0, { ridge: 'x', gable: wl, over: 1.0 });   // 가파른 맞배지붕
 
   // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
   B.box(M.floor, X0 + T, 0, Z0 + T, 10, F1, Z1 - T); B.box(M.floor, 10, 0, Z0 + T, X1 - T, F1, 11.5);
@@ -1751,7 +1865,28 @@ function buildInuzuka(B, R, out) {
   }
   for (const x of [15.5, 17.5]) { B.geo(M.beam, cyl(0.16, 0.18, 1.6, 12), mat4(x, 0.8, 16.2)); addCollider(x - 0.2, 0, 16.0, x + 0.2, 1.6, 16.4); }   // 발톱 가는 말뚝
 
+  /* 이누즈카다운 뼈대: 통나무 벽과 모서리의 통나무 끝, 동쪽에 붙인 견사, 개가 드나드는 문, 벽의 붉은 송곳니 무늬 */
+  {
+    const LOGM = mat('wood', 0x5f4630), LX = cyl(0.14, 0.14, 0.62, 8).rotateZ(PI / 2), LZ = cyl(0.14, 0.14, 0.62, 8).rotateX(PI / 2);
+    for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) for (let y = 0.55; y < TOP - 0.2; y += 0.42) { B.geo(LOGM, LX, mat4(x, y, z)); B.geo(LOGM, LZ, mat4(x, y + 0.21, z)); }
+    // 견사(x 16~18.2, z 3~11): 칸 넷. 칸마다 짚자리와 밥그릇, 이름패
+    leanRoof(B, tile, 2.7, 11.3, 16, 2.7, 2.95, 2.1, 'e');
+    for (let k = 0; k <= 4; k++) { const z = 3 + k * 2; B.box(M.beamLight, 16, 0, z - 0.04, 18.2, k % 4 ? 1.3 : 2.1, z + 0.04); postAt(B, 18.2, z, 0, 2.2, M.beam, 0.06); }
+    B.box(M.beam, 18.14, 1.62, 3, 18.26, 1.9, 11, false);
+    ['黒丸', '灰丸', '赤丸', '客'].forEach((t, k) => {
+      const zc = 4 + k * 2;
+      B.put(P.kraft, G.futon, 16.9, 0.02, zc, PI / 2, [0.95, 0.5, 1.2]); bowl(17.9, 0, zc - 0.6);
+      signBoard(B, t, 18.27, 1.76, zc, PI / 2, 0.5, 0.2, { both: false, depth: 0.02 });
+      if (k < 3) { B.geo(P.white, cyl(0.02, 0.02, 0.22, 6).rotateZ(PI / 2), mat4(17.6, 0.05, zc + 0.5, 0, k, 0)); for (const e of [-1, 1]) for (const d of [-1, 1]) B.geo(P.white, G.ball, mat4(17.6 + Math.cos(k) * e * 0.11, 0.05 + d * 0.012, zc + 0.5 - Math.sin(k) * e * 0.11 + d * 0.02, 0, 0, 0, 0.03)); }   // 뼈다귀
+    });
+    // 현관 옆, 개가 드나드는 낮은 문
+    B.box(M.beam, 10.22, 0.4, Z1, 11.08, 1.32, Z1 + 0.04, false); B.box(P.black, 10.3, 0.45, Z1 + 0.04, 11.0, 1.24, Z1 + 0.05, false); B.box(M.beamLight, 10.32, 0.47, Z1 + 0.05, 10.98, 1.22, Z1 + 0.06, false); B.box(M.iron, 10.3, 1.2, Z1 + 0.05, 11.0, 1.25, Z1 + 0.075, false);
+    // 2층 벽의 붉은 송곳니 무늬 한 쌍
+    for (const x of [8.75, 9.75]) B.prism(P.red, 'z', [[x, 5.75], [x + 0.55, 5.75], [x + 0.275, 4.65]], Z1, Z1 + 0.03);
+  }
+
   out.places.push(
+    { n: '이누즈카 견사', t: '집 옆에 붙인 닌견들의 잠자리. 쿠로마루, 하이마루 삼형제, 아카마루의 칸과 손님 칸.', b: [16, 18.3, 3, 11], y: [0, 3] },
     { n: '이누즈카 본가', t: '일족을 이끄는 츠메와 딸 하나, 아들 키바의 집. 식구마다 제 닌견이 있다.', b: [gx0, gx1, gz0, gz1] },
     { n: '이누즈카네 현관', t: '신을 벗고 마루로 올라선다. 벽에 목줄이 걸려 있다.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
     { n: '이누즈카네 거실', t: '큰 방석 위에 선 검은 닌견이 츠메의 짝 쿠로마루다. 사람 말을 하는 닌견이다.', b: [0.2, 9.8, 6.4, 12.8], y: [0, 3.2] },
@@ -1796,7 +1931,7 @@ function buildAburame(B, R, out) {
   side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
   trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
   for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
-  gableRoof(B, tile, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+  hipRoof(B, tile, X0, Z0, X1, Z1, TOP, 1.7, { over: 0.6 });   // 낮게 덮은 지붕
 
   // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
   B.box(M.floor, X0 + T, 0, Z0 + T, 10, F1, Z1 - T); B.box(M.floor, 10, 0, Z0 + T, X1 - T, F1, 11.5);
@@ -1933,7 +2068,39 @@ function buildAburame(B, R, out) {
   }
   for (let i = 0; i < 26; i++) putF(B, i % 3 ? F.fern : F.broad, 14.4 + R() * 4.6, 0, 14.6 + R() * 3.8, R() * 6, 0.9 + R() * 0.7);
 
+  /* 아부라메다운 뼈대: 창마다 비늘 덧창, 북쪽에 붙인 유리 사육실, 서쪽 마당의 벌레 탑, 벽을 타는 덩굴 */
+  {
+    const slat = mat('wood', 0x353a34);
+    const shut = (ax, f, a, b, y0, y1, o) => { for (let y = y0 + 0.1; y < y1; y += 0.26) B.geo(slat, ax === 'x' ? new THREE.BoxGeometry(b - a + 0.12, 0.17, 0.025) : new THREE.BoxGeometry(0.025, 0.17, b - a + 0.12), ax === 'x' ? mat4((a + b) / 2, y, f + o * 0.08, o * 0.55, 0, 0) : mat4(f + o * 0.08, y, (a + b) / 2, 0, 0, -o * 0.55)); };
+    for (const [a, b, y0, y1] of [[2, 4.5, 4.3, 5.7], [6, 8.5, 4.3, 5.7], [11.5, 13.5, 1.5, 2.6], [11.5, 13.5, 4.3, 5.7]]) shut('x', Z0, a, b, y0, y1, -1);
+    for (const [a, b, y0, y1] of [[1.4, 3.8, 1.3, 2.7], [1.4, 3.8, 4.3, 5.7], [5.6, 8, 1.3, 2.7], [5.6, 8, 4.3, 5.7], [11.5, 12.7, 4.3, 5.7]]) shut('x', Z1, a, b, y0, y1, 1);
+    for (const [a, b, y0, y1] of [[2, 4, 1.3, 2.7], [2, 4, 4.3, 5.7], [7.6, 10, 1.3, 2.7], [7.6, 10, 4.3, 5.7]]) shut('z', X0, a, b, y0, y1, -1);
+    for (const [a, b, y0, y1] of [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]) shut('z', X1, a, b, y0, y1, 1);
+    // 유리 사육실(x 1~9, z -3~0): 연구실 창 밖에 붙였다. 문은 동쪽
+    const gw = M.glass, fr = M.beam;
+    B.box(M.pave, 1, 0, -3, 9, 0.06, 0, false);
+    B.box(gw, 1, 0.4, -3, 9, 2.2, -2.96); B.box(fr, 1, 0, -3, 9, 0.4, -2.92, false); B.box(gw, 1, 0.4, -3, 1.04, 2.2, 0); B.box(fr, 1, 0, -3, 1.08, 0.4, 0, false);
+    B.box(gw, 8.96, 0.4, -3, 9, 2.2, -2.2); B.box(gw, 8.96, 0.4, -0.9, 9, 2.2, 0); B.box(fr, 8.94, 0, -2.23, 9.02, 2.2, -2.17, false); B.box(fr, 8.94, 0, -0.93, 9.02, 2.2, -0.87, false); B.box(fr, 8.94, 2.1, -2.2, 9.02, 2.2, -0.9, false);
+    for (let x = 1; x <= 9.01; x += 1.6) { B.box(fr, x - 0.03, 0, -3.02, x + 0.03, 2.2, -2.94, false); beamBetween(B, fr, V3(x, 2.2, -3), V3(x, 3.0, 0), 0.05, 0.05); }
+    B.box(fr, 1, 2.16, -3.02, 9, 2.24, -2.94, false); beamBetween(B, gw, V3(5, 2.23, -3), V3(5, 3.03, 0), 8, 0.02);
+    B.box(M.beam, 1.4, 0.72, -2.8, 7.6, 0.78, -2.2, false); for (const x of [1.5, 4.5, 7.5]) B.box(M.beam, x - 0.03, 0, -2.75, x + 0.03, 0.72, -2.25, false); addCollider(1.4, 0, -2.85, 7.6, 0.8, -2.2);
+    for (let k = 0; k < 5; k++) terrarium(2.0 + k * 1.25, 0.78, -2.5, 0.9, 0.45, 0.5);
+    for (let i = 0; i < 9; i++) putF(B, i % 2 ? F.fern : F.broad, 1.6 + i * 0.75, 0.05, -0.45 + (i % 2) * 0.15, i, 0.8 + (i % 3) * 0.25);
+    B.geo(M.beam, cyl(0.16, 0.2, 1.6, 8).rotateZ(PI / 2), mat4(6.6, 0.2, -1.3, 0, 0.3, 0)); for (let k = 0; k < 3; k++) jar(7.9, 0.06, -1.9 + k * 0.5, 0.9);
+    // 벌레 탑: 짚을 틀어 올린 벌통 꼴의 높은 탑(서쪽 마당)
+    const tx = -1.7, tz = 9.6, prof = [[0, 0], [1.2, 0], [1.28, 1.5], [1.22, 3.0], [1.08, 4.5], [0.82, 5.8], [0.45, 6.7], [0, 7.0]], straw = mat('plain', 0xa8935e, { rough: 1 });
+    B.geo(straw, lathe(prof, 20), mat4(tx, 0, tz));
+    for (let y = 0.45; y < 6.6; y += 0.45) { let r = 0; for (let k = 1; k < prof.length; k++) if (y <= prof[k][1]) { const t = (y - prof[k - 1][1]) / (prof[k][1] - prof[k - 1][1]); r = prof[k - 1][0] + (prof[k][0] - prof[k - 1][0]) * t; break; } B.geo(mat('plain', 0x8a7748, { rough: 1 }), new THREE.TorusGeometry(r + 0.01, 0.035, 4, 24).rotateX(PI / 2), mat4(tx, y, tz)); }
+    for (const [a, y] of [[1.57, 1.1], [0.9, 2.3], [2.2, 3.4], [1.57, 4.4], [0.3, 1.8], [2.8, 2.6]]) { const r = y < 3 ? 1.27 : y < 4 ? 1.2 : 1.1; B.geo(P.black, new THREE.CircleGeometry(0.07, 10), mat4(tx + Math.cos(a) * r, y, tz + Math.sin(a) * r, 0, PI / 2 - a, 0)); B.geo(M.beam, new THREE.BoxGeometry(0.22, 0.02, 0.12), mat4(tx + Math.cos(a) * (r + 0.05), y - 0.09, tz + Math.sin(a) * (r + 0.05), 0, PI / 2 - a, 0)); }
+    addCollider(tx - 1.15, 0, tz - 1.15, tx + 1.15, 6.5, tz + 1.15);
+    // 벽을 타고 내린 덩굴
+    for (let i = 0; i < 12; i++) putF(B, F.trail, 0.6 + i * 0.85, TOP - 0.25 - (i % 3) * 0.5, Z1 + 0.06, i, 1.2 + (i % 2) * 0.4);
+    for (let i = 0; i < 8; i++) putF(B, F.trail, X1 + 0.06, TOP - 0.3 - (i % 3) * 0.6, 0.8 + i * 1.5, i + 1.57, 1.3);
+  }
+
   out.places.push(
+    { n: '아부라메 사육실', t: '연구실 창 밖에 붙인 유리방. 긴 대 위에 사육 상자가 늘어섰다.', b: [1, 9, -3, 0], y: [0, 3] },
+    { n: '벌레 탑', t: '짚을 틀어 올린 벌통 꼴의 탑. 작은 구멍으로 벌레가 드나든다.', b: [-3, -0.4, 8.4, 10.8], y: [0, 7.2] },
     { n: '아부라메 본가', t: '일족을 이끄는 시비와 아들 시노의 집. 집 안팎에 벌레를 기르는 상자가 놓여 있다.', b: [gx0, gx1, gz0, gz1] },
     { n: '아부라메네 현관', t: '신을 벗고 마루로 올라선다. 벽에 깃 높은 겉옷이 걸려 있다.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
     { n: '아부라메네 거실', t: '말수 적은 부자가 마주 앉는 다다미 거실. 벽에 벌레 표본 액자.', b: [0.2, 9.8, 6.2, 12.8], y: [0, 3.2] },
@@ -1989,7 +2156,7 @@ function buildNara(B, R, out) {
   side(B, wl, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[2, 4, 1.5, 2.6], [2, 4, 4.3, 5.7], [7.6, 9.4, 3.0, 4.6]]);
   trim(B, X0, Z0, X1, Z1, TOP, [3.12, TOP - 0.16]);
   for (const [a, b, c, d] of [[X0 - 0.05, Z0 - 0.05, X1 + 0.05, Z0], [X0 - 0.05, Z0, X0, Z1], [X1, Z0, X1 + 0.05, Z1], [X0 - 0.05, Z1, 11.4, Z1 + 0.05], [12.8, Z1, X1 + 0.05, Z1 + 0.05]]) B.box(M.stone, a, 0, b, c, 0.45, d, false);
-  gableRoof(B, tile, X0, Z0, X1, Z1, TOP, 2.8, { ridge: 'x', gable: wl });
+  hipRoof(B, tile, X0, Z0, X1, Z1, TOP, 2.3, { over: 1.4 });   // 처마 깊은 우진각지붕
   photo(B, crest, 9.4, 4.2, Z1 + 0.012, 0, 0.7, 0.7);
 
   // 바닥: 1층 마루, 현관(신발 벗는 낮은 자리), 2층 마루(계단 구멍), 천장
@@ -2172,7 +2339,28 @@ function buildNara(B, R, out) {
   }
   for (let i = 0; i < 14; i++) putF(B, i % 3 ? F.fern : F.broad, 14.6 + R() * 4.2, 0, 17.4 + R() * 1.2, R() * 6, 0.8 + R() * 0.5);
 
+  /* 나라다운 뼈대: 거실 앞 툇마루, 서쪽의 약초 헛간, 용마루 양 끝의 사슴뿔 */
+  {
+    // 툇마루(x 0~10.2, z 13~14.5): 기둥 넷과 달개지붕. 누워 구름 보기 좋은 자리
+    B.box(M.floor, 0, 0, Z1, 10.2, 0.35, 14.5); B.box(M.stone, 4.5, 0, 14.5, 5.7, 0.17, 14.95);
+    for (const x of [0.1, 3.4, 6.8, 10.1]) postAt(B, x, 14.43, 0.35, 2.52);
+    B.box(M.beam, 0, 2.5, 14.36, 10.2, 2.62, 14.5, false);
+    leanRoof(B, tile, -0.3, 10.5, Z1, 1.9, 3.08, 2.6, 's');
+    B.put(P.green, G.zabuton, 2.2, 0.39, 13.75, 0.2, 1.1); B.put(P.white, G.pillow, 1.6, 0.4, 13.7, 1.4); B.box(M.beam, 7.6, 0.35, 13.5, 8.2, 0.37, 13.9, false); B.put(P.porcelain, G.cup, 7.8, 0.37, 13.7); B.put(P.porcelain, G.cup, 8.02, 0.37, 13.75);
+    // 약초 헛간(x -3~0, z 1~7): 벽 없이 기둥과 지붕만. 매단 약초, 약단지 시렁, 돌절구, 장작
+    leanRoof(B, tile, 0.7, 7.3, 0, 3.1, 3.05, 2.25, 'w'); for (const z of [1, 4, 7]) postAt(B, -2.9, z, 0, 2.28);
+    B.box(M.beam, -2.97, 2.2, 1, -2.83, 2.32, 7, false);
+    B.box(M.beam, -0.42, 0, 1.3, -0.04, 1.8, 4.6); for (let r = 0; r < 3; r++) { B.box(M.beamLight, -0.5, 0.5 + r * 0.55, 1.3, -0.04, 0.54 + r * 0.55, 4.6, false); for (let k = 0; k < 6; k++) B.geo(mat('plain', [0x6a4a36, 0x8a6a4a, 0x4f5a48][(r + k) % 3], { rough: 0.8 }), lathe([[0, 0], [0.09, 0], [0.13, 0.1], [0.12, 0.2], [0.07, 0.26], [0.08, 0.3], [0, 0.3]], 10), mat4(-0.36, 0.54 + r * 0.55, 1.6 + k * 0.52)); }
+    for (const x of [-1.2, -2.0]) { B.box(M.beam, x - 0.02, 2.0, 1.2, x + 0.02, 2.04, 6.8, false); for (let k = 0; k < 11; k++) bundle(x, 1.98, 1.5 + k * 0.5, (k + (x < -1.5 ? 1 : 0)) % 3 ? herb : dry); }
+    B.geo(M.stone, lathe([[0, 0], [0.34, 0], [0.4, 0.3], [0.38, 0.55], [0.3, 0.55], [0.22, 0.25], [0, 0.2]], 14), mat4(-1.7, 0, 5.9)); B.geo(M.beamLight, cyl(0.05, 0.07, 1.0, 8), mat4(-1.55, 0.72, 5.85, 0.25, 0, -0.3)); addCollider(-2.1, 0, 5.5, -1.3, 0.6, 6.3);
+    for (let i = 0; i < 15; i++) B.geo(M.beam, cyl(0.07, 0.07, 0.55, 6).rotateZ(PI / 2), mat4(-0.35, 0.08 + Math.floor(i / 5) * 0.15, 5.2 + (i % 5) * 0.16)); addCollider(-0.65, 0, 5.1, -0.05, 0.5, 6.0);
+    // 용마루 양 끝의 사슴뿔
+    for (const x of [6.4, 9.6]) { antler(x, TOP + 2.2, 6.5, PI / 2, 2.4, 1); antler(x, TOP + 2.2, 6.5, PI / 2, 2.4, -1); }
+  }
+
   out.places.push(
+    { n: '시카마루네 툇마루', t: '거실 앞 툇마루. 방석과 베개가 놓여 있다. 누워서 구름 보기 좋은 자리.', b: [0, 10.2, 13, 14.5], y: [0, 3.2] },
+    { n: '약초 헛간', t: '벽 없이 지붕만 인 헛간. 약초를 매달아 말리고, 약단지와 돌절구를 둔다.', b: [-3, 0, 1, 7], y: [0, 3.1] },
     { n: '나라 본가(시카마루네 집)', t: '나라 일족 우두머리의 집. 아버지 시카쿠가 세상을 떠난 뒤로 시카마루와 어머니 요시노가 산다.', b: [gx0, gx1, gz0, gz1] },
     { n: '시카마루네 현관', t: '신을 벗고 마루로 올라선다. 벽에 닌자 조끼가 걸려 있다.', b: [10, 15.8, 6.4, 12.8], y: [0, 3.2] },
     { n: '시카마루네 거실', t: '다다미 한가운데 장기판. 아버지와 아들이 마주 앉아 두던 자리다. 장 위에 시카쿠의 사진.', b: [0.2, 9.8, 6.2, 12.8], y: [0, 3.2] },
