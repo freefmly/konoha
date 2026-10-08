@@ -375,6 +375,27 @@ function bench(F, w, back = true) {
   if (back) for (const y of [0.62, 0.8]) F.box(M.beamLight, -w / 2, y, -0.22, w / 2, y + 0.1, -0.2);
   F.solid(-w / 2, 0, -0.22, w / 2, back ? 0.9 : 0.44, 0.2);
 }
+// 방석 깐 긴 의자(등받이는 -z 쪽)
+function sofa(F, w, cm) {
+  F.box(M.beam, -w / 2, 0.08, -0.4, w / 2, 0.3, 0.4); for (const a of [-1, 1]) for (const b of [-1, 1]) F.box(M.beam, a * (w / 2 - 0.1) - 0.04, 0, b * 0.32 - 0.04, a * (w / 2 - 0.1) + 0.04, 0.08, b * 0.32 + 0.04);
+  F.box(M.beam, -w / 2, 0.3, -0.42, w / 2, 0.88, -0.3); for (const s of [-1, 1]) F.box(M.beam, s * w / 2 - (s > 0 ? 0.12 : 0), 0.3, -0.4, s * w / 2 + (s < 0 ? 0.12 : 0), 0.62, 0.4);
+  const n = Math.max(1, Math.round((w - 0.24) / 0.75)), cw = (w - 0.24) / n;
+  for (let i = 0; i < n; i++) { const x = -w / 2 + 0.12 + cw * (i + 0.5); F.put(cm, new THREE.SphereGeometry(1, 12, 8), x, 0.36, 0.06, 0, [cw / 2 - 0.02, 0.09, 0.32]); F.put(cm, new THREE.SphereGeometry(1, 12, 8), x, 0.62, -0.26, 0, [cw / 2 - 0.02, 0.24, 0.07], -0.15); }
+  F.solid(-w / 2, 0, -0.42, w / 2, 0.88, 0.4);
+}
+// 세워 둔 깃발: 장대에 세로로 드리운 천(글자 한 자)
+function flagAt(F, x, z, text, bg) {
+  F.box(M.beam, x - 0.2, 0, z - 0.2, x + 0.2, 0.06, z + 0.2); F.put(M.beam, new THREE.CylinderGeometry(0.025, 0.03, 2.7, 8), x, 1.35, z); F.put(mat('metal', 0xc9a04a, { rough: 0.4 }), new THREE.SphereGeometry(0.05, 10, 8), x, 2.72, z);
+  F.put(M.beam, new THREE.CylinderGeometry(0.012, 0.012, 0.6, 6).rotateZ(PI / 2), x, 2.55, z + 0.03);
+  F.put(textMat(text, { w: 128, h: 384, bg, color: '#f4efe2', pad: 0.2 }, 'cloth'), new THREE.PlaneGeometry(0.56, 1.6, 2, 6), x, 1.74, z + 0.04);
+  F.solid(x - 0.1, 0, z - 0.1, x + 0.1, 2.7, z + 0.1);
+}
+// 쇠창살 한 줄(틀 안 좌표, z = c에서 x0~x1 또는 x = c에서 z0~z1)
+function cageBars(F, ax, c, u0, u1, h) {
+  const n = Math.round((u1 - u0) / 0.14);
+  for (let i = 0; i <= n; i++) { const u = u0 + (u1 - u0) * i / n; if (ax === 'x') F.box(M.iron, u - 0.014, 0, c - 0.014, u + 0.014, h, c + 0.014); else F.box(M.iron, c - 0.014, 0, u - 0.014, c + 0.014, h, u + 0.014); }
+  for (const y of [0.04, h / 2, h - 0.04]) { if (ax === 'x') F.box(M.iron, u0, y - 0.025, c - 0.025, u1, y + 0.025, c + 0.025); else F.box(M.iron, c - 0.025, y - 0.025, u0, c + 0.025, y + 0.025, u1); }
+}
 function chairAt(F, x, z, r, m = M.beamLight) { F.put(m, G.chair, x, 0, z, r); const a = F.W(x, z); fin(() => addCollider(a[0] - 0.2, F.oy, a[1] - 0.2, a[0] + 0.2, F.oy + 0.9, a[1] + 0.2)); }
 function plantAt(B, kind, x, y, z, r = 0, s = 1) { x = sx(x); y = sy(y); z = sz(z); for (const [m, g] of G[kind]) BF.put(m, g, x, y, z, r, s); fin(() => addCollider(x - 0.2 * s, y, z - 0.2 * s, x + 0.2 * s, y + 0.9, z + 0.2 * s)); }
 // 나무 궤짝: 널판 몸통에 모서리 각목과 띠
@@ -505,6 +526,9 @@ function floor1(B, R, glows) {
   { const a = F.W(0, 0.4);   // 천장에서 드리운 접수처 팻말
     signBoard(BF, '任務受付', a[0], F.oy + 3.15, a[1], 0, 2.8, 0.62, { bg: '#e9dcc0' });
     for (const x of [-1.2, 1.2]) BF.box(M.iron, x - 0.012, F.oy + 3.46, a[1] - 0.012, x + 0.012, sy(Y2 - 0.2), a[1] + 0.012, false); }
+  { const a = F.W(0, 0.415); signBoard(BF, '任務受付はこちらまで', a[0], F.oy + 0.56, a[1], 0, 4.6, 0.46, { both: false, depth: 0.02, bg: '#f4f1e8', frame: PAPER }); }   // 책상 앞에 드리운 흰 현수막
+  { const b = F.W(0, 0.4); signBoard(BF, '皆さんガンバ', b[0], F.oy + 3.8, b[1], 0, 2.4, 0.4, { depth: 0.02, bg: '#f4f1e8' }); }                                                  // 뒤 벽 위의 현수막
+  BF.put(textMat('忍', { w: 256, h: 256, bg: '#f1e9d4', color: '#2a1d16', pad: 0.16 }), new THREE.PlaneGeometry(2.6, 2.6).rotateX(PI / 2), 0, sy(Y2 - 0.2) - 0.03, sz(-94.6), 0);   // 천장의 忍
   // 접수처 뒤 벽의 임무 두루마리 서가
   for (const x of [-2.32, 2.32]) rack(frame(B, x, Y1, ZS0, 0), 4.5 * S, 2.9, 'scrolls', R);
   // 게시판(서쪽)
@@ -549,6 +573,19 @@ function floor2(B, R, glows, MAP) {
   BF.put(MAP, G.sheet, 0, y2 + 2.05, zf + 0.045, 0, [3.3, 2.0, 1]);
   for (const s of [-1, 1]) { rack(frame(B, s * 10.3, Y2, z, 0), 2.6, 2.1, 'books', R); plantAt(B, 'plantA', s * 3.9, Y2, z + 0.4, s); plantAt(B, 'plantB', s * 5.2, Y2, -92.9, s * 2, 1.1); }
   for (const s of [-1, 1]) signBoard(BF, '会議室', sx(s * 7.25), y2 + DOOR + 0.32, sz(ZS1) - 0.03, PI, 1.0, 0.3, { both: false, depth: 0.04 });
+  { // 서쪽 끝: 세워 둔 임무 배치판
+    const N = frame(B, -9.4, Y2, -96.9, PI / 2);
+    for (const x of [-1.25, 1.25]) { N.box(M.beam, x - 0.05, 0, -0.05, x + 0.05, 2.2, 0.05); N.box(M.beam, x - 0.05, 0, -0.35, x + 0.05, 0.06, 0.35); }
+    N.box(CORK, -1.2, 0.8, -0.025, 1.2, 2.1, 0.025); N.box(M.beam, -1.25, 2.1, -0.04, 1.25, 2.17, 0.04); N.box(M.beam, -1.25, 0.74, -0.04, 1.25, 0.8, 0.04); N.solid(-1.3, 0, -0.1, 1.3, 2.2, 0.1);
+    { const a = N.W(0, 0.035); signBoard(BF, '任務配置', a[0], N.oy + 1.98, a[1], PI / 2, 1.0, 0.2, { both: false, depth: 0.02 }); }
+    ['第七班', '第八班', '第十班', 'ガイ班', '暗部', '医療班'].forEach((t, i) => { N.put(textMat(t, { w: 128, h: 64, bg: '#efe6cf', color: '#2a1d16', pad: 0.14 }), G.sheet, -0.75 + (i % 3) * 0.75, 1.6 - (i / 3 | 0) * 0.5, 0.03, 0, [0.6, 0.26, 1]); N.put(REDP, G.unit, -0.75 + (i % 3) * 0.75, 1.75 - (i / 3 | 0) * 0.5, 0.036, 0, 0.018); N.put(i % 2 ? BOOK[1] : BOOK[2], G.unit, -0.6 + (i % 3) * 0.75, 1.42 - (i / 3 | 0) * 0.5, 0.034, 0, [0.22, 0.05, 0.004]); });
+  }
+  { // 동쪽 끝: 찻장과 차림
+    const E = frame(B, 9.5, Y2, -96.9, -PI / 2);
+    E.box(M.beam, -1.1, 0, -0.25, 1.1, 0.9, 0.25); E.box(M.beamLight, -1.04, 0.06, 0.25, -0.03, 0.84, 0.265); E.box(M.beamLight, 0.03, 0.06, 0.25, 1.04, 0.84, 0.265); for (const x of [-0.12, 0.12]) E.box(M.iron, x - 0.015, 0.4, 0.265, x + 0.015, 0.52, 0.285); E.solid(-1.1, 0, -0.25, 1.1, 0.9, 0.27);
+    teaSet(E, -0.4, 0.9, 0, 4); E.parts(G.vase, 0.6, 0.9, 0, 0, 1.2); for (let i = 0; i < 6; i++) E.put(PAPER, G.cup, 0.05 + (i % 3) * 0.1, 0.9, -0.1 + (i / 3 | 0) * 0.12);
+  }
+  { const T2 = frame(B, 0, Y2, -92.3, 0); flagAt(T2, -1.6, 0, '火', '#a82a20'); flagAt(T2, 1.6, 0, '忍', '#2f4f6a'); }
   // 자료실: 계단실 벽 서가, 맞등 서가 두 줄
   for (const x of [-2.35, 2.35]) rack(frame(B, x, Y2, ZN0 - 0.2, PI), 4.6 * S, 3.0, 'mix', R);
   for (const [zz, w] of [[-109.3, 9], [-112.9, 6.5]]) for (const r of [0, PI]) rack(frame(B, 0, Y2, zz, r), w * S, 2.6, r ? (w > 8 ? 'scrolls' : 'books') : 'mix', R);
@@ -558,6 +595,15 @@ function floor2(B, R, glows, MAP) {
   { const zt = sz(-109.3) - 0.48, zb = zt - 0.82;
     for (const x of [4.4, 4.85]) beamBetween(BF, M.beamLight, V3(x, y2, zb), V3(x, y2 + 2.7, zt), 0.05, 0.07);
     for (let k = 1; k < 8; k++) beamBetween(BF, M.beamLight, V3(4.4, y2 + k * 0.33, zb + k * 0.1), V3(4.85, y2 + k * 0.33, zb + k * 0.1), 0.035, 0.035); }
+  { // 금술 서고(북서쪽): 쇠창살 안에 봉인 딱지를 붙인 두루마리. 문은 잠겨 있다
+    const K = frame(B, -8.2, Y2, -109.4, PI / 2), w = 1.6, d = 1.2, h = 2.5;
+    rack(K.sub(0, 0, -d + 0.05, 0), 2.8, 2.2, 'scrolls', R);
+    cageBars(K, 'x', d, -w, w, h); cageBars(K, 'x', -d, -w, w, h); cageBars(K, 'z', -w, -d, d, h); cageBars(K, 'z', w, -d, d, h);
+    K.box(M.iron, -0.5, 0, d - 0.03, -0.44, h, d + 0.03); K.box(M.iron, 0.44, 0, d - 0.03, 0.5, h, d + 0.03); K.box(M.iron, 0.3, 1.0, d + 0.02, 0.46, 1.16, d + 0.07); K.box(mat('metal', 0xc9a04a, { rough: 0.4 }), 0.34, 0.9, d + 0.03, 0.42, 1.0, d + 0.06);   // 문틀과 자물쇠
+    K.solid(-w, 0, -d, w, h, d);
+    for (const [x, y] of [[-0.9, 1.5], [0.2, 1.9], [0.95, 1.1], [-0.3, 0.8]]) K.put(textMat('封', { w: 64, h: 128, bg: '#efe6cf', color: '#a82a20', pad: 0.12 }), G.sheet, x, y, -d + 0.5, 0, [0.12, 0.26, 1]);
+    { const a = K.W(0, d + 0.04); signBoard(BF, '禁術の書庫　立入禁止', a[0], K.oy + h + 0.2, a[1], PI / 2, 2.2, 0.3, { both: false, depth: 0.03, color: '#a82a20' }); }
+  }
   // 열람 책상(서쪽)
   const D = frame(B, -9.6, Y2, -105.2, PI / 2);
   desk(D, 1.7, 0.8); chairAt(D, 0, -0.75, 0);
@@ -572,7 +618,7 @@ function floor2(B, R, glows, MAP) {
 function floor3(B, R, glows) {
   // 붉은 양탄자
   disc(BF, REDP, 0, sy(Y3) + 0.012, sz(-96.4), 0, 3.7 * S, true, 48); disc(BF, PAPER, 0, sy(Y3) + 0.016, sz(-96.4), 3.2 * S, 3.36 * S, true, 48);
-  const D = frame(B, 0, Y3, -96.2, PI);     // 책상은 북쪽(문)을 본다 — 호카게는 창을 등지고 앉는다
+  const D = frame(B, 0, Y3, -94.1, PI);     // 책상은 북쪽(문)을 본다 — 호카게는 창을 등지고 앉는다. 창 바로 앞에 놓인다
   desk(D, 3.4, 1.4);
   D.put(M.beam, G.kageChair, 0, 0, -1.2, 0); D.put(REDP, G.kageCushion, 0, 0, -1.2, 0); D.solid(-0.35, 0, -1.5, 0.35, 1.5, -0.9);
   for (const [x, z, h] of [[-1.4, 0.3, 0.52], [-1.12, 0.32, 0.3], [-1.38, -0.1, 0.18], [1.35, 0.25, 0.44], [1.08, 0.3, 0.2], [1.36, -0.15, 0.62], [0.55, 0.42, 0.1]]) paperStack(D, x, 0.76, z, h, R);
@@ -582,6 +628,8 @@ function floor3(B, R, glows) {
   scrollPile(D, -0.6, 0.76, 0.3, 3, R); D.put(PAPER, G.cup, -0.45, 0.76, -0.3);
   D.put(REDP, new THREE.SphereGeometry(1, 14, 8), 0.85, 0.79, -0.05, 0, [0.16, 0.04, 0.16]); D.put(M.glass, new THREE.SphereGeometry(0.12, 20, 14), 0.85, 0.93, -0.05);   // 수정 구슬
   for (const [x, z, h] of [[2.2, 0.2, 0.9], [2.5, 0.05, 0.6], [-2.2, 0.3, 0.75], [-2.3, -0.5, 0.4]]) { paperStack(D, x, 0, z, h, R); D.solid(x - 0.12, 0, z - 0.16, x + 0.12, h, z + 0.16); }
+  flagAt(D, -3.3, -1.7, '火', '#a82a20'); flagAt(D, 3.3, -1.7, '火', '#a82a20');                                                         // 책상 뒤 양옆의 깃발
+  D.box(mat('plain', 0xd9772a), -0.95, 0.76, -0.38, -0.8, 0.785, -0.17); D.box(PAPER, -0.945, 0.763, -0.375, -0.805, 0.782, -0.175);          // 읽다 엎어 둔 주황 표지 책
   // 삿갓 걸이
   D.box(M.beam, 2.42, 0, -1.28, 2.78, 0.05, -0.92); D.put(M.beam, new THREE.CylinderGeometry(0.03, 0.04, 1.25, 8), 2.6, 0.65, -1.1); D.put(M.beam, new THREE.SphereGeometry(0.1, 12, 8), 2.6, 1.27, -1.1);
   D.parts(G.hat, 2.6, 1.27, -1.1, 0, 1.25); D.solid(2.4, 0, -1.3, 2.8, 1.5, -0.9);
@@ -600,13 +648,25 @@ function floor3(B, R, glows) {
   }
   // 손님 자리(서쪽): 낮은 탁자와 걸상 / 동쪽: 차 탁자
   const GS = frame(B, -7.6, Y3, -96.6, PI / 2);
-  table(GS, 1.5, 0.7, 0.42); teaSet(GS, 0, 0.42, 0, 4); bench(GS.sub(0, 0, -1.1, 0), 1.8); bench(GS.sub(0, 0, 1.1, PI), 1.8);
+  { const a = GS.W(0, 0); disc(BF, BOOK[2], a[0], sy(Y3) + 0.012, a[1], 0, 2.3, true, 32); }
+  table(GS, 1.5, 0.7, 0.42); teaSet(GS, 0, 0.42, 0, 4); sofa(GS.sub(0, 0, -1.25, 0), 2.2, BOOK[2]); sofa(GS.sub(0, 0, 1.25, PI), 2.2, BOOK[2]);
   const E = frame(B, 8.2, Y3, -96.4, -PI / 2);
   table(E, 1.3, 0.8, 0.72, M.beamLight); E.parts(G.vase, 0.35, 0.72, 0, 0, 1.3); scrollPile(E, -0.25, 0.72, 0, 3, R); chairAt(E, 0, -0.8, 0);
+  { // 봉인의 서: 동쪽 창가 받침 위의 큰 두루마리
+    const K = frame(B, 10.2, Y3, -98.9, -PI / 2);
+    K.box(M.beam, -0.9, 0, -0.3, 0.9, 0.8, 0.3); K.box(M.beamLight, -0.84, 0.06, 0.3, 0.84, 0.74, 0.315); K.solid(-0.9, 0, -0.3, 0.9, 1.2, 0.3);
+    for (const s of [-1, 1]) { K.box(M.beam, s * 0.5 - 0.03, 0.8, -0.16, s * 0.5 + 0.03, 0.9, 0.16); }
+    K.put(PAPER, new THREE.CylinderGeometry(0.15, 0.15, 1.2, 16).rotateZ(PI / 2), 0, 1.05, 0); for (const s of [-1, 1]) { K.put(BOOK[2], new THREE.CylinderGeometry(0.17, 0.17, 0.06, 16).rotateZ(PI / 2), s * 0.6, 1.05, 0); K.put(M.beam, new THREE.CylinderGeometry(0.05, 0.05, 0.14, 10).rotateZ(PI / 2), s * 0.7, 1.05, 0); }
+    K.put(REDP, new THREE.CylinderGeometry(0.153, 0.153, 0.3, 16).rotateZ(PI / 2), 0, 1.05, 0); K.put(textMat('封', { w: 64, h: 64, bg: '#efe6cf', color: '#2a1d16', pad: 0.1 }), G.sheet, 0, 1.05, 0.156, 0, [0.2, 0.2, 1]);
+    { const a = K.W(0, 0.32); signBoard(BF, '封印の書', a[0], K.oy + 0.42, a[1], -PI / 2, 0.9, 0.24, { both: false, depth: 0.02 }); }
+  }
   // 북쪽 복도: 비서 책상, 걸상, 화분
   const Q = frame(B, -9.3, Y3, -105.4, PI / 2);
   desk(Q, 1.7, 0.8); chairAt(Q, 0, -0.75, 0); paperStack(Q, -0.55, 0.76, 0.05, 0.34, R); paperStack(Q, -0.3, 0.76, 0.1, 0.12, R); scrollPile(Q, 0.45, 0.76, 0, 2, R);
   for (const x of [-2.4, 2.4]) bench(frame(B, x, Y3, ZN0 - 0.44, PI), 3.0);
+  { const a = Q.W(0, 0.42); signBoard(BF, '面会受付', a[0], Q.oy + 0.98, a[1], PI / 2, 0.9, 0.22, { both: false, depth: 0.02 }); }
+  { const Q2 = frame(B, 9.3, Y3, -105.4, -PI / 2); desk(Q2, 1.7, 0.8); chairAt(Q2, 0, -0.75, 0); paperStack(Q2, 0.5, 0.76, 0.05, 0.22, R); scrollPile(Q2, -0.4, 0.76, 0, 3, R); Q2.parts(G.vase, 0, 0.76, 0.2); }
+  for (const s of [-1, 1]) { rack(frame(B, s * 10.6, Y3, -108.0, s > 0 ? -PI / 2 : PI / 2), 2.4, 2.2, 'mix', R); bench(frame(B, s * 5.4, Y3, -114.2, 0), 2.6); }
   for (const s of [-1, 1]) plantAt(B, 'plantB', s * 1.7, Y3, -115.4, s, 1.1);
   plantAt(B, 'plantA', 3.9, Y3, -103.2, 2);
   lamp(B, glows, -4.2, YR - 0.72, -97.4); lamp(B, glows, 4.2, YR - 0.72, -97.4); lamp(B, glows, 0, YR - 0.72, -110);
