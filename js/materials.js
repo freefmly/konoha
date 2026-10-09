@@ -19,7 +19,7 @@ function inkShader(sh, { flat = false, noLine = false } = {}) {
   let f = sh.fragmentShader
     .replace('#include <common>', '#include <common>\nuniform float uToon;')
     .replace('#include <color_fragment>', `#include <color_fragment>
-        if (uToon > 0.5) { float kL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = max(mix(vec3(kL), diffuseColor.rgb, 1.18), 0.0); }`)
+        if (uToon > 0.5) { float kL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = max(mix(vec3(kL), diffuseColor.rgb, 1.36), 0.0); }`)
     .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
         metalnessFactor *= 1.0 - uToon;`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
@@ -28,12 +28,12 @@ function inkShader(sh, { flat = false, noLine = false } = {}) {
         void RE_Direct_Ink(const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight) {
           if (uToon < 0.5) { RE_Direct_Physical(directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight); return; }
           float kBand = smoothstep(0.10, 0.16, dot(geometryNormal, directLight.direction));   // 볕 든 면과 그늘의 경계를 칼같이
-          reflectedLight.directDiffuse += directLight.color * kBand * 0.8 * BRDF_Lambert(material.diffuseColor);
+          reflectedLight.directDiffuse += directLight.color * vec3(1.10, 1.0, 0.84) * kBand * 0.86 * BRDF_Lambert(material.diffuseColor);   // 볕 든 면은 누런 빛
         }
         #undef RE_Direct
         #define RE_Direct RE_Direct_Ink`)
     .replace('#include <opaque_fragment>', `
-        if (uToon > 0.5) outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse * 1.3 + totalEmissiveRadiance;
+        if (uToon > 0.5) outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse * vec3(0.78, 0.92, 1.24) * 1.12 + totalEmissiveRadiance;   // 그늘은 푸르스름하게(애니 배경 그림의 그늘빛)
         #include <opaque_fragment>`);
   if (flat) f = f.replace('#include <map_fragment>', `
         #ifdef USE_MAP

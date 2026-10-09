@@ -39,7 +39,8 @@ void main(){
   gl_FragColor = vec4(src.rgb, 1.0);
   #include <tonemapping_fragment>
   vec3 col = gl_FragColor.rgb;
-  col = max(mix(vec3(dot(col, vec3(0.3, 0.59, 0.11))), col, 1.16), 0.0);   // 색을 조금 더 선명하게
+  col = clamp(col, 0.0, 1.0); col = mix(col, col * col * (3.0 - 2.0 * col), 0.38);          // 밝은 데는 더 밝게, 어두운 데는 더 어둡게
+  col = max(mix(vec3(dot(col, vec3(0.3, 0.59, 0.11))), col, 1.22), 0.0);   // 색을 더 진하게
   gl_FragColor.rgb = mix(col, uInk, line * 0.88);
   #include <colorspace_fragment>
 }`;
