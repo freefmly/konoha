@@ -51,12 +51,39 @@ export class Player {
       this.pitch = -0.8;
       this.skyPos.set(this.pos.x + Math.sin(this.yaw) * 150, this.pos.y + 160, this.pos.z + Math.cos(this.yaw) * 150);
     } else {
-      const h = this.skyHeight(), reach = this.pitch < -0.12 ? Math.min(900, h / Math.tan(-this.pitch)) : 0;   // 내려다보던 자리까지의 거리
-      const x = this.skyPos.x - Math.sin(this.yaw) * reach, z = this.skyPos.z - Math.cos(this.yaw) * reach;
-      this.pos.set(x, Math.max(this.terrain(x, z), 0) + 0.05, z); this.eyeY = this.pos.y; this.pitch = 0; this.grounded = false;
-      for (let i = 0; i < 80 && this.blocked(this.pos.x, this.pos.z, this.pos.y); i++) this.pos.z += 0.5;   // 벽 속에 내려섰으면 빠져나올 때까지 비켜선다
+      const at = this.skyTarget();
+      this.pos.set(at[0], at[1], at[2]); this.eyeY = this.pos.y; this.pitch = 0; this.grounded = false;
     }
     this.sync(); if (this.onSky) this.onSky(on);
+  }
+  // 하늘에서 화면 한가운데로 보던 자리: 눈길을 따라 조금씩 나아가며 땅·건물·지붕에 처음 닿는 곳을 찾아, 닿기 바로 앞(벽에 끼지 않을 만큼 물러난 자리)을 돌려준다.
+  // 거기서 떨어져 바로 밑의 땅이나 지붕에 선다. 하늘이나 먼 지평선을 보고 있었으면 눈 바로 밑에 선다.
+  skyTarget() {
+    const p = this.skyPos, cp = Math.cos(this.pitch), dx = -Math.sin(this.yaw) * cp, dy = Math.sin(this.pitch), dz = -Math.cos(this.yaw) * cp;
+    const solid = (x, y, z) => {
+      if (y <= Math.max(this.terrain(x, z), 0)) return true;
+      if (roofAt(x, z, y + 0.6) >= y - 0.05) return true;                                        // 기와지붕(얇은 한 장이라 바로 위아래만 본다)
+      const N = nearAll(x, z, 0.05, this.near);
+      for (let i = 0; i < N.length; i += 4) { const c = N[i], lx = N[i + 1], lz = N[i + 2]; if (lx >= c[0] && lx <= c[3] && lz >= c[2] && lz <= c[5] && y >= c[1] && y <= c[4]) return true; }
+      return false;
+    };
+    if (dy < -0.02 && !solid(p.x, p.y, p.z)) {
+      let t = 0, last = 0;
+      while (t < 2200) {
+        const x = p.x + dx * t, y = p.y + dy * t, z = p.z + dz * t;
+        if (solid(x, y, z)) {
+          // 닿은 자리에서 눈길을 거슬러 물러나며, 설 수 있는(막히지 않은) 첫 자리를 고른다
+          for (let b = Math.max(last, t - 0.5); b >= Math.max(0, t - 30); b -= 0.25) {
+            const bx = p.x + dx * b, by = p.y + dy * b, bz = p.z + dz * b;
+            if (!solid(bx, by, bz) && !this.blocked(bx, bz, by)) return [bx, by, bz];
+          }
+          break;
+        }
+        last = t;
+        t += y - Math.max(this.terrain(x, z), 0) > 75 ? 2 : 0.2;                               // 건물보다 한참 높은 데서는 성큼성큼, 가까워지면 촘촘히
+      }
+    }
+    return [p.x, Math.max(this.groundAt(p.x, p.z, p.y), 0) + 0.05, p.z];
   }
   skyHeight() { return this.skyPos.y - Math.max(0, this.terrain(this.skyPos.x, this.skyPos.z)); }
   // 손가락용: 높이를 차례로 바꾼다

@@ -238,6 +238,8 @@ async function init() {
     if (Q.get('nohud')) ui.hud.classList.add('hidden');
     // 확인용: &sky=1 이면 그 자리(x,y,z)에 눈을 띄운 하늘 보기로 시작한다
     if (Q.get('sky')) { player.setSky(true); player.skyPos.set(v[0], v[1], v[2]); player.yaw = v[3] || 0; player.pitch = v[4] || 0; player.sync(); }
+    // 확인용: &land=1 이면 그 하늘 자리에서 곧바로 내려서고, 내려선 자리를 적는다
+    if (Q.get('sky') && Q.get('land')) { player.setSky(false); console.log('WALK land ' + [player.pos.x, player.pos.y, player.pos.z].map(n => n.toFixed(2)).join(' ')); }
   }
   // 걷기 시험용 주소: &walk=방향:초[:달리기];… — 그 방향(yaw)을 보고 앞으로 걷게 한 뒤 선 자리를 콘솔에 적는다(한꺼번에 계산)
   if (Q.get('walk')) {
