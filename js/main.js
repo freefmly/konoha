@@ -1,6 +1,6 @@
 // 나뭇잎 마을 — 시작점. 재질·지형·건물을 차례로 만들고, 걷기·날씨·소리를 돌린다.
 import * as THREE from '../vendor/three.module.js';
-import { createMaterials, W } from './materials.js';
+import { createMaterials, W, dressLeaves } from './materials.js';
 import { Cover, Weather, WEATHERS } from './weather.js';
 import { Sound } from './audio.js';
 import { Toon } from './toon.js';
@@ -112,15 +112,14 @@ async function init() {
     document.querySelectorAll('[data-wind]').forEach(b => b.classList.toggle('on', +b.dataset.wind === lv));
     $('#windNow').textContent = WIND[lv]; $('#btnWind').textContent = '바람 ' + WIND[lv];
   };
-  // 화풍: 실사 ↔ 만화. 재질은 그대로 두고 칠하는 법(W.uToon)만 바꾼다. 만화는 먹선을 긋느라 한 번 거쳐 그린다(toon.js).
+  // 화풍: 만화(기본) ↔ 실사. 재질은 그대로 두고 칠하는 법(W.uToon)만 바꾼다. 만화는 먹선을 긋느라 한 번 거쳐 그린다(toon.js).
   let toon = null, toonOn = false;
   const STYLE = ['실사', '만화'];
   const applyStyle = on => {
-    toonOn = on; W.uToon.value = on ? 1 : 0; weather.envDirty = 2;
+    toonOn = on; W.uToon.value = on ? 1 : 0; weather.envDirty = 2; weather.shadowDirty = true;   // 나무 그림자도 화풍 따라 바뀐다(낱잎 ↔ 잎 덩어리)
     if (on && !toon) toon = new Toon(renderer, { samples: TOUCH ? 2 : 4 });
     document.querySelectorAll('[data-style]').forEach(b => b.classList.toggle('on', (b.dataset.style === '1') === on));
     $('#styleNow').textContent = $('#btnStyle').textContent = STYLE[+on];
-    try { localStorage.setItem('konoha.style', on ? '1' : '0'); } catch (e) { /* 저장이 막힌 창이면 그냥 넘어간다 */ }
   };
   const setStyle = on => {
     if (on === toonOn) return;
@@ -129,14 +128,14 @@ async function init() {
     $('#styleNote').classList.remove('hidden');
     setTimeout(() => { applyStyle(true); requestAnimationFrame(() => requestAnimationFrame(() => $('#styleNote').classList.add('hidden'))); }, 40);
   };
-  $('#styleBtns').innerHTML = STYLE.map((n, i) => `<button data-style="${i}">${n}</button>`).join('');
+  $('#styleBtns').innerHTML = [1, 0].map(i => `<button data-style="${i}">${STYLE[i]}</button>`).join('');   // 기본인 만화를 앞에 둔다
   $('#styleBtns').addEventListener('click', e => { const b = e.target.closest('[data-style]'); if (b) setStyle(b.dataset.style === '1'); });
   const WX_NAME = { clear: '맑은 날', cloudy: '구름 낀 날', rain: '비 오는 날', snow: '눈 오는 날' };
   $('#weatherBtns').innerHTML = WEATHERS.map(([k], i) => `<button data-weather="${k}"><i class="wx wx-${k}"></i><span>${WX_NAME[k]}</span><kbd>${i + 1}</kbd></button>`).join('');
   $('#weatherBtns').addEventListener('click', e => { const b = e.target.closest('[data-weather]'); if (b) setWeather(b.dataset.weather); });
   $('#windBtns').innerHTML = WIND.map((n, i) => `<button data-wind="${i}">${n}</button>`).join('');
   $('#windBtns').addEventListener('click', e => { const b = e.target.closest('[data-wind]'); if (b) setWind(+b.dataset.wind); });
-  jumps.sort((a, b) => (a[5] ?? 50) - (b[5] ?? 50));
+  jumps.sort((a, b) => a[0].localeCompare(b[0], 'ko'));   // 바로 가기는 가나다 차례로
   $('#jumpBtns').innerHTML = jumps.map((j, i) => `<button data-jump="${i}">${j[0]}</button>`).join('');
   const enter = () => { sound.start(); started = true; player.lock(); };
   $('#jumpBtns').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; const j = jumps[b.dataset.jump]; player.place(j[1], j[2], j[3], j[4]); enter(); });
@@ -225,10 +224,9 @@ async function init() {
   }
   setWeather(Q.get('w') || 'clear', true);
   setWind(Q.get('wind') ? +Q.get('wind') : 1);
-  // 화풍은 지난번에 고른 것을 기억한다. 확인용으로 ?toon=1 / ?toon=0 으로 강제할 수 있다.
-  let savedStyle = null;
-  try { savedStyle = localStorage.getItem('konoha.style'); } catch (e) { /* 기억이 없으면 실사로 */ }
-  applyStyle((Q.get('toon') ?? savedStyle) === '1');
+  // 화풍은 들어올 때마다 만화로 시작한다(실사는 보는 동안만 — 새로 고치면 만화로 돌아온다). 확인용으로 ?toon=1 / ?toon=0 으로 강제할 수 있다.
+  dressLeaves(scene);
+  applyStyle((Q.get('toon') ?? '1') === '1');
 
   // 확인용 주소: ?shot=x,y,z,yaw,pitch&w=rain&full=1 — 메뉴 없이 그 자리·그 날씨로 바로 본다. &fly=1이면 중력 없이 그 자리에 뜬다.
   const shot = Q.get('shot');

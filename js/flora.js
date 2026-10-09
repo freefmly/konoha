@@ -7,6 +7,25 @@ import { terrainH } from './village.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
+// 잎 덩어리 하나: 살짝 눌리고 울퉁불퉁한 공. 법선은 공의 것 그대로 써서 빛이 둥글게 넘어간다
+const ICOS = [2, 1].map(d => new THREE.IcosahedronGeometry(1, d).toNonIndexed().attributes.position);   // 고운 것(가까운 나무)과 성긴 것(먼 나무)
+export function blob(cp, cn, c, r, seed, lo = false) {
+  const ICO = ICOS[lo ? 1 : 0];
+  for (let i = 0; i < ICO.count; i++) {
+    const x = ICO.getX(i), y = ICO.getY(i), z = ICO.getZ(i), k = r * (1 + 0.14 * Math.sin(x * 4.1 + seed) * Math.sin(y * 3.7 + seed * 1.7) + 0.1 * Math.sin(z * 5.3 + seed * 2.3));
+    cp.push(c.x + x * k, c.y + y * k * 0.82, c.z + z * k); cn.push(x, y, z);
+  }
+}
+// 잎(낱장)과 잎 덩어리를 한 덩어리로 묶는다. aKind: 1 = 실사에서만 그리는 낱잎, 2 = 만화에서만 그리는 덩어리
+function leafGeo(lp, lu, cp, cn) {
+  const g = rawGeo(lp, lu), n = lp.length / 3, m = cp.length / 3, ln = g.attributes.normal.array;
+  const pos = new Float32Array((n + m) * 3), nor = new Float32Array((n + m) * 3), uv = new Float32Array((n + m) * 2), kind = new Float32Array(n + m);
+  pos.set(lp); pos.set(cp, n * 3); nor.set(ln); nor.set(cn, n * 3); uv.set(lu); uv.fill(0.5, n * 2); kind.fill(1, 0, n); kind.fill(2, n);
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  out.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); out.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
+  return out;
+}
 function rawGeo(pos, uv) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -31,7 +50,7 @@ function leaf(lp, lu, p, dir, up, L, R, flat = false) {
 /* ---------- 활엽수 ----------
    depth: 가지가 갈라지는 횟수, leaves: 잔가지 하나에 다는 잎 수, leafLen: 잎 길이 */
 export function treeGeometry(seed, { height = 13, depth = 4, sprays = 6, leaves = 7, leafLen = 0.42, spread = 1, flat = false } = {}) {
-  const R = rng(seed), wood = [], lp = [], lu = [];
+  const R = rng(seed), wood = [], lp = [], lu = [], tufts = [];   // tufts = 잎줄기가 달린 자리(잎 덩어리를 빚을 때 쓴다)
   const perp = d => { const a = Math.abs(d.y) < 0.9 ? V(0, 1, 0) : V(1, 0, 0); return a.cross(d).normalize(); };
   let top = 0, rad = 0;
   function grow(p0, dir, len, r, d) {
@@ -53,6 +72,7 @@ export function treeGeometry(seed, { height = 13, depth = 4, sprays = 6, leaves 
         const sd = out.clone().multiplyScalar(0.9).addScaledVector(edir, 0.3 + R() * 0.7).add(V(0, 0.1 - R() * 0.35, 0)).normalize();
         const sl = leafLen * (1.5 + R() * 1.3), tip = p.clone().addScaledVector(sd, sl).add(V(0, -0.12 * sl, 0));
         wood.push(tube([p, tip], 0.012 + leafLen * 0.012, 3, false));
+        tufts.push(p.clone().lerp(tip, 0.6));
         const sside = perp(sd);
         for (let j = 0; j < leaves; j++) {
           const u = (j + 0.6) / leaves, q = p.clone().lerp(tip, u), sgn = j % 2 ? 1 : -1;
@@ -73,7 +93,15 @@ export function treeGeometry(seed, { height = 13, depth = 4, sprays = 6, leaves 
   }
   const lean = V((R() - 0.5) * 0.16, 1, (R() - 0.5) * 0.16).normalize();
   grow(V(0, -0.3, 0), lean, height * 0.36, height * 0.036, 0);
-  return { wood: mergeGeos(wood), leaves: rawGeo(lp, lu), height: top, radius: rad };
+  // 잎 덩어리(만화 화풍): 가까운 잎줄기끼리 묶어 한 덩어리씩. 묶음의 한가운데에, 묶인 잎을 다 덮을 만한 크기로 빚는다
+  const cp = [], cn = [], RC = height * 0.2, groups = [];
+  for (const t of tufts) {
+    let best = null, bd = RC;
+    for (const g of groups) { const d = g.c.distanceTo(t); if (d < bd) { bd = d; best = g; } }
+    if (best) { best.pts.push(t); best.c.multiplyScalar(best.pts.length - 1).add(t).divideScalar(best.pts.length); } else groups.push({ c: t.clone(), pts: [t] });
+  }
+  groups.forEach((g, i) => { let r = 0; for (const p of g.pts) r = Math.max(r, g.c.distanceTo(p)); blob(cp, cn, g.c, Math.min(RC * 1.1, Math.max(RC * 0.55, r + leafLen * 1.3)), seed + i * 1.7, flat); });
+  return { wood: mergeGeos(wood), leaves: leafGeo(lp, lu, cp, cn), height: top, radius: rad };
 }
 
 // 덤불: 땅에서 여러 줄기가 올라와 잎이 빽빽하다

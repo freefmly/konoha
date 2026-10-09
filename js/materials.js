@@ -46,7 +46,11 @@ function inkShader(sh, { flat = false, noLine = false } = {}) {
           diffuseColor *= sampledDiffuseColor;
         #endif`);
   if (noLine) f = f.replace('#include <dithering_fragment>', `#include <dithering_fragment>
-        gl_FragColor.a = 1.0 - uToon;`);
+        #ifdef W_LEAF
+          gl_FragColor.a = vKind > 1.5 ? 1.0 : 1.0 - uToon;   // 잎 덩어리에는 먹선을 긋는다
+        #else
+          gl_FragColor.a = 1.0 - uToon;
+        #endif`);
   sh.fragmentShader = f;
 }
 // 날씨를 심지 않는 재질(유리·물·빛나는 간판)에 화풍만 심는다
@@ -57,6 +61,9 @@ export function toonize(mat, opts = {}) {
 }
 
 const FRAG_HEAD = /* glsl */`
+#ifdef W_LEAF
+  varying float vKind;
+#endif
 uniform float uSnow, uWet, uRain, uTime;
 uniform sampler2D uCover;
 uniform vec4 uCoverRect;
@@ -118,9 +125,13 @@ export function weatherize(mat, { puddles = false, sway = null, extra = null, fl
     Object.assign(sh.uniforms, W);
     inkShader(sh, { flat, noLine });
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nuniform float uTime, uWind; uniform vec2 uWindDir;\nvarying vec3 vWPos;\nvarying vec3 vWNor;')
+      .replace('#include <common>', '#include <common>\nuniform float uTime, uWind; uniform vec2 uWindDir;\nvarying vec3 vWPos;\nvarying vec3 vWNor;\n#ifdef W_LEAF\n  uniform float uToon; attribute float aKind; varying float vKind;\n#endif')
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         ${swayCode}
+        #ifdef W_LEAF
+          vKind = aKind;
+          if (aKind > 0.5 && (aKind > 1.5) != (uToon > 0.5)) transformed = vec3(0.0);   // 지금 화풍의 것이 아니면 한 점으로 접어 숨긴다
+        #endif
         vec4 wxp = vec4(transformed, 1.0); vec3 wxn = objectNormal;
         #ifdef USE_INSTANCING
           wxp = instanceMatrix * wxp; wxn = mat3(instanceMatrix) * wxn;
@@ -129,6 +140,12 @@ export function weatherize(mat, { puddles = false, sway = null, extra = null, fl
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', '#include <common>\n' + FRAG_HEAD)
       .replace('#include <color_fragment>', `#include <color_fragment>
+        #ifdef W_LEAF
+          if (vKind > 1.5) {   // 잎 덩어리: 볕 받는 윗머리는 누런 풀빛, 아랫배는 푸른 그늘빛(가운데 톤은 제 빛깔). 경계는 붓으로 찍은 듯 조금 울퉁불퉁하게
+            float kT = vWNor.y + (wNoise(vWPos.xz * 1.1 + vWPos.y * 0.8) - 0.5) * 0.55;
+            diffuseColor.rgb *= 1.12 * (kT > 0.36 ? vec3(1.5, 1.42, 0.86) : kT < -0.2 ? vec3(0.68, 0.82, 0.88) : vec3(1.0));
+          }
+        #endif
         // 하늘이 보이는 자리인가: 위에서 내려다본 높이 지도와 견준다(벽면은 바깥쪽으로 조금 나가서 잰다)
         vec2 wUv = (vWPos.xz + vWNor.xz * 0.4 - uCoverRect.xy) / uCoverRect.z + 0.5;
         wUv.y = 1.0 - wUv.y;
@@ -425,6 +442,15 @@ export function mat(kind, color = 0xffffff, opts = {}) {
   MATS.set(key, m);
   return m;
 }
+
+// 잎이 달린 것의 그림자: 그림자를 뜰 때도 지금 화풍의 것(낱잎 또는 잎 덩어리)만 드리우게 한다
+export const LEAF_DEPTH = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+LEAF_DEPTH.onBeforeCompile = sh => {
+  sh.uniforms.uToon = W.uToon;
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uToon; attribute float aKind;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nif (aKind > 0.5 && (aKind > 1.5) != (uToon > 0.5)) transformed = vec3(0.0);');
+};
+export function dressLeaves(root) { root.traverse(o => { if (o.isMesh && o.castShadow && o.geometry.attributes.aKind) o.customDepthMaterial = LEAF_DEPTH; }); }
 
 /* ---------- 글씨 ----------
    간판·포렴·현판에 쓸 글씨 그림. textTex('火', { w, h, color, bg, font, vertical, border }) */

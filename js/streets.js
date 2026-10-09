@@ -5,9 +5,9 @@
 //  - 덤불·풀: 가까운 칸만 그린다.
 import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, makeSite, refillSite, dropSince, marks, mat4, rng, tube, mergeGeos } from './build.js';
-import { mat } from './materials.js';
+import { mat, dressLeaves } from './materials.js';
 import { makeKit, boxHouse, towerHouse, WALLS, ROOFS, SHOPS } from './town.js';
-import { treeGeometry, bushGeometry, tuftGeometry } from './flora.js';
+import { treeGeometry, bushGeometry, tuftGeometry, blob } from './flora.js';
 import { PLAN } from './plan-data.js';
 import { WALL, CLIFF, STAIR, SITE, NARA_FOREST, inNaraForest, naraTrailDist } from './layout.js';
 import { terrainH, inPoly } from './village.js';
@@ -259,7 +259,16 @@ function tinyTree(seed) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(u, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(c, 3));
   g.computeVertexNormals();
-  return g;
+  // 잎 덩어리(만화 화풍): 큰 덩어리 넷에 꼭대기 하나. 줄기·가지는 늘 그리고(0), 낱잎은 실사에서만(1), 덩어리는 만화에서만(2)
+  const nWood = wp.count, n0 = p.length / 3, cp = [], cn = [], kind = new Float32Array(n0).fill(1); kind.fill(0, 0, nWood);
+  for (let i = 0; i < 5; i++) { const a = i * 1.57 + R(), r = i < 4 ? rh * 0.5 : 0; blob(cp, cn, V(Math.cos(a) * r, cy + (i < 4 ? (R() - 0.5) * rv * 0.5 : rv * 0.55), Math.sin(a) * r), rh * (i < 4 ? 0.62 + R() * 0.12 : 0.55), seed + i, true); }
+  const m = cp.length / 3, pos = new Float32Array((n0 + m) * 3), nor = new Float32Array((n0 + m) * 3), uv = new Float32Array((n0 + m) * 2), col = new Float32Array((n0 + m) * 3), kd = new Float32Array(n0 + m);
+  pos.set(p); pos.set(cp, n0 * 3); nor.set(g.attributes.normal.array); nor.set(cn, n0 * 3); uv.set(u); uv.fill(0.5, n0 * 2); col.set(c); kd.set(kind); kd.fill(2, n0);
+  for (let i = 0; i < m; i++) { const gg = 0.105 + ((i / 240 | 0) % 3) * 0.012; col.set([gg * 0.32, gg * 1.15, gg * 0.2], (n0 + i) * 3); }
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); out.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  out.setAttribute('color', new THREE.BufferAttribute(col, 3)); out.setAttribute('aKind', new THREE.BufferAttribute(kd, 1));
+  return out;
 }
 
 function instanced(parent, geo, material, list, shadow) {
@@ -381,7 +390,7 @@ export async function build(scene, ctx) {
   const treeGroup = (c, lod) => {
     const g = new THREE.Group(); g.matrixAutoUpdate = false;
     { const G = lod ? midG : bigG, by = [[], [], []]; c.trees.forEach(t => by[t.k % 3].push(tm(t))); by.forEach((l, i) => { if (!l.length) return; instanced(g, G[i].wood, bark, l, true); instanced(g, G[i].leaves, leafM[(i + lod) % 3], l, true); }); }
-    scene.add(g); g.updateMatrixWorld(true);
+    scene.add(g); g.updateMatrixWorld(true); dressLeaves(g);
     return g;
   };
   // 먼 나무: 큰 칸마다 한 덩어리로 그린다. 작은 칸이 가까워져 고운 나무로 바뀌면 그 칸의 나무만 크기 0으로 줄여 숨긴다.
