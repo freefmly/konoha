@@ -51,6 +51,8 @@ function leaf(lp, lu, p, dir, up, L, R, flat = false) {
    depth: 가지가 갈라지는 횟수, leaves: 잔가지 하나에 다는 잎 수, leafLen: 잎 길이 */
 export function treeGeometry(seed, { height = 13, depth = 4, sprays = 6, leaves = 7, leafLen = 0.42, spread = 1, flat = false } = {}) {
   const R = rng(seed), wood = [], lp = [], lu = [], tufts = [];   // tufts = 잎줄기가 달린 자리(잎 덩어리를 빚을 때 쓴다)
+  // 멀리서 볼 때의 가벼운 모습(lod.js가 바꿔 끼운다): 굵은 가지까지만, 잎은 여덟 장에 한 장을 크게, 잎 덩어리는 성기게
+  const woodFar = [], flp = [], flu = [], R3 = rng(seed + 77); let nLeaf = 0;
   const perp = d => { const a = Math.abs(d.y) < 0.9 ? V(0, 1, 0) : V(1, 0, 0); return a.cross(d).normalize(); };
   let top = 0, rad = 0;
   function grow(p0, dir, len, r, d) {
@@ -61,6 +63,7 @@ export function treeGeometry(seed, { height = 13, depth = 4, sprays = 6, leaves 
     }
     const flare = d === 0 ? t => r * (1 - 0.3 * t) * (1 + 0.55 * Math.exp(-t * 9)) : t => r * (1 - 0.38 * t);
     wood.push(tube(pts, flare, d === 0 ? (flat ? 7 : 12) : d < 2 ? (flat ? 5 : 7) : d < 3 ? (flat ? 4 : 5) : (flat ? 3 : 4), false));
+    if (d <= Math.max(1, depth - 2)) woodFar.push(tube(pts, flare, d === 0 ? 6 : 4, false));
     const end = pts[n], edir = end.clone().sub(pts[n - 1]).normalize();
     top = Math.max(top, end.y); rad = Math.max(rad, Math.hypot(end.x, end.z));
     if (d >= depth - 1) {   // 잔가지와 그 앞 가지에서 잎줄기가 뻗고, 잎줄기 양옆으로 잎이 어긋나게 달린다
@@ -77,7 +80,9 @@ export function treeGeometry(seed, { height = 13, depth = 4, sprays = 6, leaves 
         for (let j = 0; j < leaves; j++) {
           const u = (j + 0.6) / leaves, q = p.clone().lerp(tip, u), sgn = j % 2 ? 1 : -1;
           const ld = j === leaves - 1 ? sd.clone() : sd.clone().multiplyScalar(0.55).addScaledVector(sside, sgn * (0.75 + R() * 0.2)).add(V(0, -0.15 - R() * 0.25, 0)).normalize();
-          leaf(lp, lu, q, ld, V(R() - 0.5, 1.4, R() - 0.5).normalize(), leafLen * (0.75 + R() * 0.5), R, flat);
+          const upv = V(R() - 0.5, 1.4, R() - 0.5).normalize(), ll = leafLen * (0.75 + R() * 0.5);
+          leaf(lp, lu, q, ld, upv, ll, R, flat);
+          if (nLeaf++ % 8 === 0) leaf(flp, flu, q, ld, upv, ll * 2.8, R3, true);
         }
       }
     }
@@ -100,8 +105,11 @@ export function treeGeometry(seed, { height = 13, depth = 4, sprays = 6, leaves 
     for (const g of groups) { const d = g.c.distanceTo(t); if (d < bd) { bd = d; best = g; } }
     if (best) { best.pts.push(t); best.c.multiplyScalar(best.pts.length - 1).add(t).divideScalar(best.pts.length); } else groups.push({ c: t.clone(), pts: [t] });
   }
-  groups.forEach((g, i) => { let r = 0; for (const p of g.pts) r = Math.max(r, g.c.distanceTo(p)); blob(cp, cn, g.c, Math.min(RC * 1.1, Math.max(RC * 0.55, r + leafLen * 1.3)), seed + i * 1.7, flat); });
-  return { wood: mergeGeos(wood), leaves: leafGeo(lp, lu, cp, cn), height: top, radius: rad };
+  const fcp = [], fcn = [];
+  groups.forEach((g, i) => { let r = 0; for (const p of g.pts) r = Math.max(r, g.c.distanceTo(p)); r = Math.min(RC * 1.1, Math.max(RC * 0.55, r + leafLen * 1.3)); blob(cp, cn, g.c, r, seed + i * 1.7, flat); blob(fcp, fcn, g.c, r, seed + i * 1.7, true); });
+  const woodG = mergeGeos(wood), leavesG = leafGeo(lp, lu, cp, cn);
+  woodG.userData.far = mergeGeos(woodFar); leavesG.userData.far = leafGeo(flp, flu, fcp, fcn);
+  return { wood: woodG, leaves: leavesG, height: top, radius: rad };
 }
 
 // 덤불: 땅에서 여러 줄기가 올라와 잎이 빽빽하다

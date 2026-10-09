@@ -5,6 +5,7 @@ import { Cover, Weather, WEATHERS } from './weather.js';
 import { Sound } from './audio.js';
 import { Toon } from './toon.js';
 import { VillageMap } from './map.js';
+import { setupLod } from './lod.js';
 import { Player } from './player.js';
 import { LOT, WALL, SITE } from './layout.js';
 import { marks, settle } from './build.js';
@@ -264,6 +265,7 @@ async function init() {
   setWind(Q.get('wind') ? +Q.get('wind') : 1);
   // 화풍은 들어올 때마다 만화로 시작한다(실사는 보는 동안만 — 새로 고치면 만화로 돌아온다). 확인용으로 ?toon=1 / ?toon=0 으로 강제할 수 있다.
   dressLeaves(scene);
+  const lod = Q.get('lod') === '0' ? null : setupLod(scene, camera);   // 먼 건물의 잔 장식과 먼 나무를 가볍게(확인용: &lod=0 이면 끈다)
   applyStyle((Q.get('toon') ?? '1') === '1');
 
   // 확인용 주소: ?shot=x,y,z,yaw,pitch&w=rain&full=1 — 메뉴 없이 그 자리·그 날씨로 바로 본다. &fly=1이면 중력 없이 그 자리에 뜬다.
@@ -365,6 +367,7 @@ async function init() {
       vmap.drawMini(at.x, at.z, player.yaw, Math.min(760, MINI[miniI] * (player.sky ? Math.max(1.25, Math.min(6, player.skyHeight() / 110)) : 1)));
       if (mapOpen) { const pl = placeAt(at.x, player.sky ? -99 : player.pos.y, at.z); vmap.mark(at.x, at.z, player.yaw, pl ? pl.n : '마을 밖 숲', player.locked && !player.touchMode); }
     }
+    if (lod) lod.tick();
     if (toonOn) toon.render(scene, camera); else renderer.render(scene, camera);
   }
   frame();
@@ -372,7 +375,21 @@ async function init() {
     const t0 = performance.now(); for (let i = 0; i < 5; i++) renderer.render(scene, camera); renderer.getContext().finish();
     console.log('STATS tris', renderer.info.render.triangles, 'calls', renderer.info.render.calls, 'ms/frame', ((performance.now() - t0) / 5).toFixed(1));
   }, 500);
-  window.__ready = true; window.__player = player;   // 확인용
+  // 확인용: 그 자리·그 화풍에서 n장을 그려 한 장에 걸린 시간(ms)과 그린 삼각형 수를 잰다. shadow = 그림자 지도도 매번 다시 그릴 때
+  window.__bench = (x, y, z, yaw, pitch, toonMode, n = 40, shadow = false) => {
+    const gl = renderer.getContext(), px = new Uint8Array(4);
+    applyStyle(toonMode); player.pos.set(x, y, z); player.yaw = yaw; player.pitch = pitch; player.sync(); weather.update(0.016, camera);
+    for (let i = 0; i < 400; i++) for (const f of ticks) f(weather.t, 0.016);   // 둘레의 집·나무가 그 자리에 맞는 모습으로 바뀔 때까지 돌린다
+    if (lod) { for (let i = 0; i < 200000 && lod.stats().pending; i++) lod.tick(); lod.tick(); }
+    const draw = () => { if (shadow) renderer.shadowMap.needsUpdate = true; if (toonOn) toon.render(scene, camera); else renderer.render(scene, camera); };
+    for (let i = 0; i < 5; i++) draw(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);   // 셰이더를 미리 데운다
+    renderer.info.autoReset = false; renderer.info.reset();
+    const t0 = performance.now(); for (let i = 0; i < n; i++) draw(); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    const ms = (performance.now() - t0) / n, out = { ms: +ms.toFixed(2), tris: Math.round(renderer.info.render.triangles / n), calls: Math.round(renderer.info.render.calls / n) };
+    renderer.info.autoReset = true;
+    return out;
+  };
+  window.__ready = true; window.__player = player; window.__scene = scene; window.__camera = camera; window.__lod = lod;   // 확인용
 }
 
 init().catch(e => { console.error(e); $('#loadText').textContent = '문제가 생겼습니다: ' + e.message; });
