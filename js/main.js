@@ -305,6 +305,7 @@ async function init() {
     const wdt = Q.get('freeze') ? 0 : dt;   // 확인용: 날씨·바람의 시간을 멈춘다(두 장을 찍어 깜빡이는 면을 찾을 때)
     weather.update(wdt, camera);
     if (player.sky && started) scene.fog.density *= 0.3;   // 하늘에서는 안개를 걷어 마을 끝까지 보이게
+    if (toonOn) scene.fog.density *= 0.5;                  // 만화 화풍은 먼 데까지 또렷하다(바위가 뿌옇게 바래지 않게)
     for (const f of ticks) f(weather.t, wdt);
     if (Q.get('freeze')) weather.leaves.visible = false;
     const p = camera.position;

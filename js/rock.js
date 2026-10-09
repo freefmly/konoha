@@ -1,4 +1,4 @@
-// 호카게 바위 — 북쪽 절벽에 새긴 역대 호카게 일곱 얼굴(왼쪽부터 초대 하시라마 … 7대 나루토)과, 바위 꼭대기로 오르는 나무 계단.
+// 호카게 바위 — 북쪽 절벽에 새긴 역대 호카게 여섯 얼굴(왼쪽부터 초대 하시라마 … 6대 카카시. 나루토가 호카게가 되기 전이라 7대의 얼굴은 없다)과, 바위 꼭대기로 오르는 나무 계단.
 // 얼굴은 "앞으로 얼마나 튀어나왔나"를 (x, y)마다 계산해 절벽 면을 밀어내 빚는다: 이마·광대·코·입술·머리카락을 둥근 덩이로 쌓고, 눈매·입·수염 자국은 홈으로 판다.
 import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, stairs } from './build.js';
@@ -45,7 +45,7 @@ const LEAF = (() => {
   return p;
 })();
 
-/* ---------- 일곱 호카게: 얼굴 생김새의 차이 ----------
+/* ---------- 여섯 호카게: 얼굴 생김새의 차이 ----------
    원작의 바위 얼굴처럼 각지게 깎는다: 뾰족한 턱, 날 선 콧날, 큼직하게 판 눈매, 덩어리진 머리카락.
    fans: 머리카락 뭉치 묶음 [가닥 수, 시작 각, 끝 각(도, 0=위·+는 보는 쪽 오른쪽), 길이, 밑동 굵기, 기울임, 앞으로 나온 정도, 씨앗]
    locks: 길게 늘어진 머리 [ax,ay,az,ra, bx,by,bz,rb], lines: 얼굴에 판 선 */
@@ -72,11 +72,8 @@ const HOKAGE = [
   { name: '6대 호카게 · 하타케 카카시', band: true, w: 0.96, jaw: 0.95, brow: 0.0, mouth: 0, mask: true, sleepy: true, seed: 29,
     fans: [[6, -70, 95, 7.2, 2.7, 24, 0, 13], [5, -50, 75, 4.6, 2.1, 24, 1.2, 14]],
     lines: [] },
-  { name: '7대 호카게 · 우즈마키 나루토', band: true, w: 1.0, jaw: 1.0, brow: -0.12, mouth: 0.16, seed: 31,
-    fans: [[8, -108, 108, 3.6, 2.3, 0, 0, 17], [7, -85, 85, 2.6, 1.8, 0, 1.1, 18]],
-    lines: [[[-2.4, -1.4], [-4.7, -0.9]], [[-2.4, -2.4], [-4.8, -2.4]], [[-2.4, -3.4], [-4.5, -3.9]], [[2.4, -1.4], [4.7, -0.9]], [[2.4, -2.4], [4.8, -2.4]], [[2.4, -3.4], [4.5, -3.9]]] },
 ];
-const HX0 = i => -60 + 20 * i, HY0 = 37.5, HS0 = 1.42;                                  // 처음 크기에서의 얼굴 자리·크기
+const HX0 = i => -50 + 20 * i, HY0 = 37.5, HS0 = 1.42;                                  // 처음 크기에서의 얼굴 자리·크기
 export const HEAD_X = i => HX0(i) * K, HEAD_Y = HY0 * K, HEAD_S = HS0 * K;               // 마을 좌표(m)
 
 const hs = (i, s) => { const j = Math.sin(i * 12.9898 + s * 78.233) * 43758.5453; return j - Math.floor(j); };
@@ -213,9 +210,9 @@ function rockDepth(x, y) {
 }
 function cliffDepth(x, y) {
   let d = rockDepth(x, y), near = 0, h = NEG;
-  const i0 = Math.floor((x + 60) / 20);
+  const i0 = Math.floor((x + 50) / 20);
   for (const i of [i0, i0 + 1]) {
-    if (i < 0 || i > 6) continue;
+    if (i < 0 || i > 5) continue;
     const u = (x - HX0(i)) / HS0, v = (y - HY0) / HS0;
     if (Math.abs(u) > 11.5 || v < -16.5 || v > 15.5) continue;
     h = Math.max(h, headDepth(HOKAGE[i], u, v));
@@ -245,7 +242,7 @@ function buildCliff(scene, mobile) {
       D[j * nx + i] = cliffDepth(xs[i], y) * sstep(top, top - 1.2, y) * sstep(0, 6, top);
     }
   }
-  const pos = new Float32Array(nx * ny * 3), nor = new Float32Array(nx * ny * 3), uv = new Float32Array(nx * ny * 2), col = new Float32Array(nx * ny * 3);
+  const pos = new Float32Array(nx * ny * 3), nor = new Float32Array(nx * ny * 3), uv = new Float32Array(nx * ny * 2), col = new Float32Array(nx * ny * 3), face = new Float32Array(nx * ny);
   const at = (i, j) => D[clamp(j, 0, ny - 1) * nx + clamp(i, 0, nx - 1)];
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
     const k = j * nx + i, x = xs[i], y = Yv[k], d = D[k];
@@ -262,6 +259,8 @@ function buildCliff(scene, mobile) {
     const c = span < 1.5 && spanY < 1.5 ? clamp(1 + (d - avg) * 2.6, 0.42, 1.16) : 1;
     const st = 0.84 + 0.2 * vn(x * 0.22 + 2.0, y * 0.035);                 // 빗물이 흘러내린 세로 얼룩
     col[k * 3] = c * st; col[k * 3 + 1] = c * st * 0.99; col[k * 3 + 2] = c * st * 0.97;
+    // 얼굴에서 얼마나 가까운가(1 = 얼굴 위). 만화 화풍에서 바위의 금과 얼룩을 얼굴에는 긋지 않으려고 적어 둔다
+    { const hi = clamp(Math.round((x + 50) / 20), 0, 5), u = (x - HX0(hi)) / HS0, v = (y - HY0) / HS0; face[k] = sstep(1.3, 0.85, Math.hypot(u / 8.4, (v - 0.5) / 15)); }
   }
   const idx = new Uint32Array((nx - 1) * (ny - 1) * 6); let n = 0;
   for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
@@ -273,9 +272,27 @@ function buildCliff(scene, mobile) {
   g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aFace', new THREE.BufferAttribute(face, 1));
   g.setIndex(new THREE.BufferAttribute(idx, 1));
   const t = mat('rock');
-  const m = weatherize(new THREE.MeshStandardMaterial({ color: 0xd6b07c, map: t.map, normalMap: t.normalMap, roughness: 0.93, vertexColors: true }), { flat: true });
+  // 만화 화풍: 바위를 한 빛깔로 밀지 않고, 애니 배경 그림처럼 누런 갈색 바탕에 큰 얼룩 두 톤·가로로 누운 층·가늘고 짙은 금을 그려 넣는다(얼굴 위는 비운다)
+  const ink = sh => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aFace; varying float vFace;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvFace = aFace;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vFace;').replace('#include <color_fragment>', `#include <color_fragment>
+        if (uToon > 0.5) {
+          vec2 rp = vWPos.xy;
+          float rOpen = 1.0 - vFace;
+          vec3 rT = vec3(0.93, 0.86, 0.79);                                                               // 샛노랑을 눌러 누런 갈색으로
+          rT *= mix(vec3(1.0), vec3(0.84, 0.76, 0.68), smoothstep(0.49, 0.52, wFbm(rp * vec2(0.017, 0.028))) * (0.35 + 0.65 * rOpen));   // 큰 얼룩
+          rT *= mix(1.0, 0.86, smoothstep(0.60, 0.64, wNoise(vec2(rp.x * 0.011 + 3.0, rp.y * 0.21))) * rOpen);                         // 가로로 누운 층
+          float rA = abs(wNoise(vec2(rp.x * 0.075, rp.y * 0.02) + 11.0) - 0.5), rB = abs(wNoise(vec2(rp.x * 0.028 + 5.0, rp.y * 0.085)) - 0.5);
+          float rCrack = max(1.0 - smoothstep(0.004, 0.011, rA), 1.0 - smoothstep(0.003, 0.008, rB)) * rOpen * step(0.45, wNoise(rp * 0.05 + 7.0));   // 금(군데군데 끊긴다)
+          diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, 0.55);   // 볕과 색 올림이 겹쳐 주황빛으로 뜨지 않게 색을 한 번 눌러 둔다
+          diffuseColor.rgb *= mix(rT, rT * vec3(0.40, 0.33, 0.30), rCrack);
+        }`);
+  };
+  ink.key = 'rock';
+  const m = weatherize(new THREE.MeshStandardMaterial({ color: 0xd6b07c, map: t.map, normalMap: t.normalMap, roughness: 0.93, vertexColors: true }), { flat: true, extra: ink });
   const mesh = new THREE.Mesh(g, m);
   mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false;
   scene.add(mesh);
@@ -347,7 +364,7 @@ export function build(scene, ctx) {
   buildStairs(scene);
   const yTop = [CLIFF.top - 10, CLIFF.top + 30], Wc = CLIFF.half + CLIFF.fall;
   const places = HOKAGE.map((h, i) => ({ n: '호카게 바위 꼭대기', t: '발아래가 ' + h.name + '의 얼굴이다.', b: [HEAD_X(i) - 10 * K, HEAD_X(i) + 10 * K, CLIFF.z - 30, CLIFF.z + 1], y: yTop }));
-  places.push({ n: '호카게 바위', t: '역대 호카게 일곱 사람의 얼굴. 왼쪽부터 하시라마, 토비라마, 히루젠, 미나토, 츠나데, 카카시, 나루토.', b: [-75 * K, 75 * K, CLIFF.z, CLIFF.z + 22], y: [0, 40] });
+  places.push({ n: '호카게 바위', t: '역대 호카게 여섯 사람의 얼굴. 왼쪽부터 하시라마, 토비라마, 히루젠, 미나토, 츠나데, 카카시.', b: [-75 * K, 75 * K, CLIFF.z, CLIFF.z + 22], y: [0, 40] });
   places.push({ n: '바위 오르는 계단', t: '절벽에 붙여 지은 나무 계단. 이리저리 꺾어 오르면 호카게 바위 꼭대기다.', b: [STAIR.x0 - 6, STAIR.x1 + 6, CLIFF.z, CLIFF.z + 5], y: [0, CLIFF.top + 10] });
   places.push({ n: '호카게 바위 꼭대기', t: '마을이 한눈에 내려다보인다.', b: [-Wc, Wc, CLIFF.z - 120, CLIFF.z + 1], y: yTop });
   return {
