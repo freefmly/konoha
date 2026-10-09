@@ -45,8 +45,13 @@ void main(){
   gl_FragColor = vec4(src.rgb, 1.0);
   #include <tonemapping_fragment>
   vec3 col = gl_FragColor.rgb;
-  col = clamp(col, 0.0, 1.0); col = mix(col, col * col * (3.0 - 2.0 * col), 0.38);          // 밝은 데는 더 밝게, 어두운 데는 더 어둡게
-  col = max(mix(vec3(dot(col, vec3(0.3, 0.59, 0.11))), col, 1.22), 0.0);   // 색을 더 진하게
+  // 애니 본편의 색감: 하늘만 맑고 진하게 두고, 땅 위의 것은 명암을 조금만 벌리고 색은 올리지 않는다. 풀빛은 잿빛을 조금 머금게 누른다(가장 튀는 색이다)
+  float sky = step(1500.0, uNear / max(c, 1e-7));
+  col = clamp(col, 0.0, 1.0); col = mix(col, col * col * (3.0 - 2.0 * col), mix(0.2, 0.38, sky));
+  float lum = dot(col, vec3(0.3, 0.59, 0.11));
+  col = max(mix(vec3(lum), col, mix(1.0, 1.22, sky)), 0.0);
+  float grn = clamp((col.g - max(col.r, col.b)) * 3.2, 0.0, 1.0) * (1.0 - sky);
+  col = mix(col, mix(vec3(lum), col, 0.66) * vec3(1.03, 0.97, 1.0), grn);
   gl_FragColor.rgb = mix(col, mix(uInk, col * 0.3, 0.45), line * 0.92);   // 선은 새까만 먹이 아니라 그 자리 색이 비치는 짙은 고동빛
   #include <colorspace_fragment>
 }`;

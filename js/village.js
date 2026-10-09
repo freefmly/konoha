@@ -118,6 +118,7 @@ function buildGround(scene, tintOn) {
         // 만화 화풍(uToon)일 때는 풀잎·잔돌 무늬를 평균 색으로 뭉개고, 얼룩과 길 가장자리를 또렷한 두 색으로 끊는다
         float gLod = uToon * 12.0;
         vec4 gDirt = texture2D(map, gUv / 5.0, gLod);
+        gDirt.rgb = mix(gDirt.rgb, gDirt.rgb * vec3(1.09, 1.0, 0.78), uToon);   // 만화 화풍의 흙길은 누런 황토빛으로(화면 전체의 채도를 낮춘 만큼 여기서 따뜻하게 돌려놓는다)
         vec4 gGrass = texture2D(uGrass, gUv / 3.0, gLod);
         float gTone = 0.62 + 0.5 * wNoise(gUv * 0.045) + 0.28 * wNoise(gUv * 0.011 + 5.0);
         gTone = mix(gTone, mix(0.9, 1.2, smoothstep(0.99, 1.01, gTone)), uToon);

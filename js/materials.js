@@ -19,7 +19,7 @@ function inkShader(sh, { flat = false, noLine = false } = {}) {
   let f = sh.fragmentShader
     .replace('#include <common>', '#include <common>\nuniform float uToon;')
     .replace('#include <color_fragment>', `#include <color_fragment>
-        if (uToon > 0.5) { float kL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = max(mix(vec3(kL), diffuseColor.rgb, 1.36), 0.0); }`)
+        if (uToon > 0.5) { float kL = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11)); diffuseColor.rgb = max(mix(vec3(kL), diffuseColor.rgb, 1.12), 0.0); }`)
     .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
         metalnessFactor *= 1.0 - uToon;`)
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>

@@ -59,8 +59,9 @@ function bodyGeometry({ kind = 'man', hair = 'short', skirt = 0, sleeves = false
   { const g = lathe([[0, 0], [0.045, 0.004], [0.074, 0.04], [0.092, 0.1], [0.098, 0.155], [0.09, 0.2], [0.066, 0.235], [0.03, 0.252], [0, 0.256]]); g.scale(0.9, 1, 1); g.translate(0, HEAD0, 0); H(smooth(g), SKIN); }
   for (const s of [-1, 1]) {
     H(ball(V(s * 0.088, 1.588, -0.004), 0.013, 0.03, 0.02, 8, 6), SKIN);                                                         // 귀
-    { const g = new THREE.SphereGeometry(1, 10, 7); g.scale(0.017, 0.025, 0.004); g.rotateY(s * 0.36); g.translate(s * 0.037, 1.594, 0.0885); H(g, FACE); }      // 눈
-    { const g = new THREE.SphereGeometry(1, 6, 4); g.scale(0.0045, 0.006, 0.002); g.rotateY(s * 0.36); g.translate(s * 0.034, 1.603, 0.0925); H(g, FACEW); }   // 눈빛
+    { const g = new THREE.SphereGeometry(1, 10, 7); g.scale(0.0185, 0.021, 0.004); g.rotateY(s * 0.36); g.translate(s * 0.037, 1.594, 0.0885); H(g, FACEW); }   // 눈: 흰자
+    { const g = new THREE.SphereGeometry(1, 8, 6); g.scale(0.0085, 0.0135, 0.003); g.rotateY(s * 0.36); g.translate(s * 0.0355, 1.593, 0.0922); H(g, FACE); }    // 눈동자
+    { const g = new THREE.BoxGeometry(0.04, 0.0055, 0.004); g.rotateY(s * 0.36); g.translate(s * 0.037, 1.6135, 0.0905); H(g, FACE); }                         // 윗눈꺼풀 선
     { const g = new THREE.BoxGeometry(0.042, 0.0075, 0.004); g.rotateZ(-s * (W ? 0.05 : 0.14)); g.rotateY(s * 0.36); g.translate(s * 0.037, 1.634, 0.089); H(g, FACE); }   // 눈썹
   }
   H(ball(V(0, 1.562, 0.097), 0.011, 0.015, 0.014, 8, 6), SKIN);                                                                  // 코
@@ -152,7 +153,7 @@ function makeMaterials() {
             : sl < 6.5 ? vec3(0.03, 0.028, 0.035) : sl < 7.5 ? vec3(0.85, 0.83, 0.78) : sl < 8.5 ? pplCol(12106178.0) : sl < 9.5 ? pplCol(3356229.0) : sl < 10.5 ? vec3(0.02, 0.015, 0.015) : vec3(0.95); }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vPCol;').replace('#include <color_fragment>', `#include <color_fragment>
         // 만화 화풍은 색을 진하게 올리는데, 옷과 살빛은 정한 빛깔 그대로 나오게 미리 그만큼 뺀다
-        { vec3 pc = vPCol; if (uToon > 0.5) pc = mix(vec3(dot(pc, vec3(0.3, 0.59, 0.11))), pc, 1.0 / 1.36); diffuseColor.rgb *= pc; }`);
+        { vec3 pc = vPCol; if (uToon > 0.5) pc = mix(vec3(dot(pc, vec3(0.3, 0.59, 0.11))), pc, 1.0 / 1.12); diffuseColor.rgb *= pc; }`);
   };
   extra.key = 'people';
   const body = weatherize(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.82, metalness: 0 }), { extra });

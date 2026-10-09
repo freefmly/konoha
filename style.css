@@ -93,10 +93,10 @@ kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--li
 /* 전체 지도를 편 동안: 미니맵과 단추만 지도 위로 올리고 나머지 표시는 감춘다 */
 #hud.map { z-index: 23; }
 #hud.map .aim, #hud.map #skyBar, #hud.map #charge, #hud.map #touch { display: none; }
-.aim { position: absolute; left: 50%; top: 50%; width: 5px; height: 5px; margin: -2.5px; border-radius: 50%; background: rgba(255, 255, 255, .85); box-shadow: 0 0 0 1px rgba(0, 0, 0, .4); }
+.aim { display: none; }   /* 화면 한가운데의 흰 점은 쓰지 않는다 */
 
 /* 모아 뛰기: 조준점 아래에서 차오르는 먹빛 띠, 가득 차면 붉은 낙관색 */
-#charge { position: absolute; left: 50%; top: calc(50% + 26px); width: 92px; height: 7px; translate: -50% 0; background: rgba(29, 26, 22, .5); border: 1px solid rgba(239, 229, 207, .7); border-radius: 2px; opacity: 0; transition: opacity .12s; }
+#charge { position: absolute; left: 50%; top: 85%; width: 116px; height: 9px; translate: -50% 0; background: rgba(29, 26, 22, .5); border: 1px solid rgba(239, 229, 207, .7); border-radius: 2px; opacity: 0; transition: opacity .12s; }
 #charge.on { opacity: 1; }
 #charge i { display: block; height: 100%; width: calc(var(--c, 0) * 100%); background: var(--paper); }
 #charge.full i { background: var(--red); }
