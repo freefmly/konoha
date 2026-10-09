@@ -104,7 +104,10 @@ export const GREEN = [
 ];
 export const ROADSIDE = { x0: 131, x1: 199, off: 4.5, w: 4, step: 6.2 };   // 큰길 양쪽 가로수 줄: 나무 고리 밖(x0)부터 첫 둥근 길(x1)까지, 길 가장자리에서 폭 w
 export const ROCK = [[57, 189], [57, 345], [50, 378], [30, 402], [-4, 393], [-16, 267], [-4, 141], [30, 132], [50, 156]];
-export const PLAZA = [[446, 226], [522, 236], [522, 266], [446, 266]];   // 정문 안 마당
+export const PLAZA = [[496, 246], [522, 249], [522, 266], [496, 266]];   // 정문 안 마당
+export const PLAZA_OLD = [[446, 226], [522, 236], [522, 266], [446, 266]];   // 처음 잡았던 넓은 마당. 일반 블록은 이 자리를 비운 채로 잘라 둔다(블록 차례가 바뀌면 온 마을의 집이 다시 섞인다)
+// 줄인 마당 자리에 덧붙인 블록: 큰길가 가게 줄 둘(사이 골목은 못으로 간다), 마당 옆 한 칸
+export const EXTRA_BLOCKS = [[[447.5, 251.1], [466, 251.1], [466, 264.5], [447.5, 264.5]], [[470, 251.1], [493.5, 251.1], [493.5, 264.5], [470, 264.5]], [[497, 228], [507, 228], [508, 243], [497, 243]]];
 export const PONDS = [[463, 322, 11, 9], [398, 344, 10, 7], [460, 238, 7, 6]];   // 작은 못: 나카 강이 끝나는 못, 공원 못, 냇물이 끝나는 못 [x, y, rx, ry]
 export const PARK_POND = { x: 350.6, y: 176, rx: 9.6, ry: 12, isle: 4.4 };            // 센주 공원의 못과 한가운데 섬(큰 나무가 선다)
 export const BROOK = [[330, 22], [334, 60], [322, 96]];                          // 제3 훈련장의 냇물
@@ -157,7 +160,7 @@ const CELL = { 33: [24, 17.5, 2.8], 10: [26.5, 25, 3], 12: [22.7, 19.4, 2.6], 21
 // 구역 안의 블록들(블록으로 나누지 않는 한 채짜리 터는 null). 자기보다 나중에 그리는(위에 얹히는) 구역에 가린 칸은 뺀다
 export const zoneBlocks = z => z.fan ? fanBlocks(z, ...SUB[z.n]) : CELL[z.n] ? blocksIn(zonePts(z), z.grid, ...CELL[z.n], 0.22).filter(b => { const m = mid(b); return !wet(m, 0.95) && !ZONES.some((q, i) => i > ZONES.indexOf(z) && inZone(m, q)); }) : null;
 export const reach = a => { let r = 20; while (inWall(pol(a, r + 2), 9)) r += 2; return r; };   // 바큇살 길이 담 안쪽 둘레길에 닿는 반지름
-const taken = m => ZONES.some(z => inZone(m, z)) || GREEN.some(g => inPoly(m, g)) || inPoly(m, ROCK) || inPoly(m, PLAZA) || wet(m, 1.2);
+const taken = m => ZONES.some(z => inZone(m, z)) || GREEN.some(g => inPoly(m, g)) || inPoly(m, ROCK) || inPoly(m, PLAZA_OLD) || wet(m, 1.2);
 // 일반 살림집 블록
 export function townBlocks() {
   const out = [];
@@ -219,7 +222,7 @@ s += `<ellipse cx="50" cy="462" rx="30" ry="19" fill="#9ccbe6"/><polygon points=
 
 // 담 안 바닥과 일반 블록
 s += `<g clip-path="url(#wall)"><circle cx="${C.x}" cy="${C.y}" r="${C.r}" fill="${DETAIL ? ROAD : BLOCK}"/>`;
-if (DETAIL) { const TAN = ['#c49a55', '#bf9550', '#c9a05b']; for (const b of townBlocks()) s += `<polygon points="${P(b)}" fill="${TAN[Math.floor(rnd() * 3)]}"/>`; }
+if (DETAIL) { const TAN = ['#c49a55', '#bf9550', '#c9a05b']; for (const b of [...townBlocks(), ...EXTRA_BLOCKS]) s += `<polygon points="${P(b)}" fill="${TAN[Math.floor(rnd() * 3)]}"/>`; }
 else s += `<polygon points="${P(sector(-89, 89, 13, 56))}" fill="${ROAD}"/>`;
 for (const g of GREEN) s += `<polygon points="${P(g)}" fill="url(#trees)"/>`;
 s += `<polygon points="${P([[340, 20], [470, 20], [462, 62], [420, 68], [346, 66]])}" fill="#0f3d17" opacity="0.75"/>${line([[344, 67], [420, 69], [462, 63]], 1.4, '#222', 'stroke-dasharray="3 2"')}`;

@@ -6,6 +6,7 @@ import { mat, M, weatherize } from './materials.js';
 import { signBoard } from './arch.js';
 import { CLIFF, STAIR, WALL, SITE, DONE_ZONES, NARA_FOREST } from './layout.js';
 import { PLAN } from './plan-data.js';
+import { fillCells, PATHS } from './fields.js';
 
 /* ---------- 땅 높이 ---------- */
 const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -77,7 +78,8 @@ function buildGround(scene, tintOn) {
   g.fillStyle = '#fff'; g.beginPath(); g.arc(px(WALL.cx), pz(WALL.cz), (WALL.r - 1.5) * k, 0, Math.PI * 2); g.fill();
   g.restore();
   g.fillStyle = '#000';
-  for (const b of PLAN.town) fillPoly(g, b);                                                  // 일반 블록
+  for (const b of [...PLAN.town, ...PLAN.townExtra]) fillPoly(g, b);                          // 일반 블록
+  fillCells((x, z, kind, u) => g.fillRect(px(x - u / 2) - 0.4, pz(z - u / 2) - 0.4, u * k + 0.8, u * k + 0.8));   // 블록도 길도 아닌 채 남았던 맨흙은 풀밭·논밭 터로
   for (const p of PLAN.greens) fillPoly(g, p);                                                // 숲·녹지
   for (const z of PLAN.zones) { if (z.blocks) { g.fillStyle = '#fff'; fillPoly(g, z.poly); g.fillStyle = '#000'; for (const b of z.blocks) fillPoly(g, b); } else fillPoly(g, z.poly); }
   // 큰 길들은 블록 위에 덧칠한다
@@ -95,6 +97,7 @@ function buildGround(scene, tintOn) {
   g.fillRect(px(STAIR.x0 - 7), pz(CLIFF.z), (STAIR.x1 - STAIR.x0 + 14) * k, 14 * k); stroke([60, -124], [STAIR.x0 + 4, -141], 9);                       // 바위 오르는 계단 밑과 거기로 가는 길
   for (const b of PLAN.bridges) stroke(b[0], b[1], 8);
   { const tr = NARA_FOREST.trail; for (let i = 0; i < tr.length - 1; i++) stroke(tr[i], tr[i + 1], 3.4); }   // 나라 숲으로 드는 오솔길
+  for (const p of PATHS) for (let i = 0; i < p.pts.length - 1; i++) stroke(p.pts[i], p.pts[i + 1], p.w);        // 못 둘레의 산책길
   const mask = new THREE.CanvasTexture(c);
   mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.anisotropy = 8;
 

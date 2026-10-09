@@ -5,13 +5,14 @@ import { Builder, marks, settle, addCollider, mat4, tube, rng as rngOf } from '.
 import { M, mat, textMat } from './materials.js';
 import { boxHouse, makeKit, ROOFS } from './town.js';
 import { lantern, signBoard, beamBetween, gableRoof, hipRoof } from './arch.js';
-import { tuftGeometry } from './flora.js';
+import { tuftGeometry, bushGeometry } from './flora.js';
 import { Herd } from './deer.js';
 import { Pack } from './dogs.js';
 import { uchihaKit, uchihaGate } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
 import { terrainH, inPoly } from './village.js';
 import { WALL, NARA_FOREST, naraTrailDist } from './layout.js';
+import { fillAt, farmPlots, POND_E, POND_W } from './fields.js';
 
 export const LOTS = [];        // 구역의 특별한 건물이 선 터 { x, z, ry, w, d } — 집·나무·풀이 피한다
 export const OPEN = [];        // 나무를 심지 않을 자리 [x, z, 반지름] — 문 앞처럼 트여 있어야 하는 곳
@@ -1201,6 +1202,162 @@ function naraForest(scene, out) {
 
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
+/* ============================ 서쪽 논밭과 못 둘레 ============================
+   강 건너 서쪽 담 밑, 살림집 블록 사이에 남아 있던 맨흙을 논·푸성귀 밭·감나무 밭으로 메운다. 강가에는 물레방앗간.
+   정문 쪽 두 못에는 둘레 산책길에 걸상과 석등. 모두 원작에 그 자리가 나오는 것은 아니고, 마을 변두리의 살림에서 지어낸 것이다. */
+function bench(B, wood, light) {   // 긴 걸상: 가운데가 원점, 앞은 +z
+  B.geo(light, new THREE.BoxGeometry(1.7, 0.05, 0.16), mat4(0, 0.44, 0.13)); B.geo(light, new THREE.BoxGeometry(1.7, 0.05, 0.16), mat4(0, 0.44, -0.06));
+  for (const x of [-0.7, 0.7]) {
+    B.geo(wood, new THREE.BoxGeometry(0.07, 0.42, 0.07), mat4(x, 0.21, 0.16)); B.geo(wood, new THREE.BoxGeometry(0.07, 0.95, 0.07), mat4(x, 0.475, -0.2, -0.12));
+    B.geo(wood, new THREE.BoxGeometry(0.06, 0.06, 0.4), mat4(x, 0.38, -0.02));
+  }
+  for (const y of [0.66, 0.86]) B.geo(light, new THREE.BoxGeometry(1.7, 0.13, 0.04), mat4(0, y, -0.25 - (y - 0.66) * 0.12, -0.12));
+  addCollider(-0.85, 0, -0.3, 0.85, 0.9, 0.22);
+}
+function farmland(scene, out) {
+  const R = rngOf(4417), B = new Builder(), C = [WALL.cx, WALL.cz];
+  const bund = mat('dirt', 0xa58e6a), mud = mat('plain', 0x4a4034, { rough: 1 }), soil = mat('plain', 0x4f3d2c, { rough: 1 }), straw = mat('plain', 0xd2b86a, { rough: 1 }), hat = mat('plain', 0xc9a85a, { rough: 1 });
+  const cloth = [0x3f5a8a, 0x8a3f3a, 0x5a7a4a].map(c => mat('plain', c, { rough: 1, side: 'double' })), fruit = mat('plain', 0xe8782a, { rough: 0.55 }), bamboo = mat('plain', 0xb9b06a, { rough: 0.7 }), bark = mat('bark', 0x8a7257), planks = mat('planks', 0x7b5a3c);
+  let plots = farmPlots();
+
+  /* ----- 물레방앗간 자리: 강 바깥 둑, 논 사이 ----- */
+  const NK = PLAN.water.naka, HALF = NK.w / 2;
+  let mill = null;
+  { // 강줄기를 따라가며 (-440, 690)에 가장 가까운, 둑 밖이 논밭 터인 자리를 찾는다
+    let best = 1e9;
+    for (let i = 0; i < NK.pts.length - 1; i++) for (let t = 0; t <= 1; t += 0.05) {
+      const a = NK.pts[i], b = NK.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]), dx = (b[0] - a[0]) / L, dz = (b[1] - a[1]) / L, px = a[0] + (b[0] - a[0]) * t, pz = a[1] + (b[1] - a[1]) * t;
+      let nx = dz, nz = -dx; if ((px - C[0]) * nx + (pz - C[1]) * nz < 0) { nx = -nx; nz = -nz; }        // 담 쪽을 보는 방향
+      const hx = px + nx * (HALF + 4.2), hz = pz + nz * (HALF + 4.2), d = Math.hypot(px + 440, pz - 690);
+      if (d < best && [[0, 0], [3, 2.5], [-3, 2.5], [3, -2.5], [-3, -2.5]].every(([u, v]) => fillAt(hx + dx * u + nx * v, hz + dz * u + nz * v) === 2)) { best = d; mill = { x: hx, z: hz, nx, nz }; }
+    }
+  }
+  if (mill) plots = plots.filter(p => Math.hypot(p.x - mill.x, p.z - mill.z) > 15);
+  // 일꾼들의 헛간 마당: 큰 터 둘을 골라 밭 대신 헛간과 볏단 시렁을 둔다
+  const yards = [[-560, 420], [-420, 760]].map(q => plots.filter(p => p.w > 12).sort((a, b) => Math.hypot(a.x - q[0], a.z - q[1]) - Math.hypot(b.x - q[0], b.z - q[1]))[0]).filter(Boolean);
+  plots = plots.filter(p => !yards.includes(p));
+
+  const rice = [], veg = [[], [], []], vine = [], crownW = [], crownL = [];
+  const frame = p => { const tx = -Math.sin(p.a), tz = Math.cos(p.a), ox = Math.cos(p.a), oz = Math.sin(p.a); return { tx, tz, ox, oz, ry: Math.atan2(-ox, -oz), L: (u, v) => [p.x + tx * u - ox * v, p.z + tz * u - oz * v] }; };
+  const scarecrow = (F, u, v, k) => {
+    const [x, z] = F.L(u, v), ry = F.ry + (R() - 0.5), G = (m, geo, lx, y, lz = 0, rz = 0) => B.geo(m, geo, mat4(x + Math.cos(ry) * lx + Math.sin(ry) * lz, y, z - Math.sin(ry) * lx + Math.cos(ry) * lz, 0, ry, rz));
+    G(M.beam, new THREE.CylinderGeometry(0.04, 0.05, 2.0, 6), 0, 1.0); G(M.beam, new THREE.CylinderGeometry(0.03, 0.03, 1.5, 6).rotateZ(Math.PI / 2), 0, 1.42);
+    G(cloth[k % 3], new THREE.BoxGeometry(0.5, 0.72, 0.1), 0, 1.1); for (const s of [-1, 1]) { G(cloth[k % 3], new THREE.BoxGeometry(0.46, 0.3, 0.09), s * 0.48, 1.36, 0, s * 0.12); G(straw, new THREE.ConeGeometry(0.07, 0.24, 6).rotateZ(-s * Math.PI / 2), s * 0.84, 1.42); }
+    G(straw, new THREE.ConeGeometry(0.2, 0.34, 7), 0, 0.62);                                                    // 옷자락 밑으로 삐져나온 짚
+    G(straw, new THREE.SphereGeometry(0.17, 10, 8), 0, 1.72); G(hat, new THREE.ConeGeometry(0.4, 0.2, 14), 0, 1.93);
+    addCollider(x - 0.15, 0, z - 0.15, x + 0.15, 2, z + 0.15);
+  };
+  const NAMES = [['논', '물을 댄 논. 줄 맞춰 꽂은 모가 자란다.'], ['푸성귀 밭', '이랑마다 배추와 파, 무를 심은 밭.'], ['감나무 밭', '줄지어 선 감나무에 주홍빛 감이 달렸다.']];
+  plots.forEach((p, pi) => {
+    const F = frame(p), { w, d } = p, G = (m, geo, u, y, v) => { const q = F.L(u, v); B.geo(m, geo, mat4(q[0], y, q[1], 0, F.ry, 0)); };
+    if (p.t === 0) {            // 논: 낮은 두렁, 물, 줄 맞춘 모
+      for (const s of [-1, 1]) { G(bund, new THREE.BoxGeometry(w + 0.7, 0.34, 0.7), 0, 0.17, s * d / 2); G(bund, new THREE.BoxGeometry(0.7, 0.34, d - 0.7), s * w / 2, 0.17, 0); }
+      G(mud, new THREE.BoxGeometry(w - 0.7, 0.1, d - 0.7), 0, 0.1, 0); G(M.water, new THREE.BoxGeometry(w - 0.7, 0.05, d - 0.7), 0, 0.2, 0);
+      for (let u = -w / 2 + 1; u <= w / 2 - 1; u += 0.8) for (let v = -d / 2 + 1; v <= d / 2 - 1; v += 0.7) { const q = F.L(u + (R() - 0.5) * 0.12, v + (R() - 0.5) * 0.12); rice.push(mat4(q[0], 0.2, q[1], 0, R() * 6.283, 0, [0.8, 1.3 + R() * 0.4, 0.8])); }
+      if (pi % 3 === 0) scarecrow(F, w * 0.22, 0.4, pi);
+    } else if (p.t === 1) {     // 푸성귀 밭: 이랑마다 배추·파·무. 몇몇 밭 가운데 이랑은 콩 넝쿨 섶
+      let ri = 0;
+      for (let v = -d / 2 + 1.25; v <= d / 2 - 1.2; v += 1.5, ri++) {
+        G(soil, new THREE.BoxGeometry(w - 1, 0.2, 0.95), 0, 0.1, v);
+        if (pi % 4 === 1 && ri === 3) {
+          for (let u = -w / 2 + 1.2; u <= w / 2 - 1.2; u += 1.3) {
+            const top = F.L(u, v); for (const s of [-1, 1]) { const f = F.L(u, v + s * 0.4); beamBetween(B, bamboo, V(f[0], 0.15, f[1]), V(top[0], 2.0, top[1]), 0.035, 0.035); vine.push(mat4(f[0], 0.2, f[1], 0, R() * 6.283, 0, [1.5, 3.4 + R() * 0.5, 1.5])); }
+          }
+          const a = F.L(-w / 2 + 1.0, v), b = F.L(w / 2 - 1.0, v); beamBetween(B, bamboo, V(a[0], 1.98, a[1]), V(b[0], 1.98, b[1]), 0.035, 0.035);
+          continue;
+        }
+        const k = (ri + pi) % 3;
+        for (let u = -w / 2 + 1; u <= w / 2 - 1; u += 0.85) { const q = F.L(u + (R() - 0.5) * 0.15, v + (R() - 0.5) * 0.12); veg[k].push(mat4(q[0], 0.2, q[1], 0, R() * 6.283, 0, k === 0 ? [1.9, 0.55, 1.9] : k === 1 ? [1.0, 1.5 + R() * 0.4, 1.0] : [1.4, 1.0, 1.4])); }
+      }
+    } else {                    // 감나무 밭
+      const nx = w > 12 ? 3 : 2;
+      for (let i = 0; i < nx; i++) for (const s of [-1, 1]) {
+        const q = F.L((i - (nx - 1) / 2) * 5 + (R() - 0.5) * 0.6, s * 2.7 + (R() - 0.5) * 0.5), ry = R() * 6.283, sc = 0.9 + R() * 0.25;
+        B.geo(bark, new THREE.CylinderGeometry(0.1, 0.17, 1.9, 7), mat4(q[0], 0.95, q[1], 0, ry, 0));
+        for (const [dy, s2] of [[1.7, 1], [2.3, 0.75]]) { const m = mat4(q[0], dy, q[1], 0, ry + dy, 0, sc * s2); crownW.push(m); crownL.push(m); }
+        for (let f = 0; f < 10; f++) { const a = R() * 6.283, r = (0.5 + R() * 0.9) * sc; B.geo(fruit, new THREE.SphereGeometry(0.1, 8, 6), mat4(q[0] + Math.cos(a) * r, 1.75 + R() * 1.3, q[1] + Math.sin(a) * r)); }
+        addCollider(q[0] - 0.2, 0, q[1] - 0.2, q[0] + 0.2, 2.2, q[1] + 0.2);
+      }
+      if (pi % 2 === 0) {   // 감 따는 사다리와 바구니
+        const a = F.L(-1.2, 0), b = F.L(0.2, 1.9);
+        for (const o of [-0.22, 0.22]) beamBetween(B, M.beamLight, V(a[0] + F.tx * o, 0, a[1] + F.tz * o), V(b[0] + F.tx * o, 2.6, b[1] + F.tz * o), 0.05, 0.05);
+        for (let k = 1; k < 7; k++) { const t = k / 7; beamBetween(B, M.beamLight, V(a[0] + (b[0] - a[0]) * t - F.tx * 0.22, 2.6 * t, a[1] + (b[1] - a[1]) * t - F.tz * 0.22), V(a[0] + (b[0] - a[0]) * t + F.tx * 0.22, 2.6 * t, a[1] + (b[1] - a[1]) * t + F.tz * 0.22), 0.04, 0.04); }
+        const bk = F.L(-2.2, -0.6); B.geo(straw, new THREE.CylinderGeometry(0.34, 0.26, 0.36, 12, 1, true), mat4(bk[0], 0.18, bk[1])); for (let f = 0; f < 7; f++) B.geo(fruit, new THREE.SphereGeometry(0.1, 8, 6), mat4(bk[0] + (R() - 0.5) * 0.4, 0.3 + R() * 0.08, bk[1] + (R() - 0.5) * 0.4));
+      }
+    }
+    out.places.push({ n: NAMES[p.t][0], t: NAMES[p.t][1], poly: p.c, b: bound(p.c) });
+  });
+  // 논·밭 안에는 들풀이 나지 않는다
+  { const crop = plots.filter(p => p.t < 2).map(p => ({ ...p, F: frame(p) })); BARE.push((x, z) => crop.some(p => Math.abs(x - p.x) < 12 && Math.abs(z - p.z) < 12 && Math.abs((x - p.x) * p.F.tx + (z - p.z) * p.F.tz) < p.w / 2 + 0.6 && Math.abs((x - p.x) * p.F.ox + (z - p.z) * p.F.oz) < p.d / 2 + 0.6)); }
+  B.finish(scene);
+  const tuft = tuftGeometry(12), bush = bushGeometry(31, 2.3);
+  instanced(scene, tuft, mat('leaf', 0x86c84a), rice, false);
+  [0x7fb04a, 0x3f8a3a, 0x5a9a44].forEach((col, k) => instanced(scene, tuft, mat('leaf', col), veg[k], false));
+  instanced(scene, tuft, mat('leaf', 0x4a8a34), vine, false);
+  instanced(scene, bush.wood, mat('bark', 0x6e5a40), crownW, false); instanced(scene, bush.leaves, mat('leaf', 0x3f7a2e), crownL);
+
+  /* ----- 헛간 마당 ----- */
+  const K = makeKit();
+  yards.forEach((p, yi) => {
+    const F = frame(p);
+    const res = put(scene, { x: p.x, z: p.z, ry: F.ry }, Bq => {
+      boxHouse(Bq, K, { x0: -7, z0: -4.6, x1: -2.2, z1: -1, front: 's', floors: 1, wall: 1, roof: 2, roofKind: 'gable', rise: 1.5, shop: null, near: true }, rngOf(880 + yi), out.glows);
+      // 볏단 말리는 시렁 둘: 엇건 다리 사이에 긴 장대, 장대에 볏단을 걸쳐 넌다
+      for (const z of [1.2, 3.6]) {
+        for (const x of [0.5, 6.5]) for (const s of [-1, 1]) beamBetween(Bq, M.beam, V(x, 0, z + s * 0.5), V(x, 1.6, z), 0.06, 0.06);
+        beamBetween(Bq, M.beamLight, V(0.2, 1.56, z), V(6.8, 1.56, z), 0.06, 0.06);
+        for (let x = 0.75; x < 6.4; x += 0.42) for (const s of [-1, 1]) Bq.geo(straw, new THREE.ConeGeometry(0.16, 0.85, 7), mat4(x, 1.2, z + s * 0.16, s * 0.28, x, 0));
+        addCollider(0.3, 0, z - 0.5, 6.7, 1.7, z + 0.5);
+      }
+      // 짚가리와 연장
+      for (const [x, z, s] of [[-0.6, -3.2, 1], [1.4, -3.6, 0.8]]) { Bq.geo(straw, new THREE.CylinderGeometry(0.75 * s, 0.95 * s, 1.3 * s, 14), mat4(x, 0.65 * s, z)); Bq.geo(straw, new THREE.ConeGeometry(0.98 * s, 0.9 * s, 14), mat4(x, 1.75 * s, z)); addCollider(x - 0.8 * s, 0, z - 0.8 * s, x + 0.8 * s, 2 * s, z + 0.8 * s); }
+      for (const [x, tilt] of [[-2.0, 0.16], [-1.75, 0.22]]) { beamBetween(Bq, M.beamLight, V(x, 0, -0.75), V(x, 1.5, -0.98 - tilt), 0.035, 0.035); Bq.geo(M.iron, new THREE.BoxGeometry(0.22, 0.03, 0.14), mat4(x, 0.03, -0.72)); }
+      return { places: [{ n: '헛간 마당', t: '논밭 일꾼들이 연장을 두고 볏단을 말리는 마당.', b: [-8, 8, -5.5, 5.5] }] };
+    });
+    out.places.push(...res.places);
+  });
+
+  /* ----- 물레방앗간 ----- */
+  if (mill) {
+    const ry = Math.atan2(-mill.nx, -mill.nz);                    // 집의 앞(+z)이 강을 본다
+    const res = put(scene, { x: mill.x, z: mill.z, ry }, Bq => {
+      boxHouse(Bq, K, { x0: -2.8, z0: -2.4, x1: 2.8, z1: 2.2, front: 'e', floors: 1, wall: 1, roof: 3, roofKind: 'gable', rise: 1.7, shop: null, near: true }, rngOf(913), out.glows);
+      signBoard(Bq, '水車小屋', 2.86, 2.55, -0.1, Math.PI / 2, 1.9, 0.42, { both: false });
+      // 물 쪽에서 굴대를 받치는 틀
+      for (const x of [-0.55, 0.55]) Bq.box(M.beam, x - 0.09, -1.6, 6.45, x + 0.09, 1.72, 6.63, false);
+      Bq.box(M.beam, -0.75, 1.3, 6.43, 0.75, 1.42, 6.65, false);
+      // 쌀섬
+      for (let i = 0; i < 3; i++) for (let j = 0; j < 2 - (i > 1 ? 1 : 0); j++) Bq.geo(straw, new THREE.CylinderGeometry(0.3, 0.3, 0.86, 12).rotateZ(Math.PI / 2), mat4(-3.6, 0.3 + j * 0.56, -1.4 + i * 0.66 + j * 0.33));
+      addCollider(-4.1, 0, -1.8, -3.1, 1.2, 0.4);
+      return { places: [{ n: '물레방앗간', t: '나카 강물로 바퀴를 돌려 논에서 거둔 쌀을 찧는 방앗간.', b: [-6, 6, -5, 9], y: [-2, 6] }], jumps: [['물레방앗간', 6.5, 0, -7, yawTo(-6.5, 9), 91.2]] };
+    });
+    out.places.push(...res.places); out.jumps.push(...res.jumps);
+    // 바퀴: 굴대가 강 쪽(+z)으로 뻗고, 그 끝에서 물에 잠겨 돈다
+    const outer = new THREE.Group(), inner = new THREE.Group(), Bw = new Builder(), RW = 2.35;
+    outer.position.set(mill.x - mill.nx * 5.6, 1.5, mill.z - mill.nz * 5.6); outer.rotation.y = ry; outer.add(inner); scene.add(outer);
+    for (const zc of [-0.34, 0.34]) {
+      Bw.geo(planks, new THREE.TorusGeometry(RW, 0.07, 6, 30), mat4(0, 0, zc)); Bw.geo(planks, new THREE.TorusGeometry(1.15, 0.05, 6, 20), mat4(0, 0, zc));
+      for (let k = 0; k < 8; k++) Bw.geo(M.beam, new THREE.BoxGeometry(0.09, RW, 0.07).translate(0, RW / 2, 0), mat4(0, 0, zc, 0, 0, k / 8 * Math.PI * 2));
+    }
+    for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; Bw.geo(M.beamLight, new THREE.BoxGeometry(0.5, 0.05, 0.74), mat4(Math.cos(a) * (RW - 0.12), Math.sin(a) * (RW - 0.12), 0, 0, 0, a)); }
+    Bw.geo(M.beam, new THREE.CylinderGeometry(0.24, 0.24, 0.95, 12).rotateX(Math.PI / 2)); Bw.geo(M.beam, new THREE.CylinderGeometry(0.11, 0.11, 4.6, 10).rotateX(Math.PI / 2), mat4(0, 0, -1.3));
+    Bw.finish(inner);
+    out.ticks.push((t, dt) => { inner.rotation.z -= Math.min(dt || 0, 0.1) * 0.55; });
+  }
+  { const p = plots.find(q => q.t === 0 && q.w > 12 && q.z > 640 && q.z < 720) || plots.find(q => q.t === 0); if (p) out.jumps.push(['서쪽 논밭', p.x + Math.cos(p.a) * 13, 0, p.z + Math.sin(p.a) * 13, yawTo(-Math.cos(p.a), -Math.sin(p.a)), 91.1]); }
+
+  /* ----- 정문 쪽 두 못: 둘레 산책길의 걸상과 석등 ----- */
+  const seat = (c, rx, rz, deg) => { const a = deg * Math.PI / 180, x = c[0] + Math.cos(a) * rx, z = c[1] + Math.sin(a) * rz; OPEN.push([x, z, 2.6]); put(scene, { x, z, ry: Math.atan2(c[0] - x, c[1] - z) }, Bq => bench(Bq, M.beam, M.beamLight)); };
+  const lamp = (c, rx, rz, deg) => { const a = deg * Math.PI / 180, x = c[0] + Math.cos(a) * rx, z = c[1] + Math.sin(a) * rz, Bq = new Builder(); OPEN.push([x, z, 2.2]); stoneLantern(Bq, x, z); Bq.finish(scene); };
+  for (const d of [185, 250, 110, 20]) seat(POND_E, 26.2, 29.2, d);
+  for (const d of [215, 150, 320]) lamp(POND_E, 25.6, 28.6, d);
+  for (const d of [-65, 20, 95]) seat(POND_W, 33.2, 38.2, d);
+  for (const d of [-25, 60]) lamp(POND_W, 32.6, 37.6, d);
+  out.places.push({ n: '정문 옆 못', t: '이누즈카 구역 옆을 흐르는 냇물이 끝나는 못. 큰길가 가게 사이 골목으로 들어오면 둘레를 한 바퀴 도는 산책길이 있다.', b: [POND_E[0] - 30, POND_E[0] + 30, POND_E[1] - 33, POND_E[1] + 33] });
+  out.places.push({ n: '나카 강이 끝나는 못', t: '마을을 돌아온 나카 강이 여기서 끝난다. 다리를 건너 못을 돌아 걸을 수 있다.', b: [POND_W[0] - 36, POND_W[0] + 36, POND_W[1] - 40, POND_W[1] + 40] });
+  out.jumps.push(['정문 옆 못', 52, 0, 878.5, yawTo(POND_E[0] - 52, POND_E[1] - 878.5), 91.3]);
+}
+
 export async function build(scene, ctx) {
   const out = { places: [], jumps: [], glows: [], ticks: [], eye: ctx.camera };
   GLOWS = out.glows;
@@ -1222,6 +1379,8 @@ export async function build(scene, ctx) {
   inuzuka(scene, out);
   await ctx.say('아부라메 일족의 벌레를 깨우는 중…');
   aburame(scene, out);
+  await ctx.say('서쪽 논에 물을 대는 중…');
+  farmland(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }

@@ -24,6 +24,7 @@ const spokes = P.SPOKES.map(k => ({ a: T(P.pol(k.a, k.r0 || 13)), b: T(P.pol(k.a
 const data = {
   wall, fan: T([P.FAN.x, P.FAN.y]), forecourt: P.FORECOURT * U,
   town: P.townBlocks().map(TP),                                     // 일반 살림집 블록
+  townExtra: P.EXTRA_BLOCKS.map(TP),                                // 나중에 덧붙인 블록(집을 따로 세운다 — 먼저 있던 집들이 바뀌지 않게)
   zones,                                                            // 이름 붙은 구역(블록으로 나뉜 구역은 blocks)
   greens: P.GREEN.map(TP),                                          // 숲·녹지
   roads: {
@@ -31,7 +32,7 @@ const data = {
     spokes,
     vertical: P.VROADS.map(([x, y0, y1, w]) => ({ a: T([x, y0]), b: T([x, y1]), w: w * U })),
     ring: { r: P.RING.r * U, w: P.RING.w * U },
-    plaza: TP(P.PLAZA),
+    plaza: TP(P.PLAZA), plazaOld: TP(P.PLAZA_OLD),
   },
   roadside: { z0: T([P.ROADSIDE.x0, 0])[1], z1: T([P.ROADSIDE.x1, 0])[1], off: P.ROADSIDE.off * U, w: P.ROADSIDE.w * U, step: P.ROADSIDE.step * U },
   water: {
