@@ -86,10 +86,13 @@ float h2(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float n2(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
   return mix(mix(h2(i), h2(i+vec2(1,0)), f.x), mix(h2(i+vec2(0,1)), h2(i+vec2(1,1)), f.x), f.y); }
 float fbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 6; i++) { s += a * n2(p); p = p * 2.03 + 11.7; a *= 0.5; } return s; }
+// 뭉게구름(만화 화풍): 뭉툭한 큰 덩어리에 둥근 혹을 두 겹 얹는다(잔 가닥이 없게 잡음을 세 겹만 쓴다)
+float puffy(vec2 p){ return n2(p) * 0.56 + abs(2.0 * n2(p * 2.3 + 3.0) - 1.0) * 0.29 + abs(2.0 * n2(p * 5.1 + 9.0) - 1.0) * 0.15; }
 void main(){
   vec3 d = normalize(vDir);
   float up = max(d.y, 0.0);
-  vec3 col = mix(uHor, uTop, pow(up, 0.55));
+  // 만화 화풍: 머리 위는 짙푸르게, 지평선 쪽은 맑은 하늘빛으로
+  vec3 col = mix(mix(uHor, uHor * vec3(0.78, 1.0, 1.07), uToon), mix(uTop, uTop * vec3(0.38, 0.8, 1.2), uToon), pow(up, mix(0.55, 0.42, uToon)));
   float sd = max(dot(d, uSun), 0.0);
   col += uSunPow * (vec3(1.0, 0.95, 0.85) * pow(sd, 900.0) * 14.0 + vec3(1.0, 0.85, 0.6) * pow(sd, 12.0) * 0.28);
   // 구름: 머리 위 평면에 깔린 여섯 겹 잡음
@@ -104,6 +107,17 @@ void main(){
   vec3 lit = mix(vec3(1.0), uHor * 1.15, 0.25) * (1.0 - uDark * 0.72);
   vec3 shade = mix(vec3(0.62, 0.65, 0.72), vec3(0.16, 0.17, 0.2), uDark);
   vec3 cloud = mix(lit, shade, thick) + uSunPow * vec3(1.0, 0.9, 0.75) * pow(sd, 6.0) * 0.5 * (1.0 - thick);
+  if (uToon > 0.5) {
+    // 만화 화풍의 구름: 가장자리가 또렷한 뭉게구름. 해를 보는 쪽은 희고, 등진 쪽 속은 푸른 그늘 — 흰빛·옅은 그늘·짙은 그늘 세 톤으로 끊어 칠한다
+    vec2 cu = uv * 1.5, toSun = normalize(uSun.xz + vec2(0.0001)) * 0.07;
+    float e = 0.74 - uCov * 0.5, pf = puffy(cu), back = puffy(cu + toSun) - pf;      // back > 0: 해 쪽으로 구름이 더 두껍다 = 해를 등진 면
+    dens = smoothstep(e, e + 0.02, pf);
+    float deep = smoothstep(0.0, 0.07, pf - e) * smoothstep(-0.035, 0.012, back);
+    vec3 shadeT = mix(vec3(0.5, 0.63, 0.9), vec3(0.16, 0.17, 0.2), uDark);
+    cloud = mix(lit, mix(lit, shadeT, 0.5), smoothstep(0.22, 0.26, deep));
+    cloud = mix(cloud, shadeT, smoothstep(0.62, 0.66, deep));
+    cloud = mix(cloud, shadeT, uDark * 0.6);
+  }
   cloud += uFlash * (0.12 + 0.75 * nb * nb) * vec3(0.85, 0.9, 1.0);
   col = mix(col, cloud, dens * smoothstep(-0.02, 0.22, d.y));
   col = mix(col, uFogCol * (1.0 + uFlash * 0.45), smoothstep(0.16, -0.03, d.y));   // 지평선은 안개 빛에 녹는다
