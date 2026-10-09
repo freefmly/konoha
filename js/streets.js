@@ -55,6 +55,8 @@ function paintLand() {
   fillCells((x, z, kind) => { const i = Math.floor((z - LZ0) / LU) * LN + Math.floor((x - LX0) / LU); if (land[i] === DIRT || land[i] === HOLD) land[i] = kind === 1 ? MEADOW : FIELD; });
   for (const p of PATHS) for (let i = 0; i < p.pts.length - 1; i++) road(p.pts[i], p.pts[i + 1], p.w + 0.6);
 }
+// 그 자리가 길(맨흙)인가 — 마을 사람이 걸을 자리를 고를 때 쓴다(people.js)
+export const isRoad = (x, z) => land !== null && landAt(x, z) === DIRT;
 // 그 자리의 쓰임새(담 밖과 산은 따로 가린다)
 function landAt(x, z) {
   if (z < CLIFF.z) return HILL;

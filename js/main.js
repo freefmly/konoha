@@ -6,6 +6,7 @@ import { Sound } from './audio.js';
 import { Toon } from './toon.js';
 import { VillageMap } from './map.js';
 import { setupLod } from './lod.js';
+import { build as buildPeople, PEOPLE } from './people.js';
 import { Player } from './player.js';
 import { LOT, WALL, SITE } from './layout.js';
 import { marks, settle } from './build.js';
@@ -74,6 +75,7 @@ async function init() {
     catch (e) { console.error('건물 짓기 실패: ' + name, e); }
   }
   take(await buildVillage(scene, ctx));
+  if (!only && Q.get('ppl') !== '0') { await say('마을 사람들이 나오는 중…'); ctx.pplRow = !!Q.get('pplrow'); ctx.pplLog = !!Q.get('ppllog'); ctx.pplWarm = +Q.get('pplwarm') || 0; try { take(await buildPeople(scene, ctx)); } catch (e) { console.error('마을 사람 세우기 실패', e); } }
 
   // 실내 등불: 빛은 여섯 개만 두고, 걷는 사람과 가까운 등불 자리로 옮겨 쓴다(등불이 많아도 느려지지 않는다)
   const lamps = [];
@@ -131,6 +133,11 @@ async function init() {
   };
   $('#styleBtns').innerHTML = [1, 0].map(i => `<button data-style="${i}">${STYLE[i]}</button>`).join('');   // 기본인 만화를 앞에 둔다
   $('#styleBtns').addEventListener('click', e => { const b = e.target.closest('[data-style]'); if (b) setStyle(b.dataset.style === '1'); });
+  // 마을 사람의 얼굴(눈·눈썹·입)을 그릴지. 확인용으로 ?face=0 으로 끄고 시작할 수 있다
+  const setFace = on => { PEOPLE.uFace.value = on ? 1 : 0; for (const b of $('#faceBtns').children) b.classList.toggle('on', (b.dataset.face === '1') === on); };
+  $('#faceBtns').innerHTML = [['1', '그리기'], ['0', '비우기']].map(([v, n]) => `<button data-face="${v}">${n}</button>`).join('');
+  $('#faceBtns').addEventListener('click', e => { const b = e.target.closest('[data-face]'); if (b) setFace(b.dataset.face === '1'); });
+  setFace(Q.get('face') !== '0');
   const WX_NAME = { clear: '맑은 날', cloudy: '구름 낀 날', rain: '비 오는 날', snow: '눈 오는 날' };
   $('#weatherBtns').innerHTML = WEATHERS.map(([k], i) => `<button data-weather="${k}"><i class="wx wx-${k}"></i><span>${WX_NAME[k]}</span><kbd>${i + 1}</kbd></button>`).join('');
   $('#weatherBtns').addEventListener('click', e => { const b = e.target.closest('[data-weather]'); if (b) setWeather(b.dataset.weather); });
