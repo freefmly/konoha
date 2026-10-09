@@ -47,7 +47,7 @@ function inkShader(sh, { flat = false, noLine = false } = {}) {
         #endif`);
   if (noLine) f = f.replace('#include <dithering_fragment>', `#include <dithering_fragment>
         #ifdef W_LEAF
-          gl_FragColor.a = vKind > 1.5 ? 1.0 : 1.0 - uToon;   // 잎 덩어리에는 먹선을 긋는다
+          gl_FragColor.a = (vKind > 1.5 && vKind < 2.5) ? 1.0 : 1.0 - uToon;   // 잎 덩어리에는 먹선을 긋는다(풀잎에는 긋지 않는다)
         #else
           gl_FragColor.a = 1.0 - uToon;
         #endif`);
@@ -141,7 +141,8 @@ export function weatherize(mat, { puddles = false, sway = null, extra = null, fl
       .replace('#include <common>', '#include <common>\n' + FRAG_HEAD)
       .replace('#include <color_fragment>', `#include <color_fragment>
         #ifdef W_LEAF
-          if (vKind > 1.5) {   // 잎 덩어리: 볕 받는 윗머리는 누런 풀빛, 아랫배는 푸른 그늘빛(가운데 톤은 제 빛깔). 경계는 붓으로 찍은 듯 조금 울퉁불퉁하게
+          if (vKind > 2.5) diffuseColor.rgb *= vec3(0.62, 0.7, 0.6);   // 만화 화풍의 풀잎: 풀밭 빛깔에 가깝게 눌러 튀지 않게
+          if (vKind > 1.5 && vKind < 2.5) {   // 잎 덩어리: 볕 받는 윗머리는 누런 풀빛, 아랫배는 푸른 그늘빛(가운데 톤은 제 빛깔). 경계는 붓으로 찍은 듯 조금 울퉁불퉁하게
             float kT = vWNor.y + (wNoise(vWPos.xz * 1.1 + vWPos.y * 0.8) - 0.5) * 0.55;
             diffuseColor.rgb *= 1.12 * (kT > 0.36 ? vec3(1.5, 1.42, 0.86) : kT < -0.2 ? vec3(0.68, 0.82, 0.88) : vec3(1.0));
           }

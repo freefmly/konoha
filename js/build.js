@@ -231,7 +231,10 @@ export class Builder {
   geo(mat, g, m, uvScale) {
     const b = this.buf(mat);
     const s = g.index ? g.toNonIndexed() : g;
-    const pos = s.attributes.position, nor = s.attributes.normal, uv = s.attributes.uv;
+    const pos = s.attributes.position, nor = s.attributes.normal, uv = s.attributes.uv, kd = s.attributes.aKind;
+    // 화풍 표시(aKind: 잎과 잎 덩어리를 가르는 값)가 있는 도형이면 함께 가져간다. 표시가 없는 꼭짓점은 0(늘 그림)
+    if (kd && !b.k) b.k = [];
+    if (b.k) while (b.k.length < b.p.length / 3) b.k.push(0);
     const flip = m && m.determinant() < 0;
     if (m) _nm.getNormalMatrix(m);
     const cnt = pos.count;
@@ -246,6 +249,7 @@ export class Builder {
         b.n.push(_n.x, _n.y, _n.z);
         if (uv) b.u.push(uv.getX(i) * (uvScale ? uvScale[0] : 1), uv.getY(i) * (uvScale ? uvScale[1] : 1));
         else b.u.push(0, 0);
+        if (b.k) b.k.push(kd ? kd.getX(i) : 0);
       }
     }
   }
@@ -261,6 +265,7 @@ export class Builder {
         d.n.push(e[0] * nx + e[4] * ny + e[8] * nz, e[1] * nx + e[5] * ny + e[9] * nz, e[2] * nx + e[6] * ny + e[10] * nz);
       }
       for (let i = 0; i < u.length; i++) d.u.push(u[i]);
+      if (b.k) { if (!d.k) d.k = []; const n0 = d.p.length / 3 - p.length / 3; while (d.k.length < n0) d.k.push(0); for (let i = 0; i < p.length / 3; i++) d.k.push(b.k[i] || 0); }
     }
   }
 
@@ -275,6 +280,7 @@ export class Builder {
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(b.p), 3));
       g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(b.n), 3));
       g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(b.u), 2));
+      if (b.k) { const k = new Float32Array(b.p.length / 3); k.set(b.k); g.setAttribute('aKind', new THREE.BufferAttribute(k, 1)); }
       const mesh = new THREE.Mesh(g, mat);
       mesh.castShadow = shadow && !mat.userData.noShadow;
       mesh.receiveShadow = true;
@@ -371,6 +377,7 @@ export function mergeGeos(list) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(b.p, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(b.n, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(b.u, 2));
+  if (b.k) { const k = new Float32Array(b.p.length / 3); k.set(b.k); g.setAttribute('aKind', new THREE.BufferAttribute(k, 1)); }
   return g;
 }
 

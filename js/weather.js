@@ -101,9 +101,14 @@ void main(){
   float thick = smoothstep(0.25, 1.0, dens * (0.55 + 0.6 * nb));
   // 만화 화풍: 구름 모양은 그대로 두고(가장자리도 부드럽게), 밝은 쪽은 깨끗한 흰빛·그늘은 푸른빛으로 칠하되 둘 사이만 조금 또렷하게 가른다
   dens = mix(dens, smoothstep(0.06, 0.7, dens), uToon);                       // 옅은 구름이 하늘빛에 묻히지 않게 조금 더 짙게(가장자리는 여전히 부드럽다)
+  float thickRaw = thick;
   thick = mix(thick, 0.9 * smoothstep(0.28, 0.62, thick), uToon);
-  vec3 lit = mix(mix(vec3(1.0), uHor * 1.15, 0.25), vec3(1.0, 1.0, 0.99), uToon) * (1.0 - uDark * 0.72);
-  vec3 shade = mix(mix(vec3(0.62, 0.65, 0.72), vec3(0.52, 0.66, 0.92), uToon), vec3(0.16, 0.17, 0.2), uDark);
+  // 만화 화풍의 흐린 하늘: 구름이 하늘을 덮은 날에는 푸른 그늘빛 한 톤으로 밀지 않는다(탁한 하늘에 흰 구름 몇 점처럼 보인다).
+  // 구름장을 잿빛 세 톤(밝은 잿빛·잿빛·짙은 잿빛)으로 갈라 두께가 보이게 하고, 터진 틈으로만 푸른 하늘이 비친다
+  float oc = uToon * smoothstep(0.5, 0.8, uCov);
+  thick = mix(thick, 0.5 * smoothstep(0.74, 0.80, thickRaw) + 0.5 * smoothstep(0.90, 0.95, thickRaw), oc);
+  vec3 lit = mix(mix(vec3(1.0), uHor * 1.15, 0.25), mix(vec3(1.0, 1.0, 0.99), vec3(0.86, 0.88, 0.92), oc), uToon) * (1.0 - uDark * 0.72);
+  vec3 shade = mix(mix(vec3(0.62, 0.65, 0.72), mix(vec3(0.52, 0.66, 0.92), vec3(0.52, 0.56, 0.66), oc), uToon), vec3(0.16, 0.17, 0.2), uDark);
   vec3 cloud = mix(lit, shade, thick) + uSunPow * vec3(1.0, 0.9, 0.75) * pow(sd, 6.0) * 0.5 * (1.0 - thick);
   cloud += uFlash * (0.12 + 0.75 * nb * nb) * vec3(0.85, 0.9, 1.0);
   col = mix(col, cloud, dens * smoothstep(-0.02, 0.22, d.y));

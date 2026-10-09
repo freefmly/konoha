@@ -16,7 +16,7 @@ export function blob(cp, cn, c, r, seed, lo = false) {
     cp.push(c.x + x * k, c.y + y * k * 0.82, c.z + z * k); cn.push(x, y, z);
   }
 }
-// 잎(낱장)과 잎 덩어리를 한 덩어리로 묶는다. aKind: 1 = 실사에서만 그리는 낱잎, 2 = 만화에서만 그리는 덩어리
+// 잎(낱장)과 잎 덩어리를 한 덩어리로 묶는다. aKind: 1 = 실사에서만 그리는 낱잎, 2 = 만화에서만 그리는 덩어리, 3 = 만화에서만 그리는 풀잎(먹선도 세 톤도 없다)
 function leafGeo(lp, lu, cp, cn) {
   const g = rawGeo(lp, lu), n = lp.length / 3, m = cp.length / 3, ln = g.attributes.normal.array;
   const pos = new Float32Array((n + m) * 3), nor = new Float32Array((n + m) * 3), uv = new Float32Array((n + m) * 2), kind = new Float32Array(n + m);
@@ -106,19 +106,24 @@ export function treeGeometry(seed, { height = 13, depth = 4, sprays = 6, leaves 
 
 // 덤불: 땅에서 여러 줄기가 올라와 잎이 빽빽하다
 export function bushGeometry(seed, size = 1) {
-  const R = rng(seed), wood = [], lp = [], lu = [];
+  const R = rng(seed), wood = [], lp = [], lu = [], tips = [];
   for (let s = 0; s < 9; s++) {
     const a = R() * Math.PI * 2, tilt = 0.15 + R() * 0.75, len = (0.7 + R() * 0.7) * size;
     const dir = V(Math.cos(a) * Math.sin(tilt), Math.cos(tilt), Math.sin(a) * Math.sin(tilt)), pts = [];
     for (let i = 0; i <= 4; i++) pts.push(V(Math.cos(a) * 0.08, 0, Math.sin(a) * 0.08).addScaledVector(dir, len * i / 4).add(V(0, -0.12 * (i / 4) ** 2 * len, 0)));
     wood.push(tube(pts, t => 0.03 * (1 - 0.6 * t), 4, false));
+    tips.push(pts[3].clone().lerp(pts[4], 0.2));
     for (let i = 0; i < 26; i++) {
       const t = 0.2 + 0.8 * R(), k = Math.min(3, Math.floor(t * 4)), p = pts[k].clone().lerp(pts[k + 1], t * 4 - k);
       const ld = V(R() - 0.5, R() * 0.6 - 0.1, R() - 0.5).addScaledVector(dir, 0.6).normalize();
       leaf(lp, lu, p, ld, V(0, 1, 0), (0.16 + R() * 0.1) * size, R);
     }
   }
-  return { wood: mergeGeos(wood), leaves: rawGeo(lp, lu) };
+  // 잎 덩어리(만화 화풍): 줄기마다 끝머리에 하나씩, 한가운데에 하나
+  const cp = [], cn = [];
+  tips.forEach((p, i) => blob(cp, cn, p, (0.34 + 0.1 * Math.sin(seed + i * 2.4)) * size, seed + i * 1.3, true));
+  blob(cp, cn, V(0, 0.42 * size, 0), 0.46 * size, seed + 9.1, true);
+  return { wood: mergeGeos(wood), leaves: leafGeo(lp, lu, cp, cn) };
 }
 
 // 풀포기: 길쭉한 풀잎 아홉 장이 한 뿌리에서 휘어 오른다
@@ -136,7 +141,19 @@ export function tuftGeometry(seed) {
       if (i < 2) { lp.push(...row[i][1], ...row[i + 1][1], ...row[i + 1][0]); lu.push(1, i / 3, 1, (i + 1) / 3, 0, (i + 1) / 3); }
     }
   }
-  return rawGeo(lp, lu);
+  // 만화 화풍의 풀포기: 가는 풀잎 아홉 장 대신, 끝이 뾰족하고 굵직한 풀잎 다섯 장(따로 굴린 수를 써서 위의 풀잎 모양은 그대로 둔다)
+  const R2 = rng(seed + 1000), tp = [], tu = [];
+  for (let b = 0; b < 5; b++) {
+    const a = b / 5 * Math.PI * 2 + R2() * 0.9, lean = 0.25 + R2() * 0.5, h = (b ? 0.2 : 0.32) + R2() * 0.14, w = 0.036 + R2() * 0.018;
+    const dx = Math.cos(a), dz = Math.sin(a), sx = -dz, sz = dx, at = (t, s) => { const out = lean * t * t * h + 0.03; return [dx * out + sx * w * s, h * t * (1 - 0.15 * t), dz * out + sz * w * s]; };
+    const l0 = at(0, 0.7), r0 = at(0, -0.7), l1 = at(0.5, 1), r1 = at(0.5, -1), tip = at(1, 0);
+    tp.push(...l0, ...r0, ...l1, ...r0, ...r1, ...l1, ...l1, ...r1, ...tip); tu.push(0, 0, 1, 0, 0, 0.5, 1, 0, 1, 0.5, 0, 0.5, 0, 0.5, 1, 0.5, 0.5, 1);
+  }
+  const g1 = rawGeo(lp, lu), g2 = rawGeo(tp, tu), n = lp.length / 3, m = tp.length / 3, out = new THREE.BufferGeometry(), kind = new Float32Array(n + m);
+  kind.fill(1, 0, n); kind.fill(3, n);
+  for (const [name, size] of [['position', 3], ['normal', 3], ['uv', 2]]) { const arr = new Float32Array((n + m) * size); arr.set(g1.attributes[name].array); arr.set(g2.attributes[name].array, n * size); out.setAttribute(name, new THREE.BufferAttribute(arr, size)); }
+  out.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
+  return out;
 }
 
 function instanced(scene, geo, material, mats, shadow = true) {
