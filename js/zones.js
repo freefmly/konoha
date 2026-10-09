@@ -1176,7 +1176,7 @@ function naraForest(scene, out) {
   /* ---------- 숲 깊은 곳: 히단이 묻힌 자리. 무너져 내린 구덩이를 메운 바위 더미, 둘레의 금줄 ---------- */
   const hx = F.grave[0], hz = F.grave[1], Y2 = terrainH(hx, hz);
   {
-    const B = new Builder(), dark = mat('plain', 0x5a4632, { rough: 1 });
+    const B = new Builder(), dark = mat('dirt', 0x9a7c58);
     const dg = new THREE.CircleGeometry(3.6, 20); dg.rotateX(-Math.PI / 2); B.geo(dark, dg, mat4(hx, Y2 + 0.03, hz));                                    // 뒤집힌 흙
     for (let i = 0; i < 22; i++) { const an = R() * 6.283, r = R() * 2.7, s = 0.5 + R() * 0.75; B.geo(M.stone, new THREE.DodecahedronGeometry(s, 0), mat4(hx + Math.cos(an) * r, Y2 + 0.2 + (2.8 - r) * 0.32 + R() * 0.2, hz + Math.sin(an) * r, R() * 3, R() * 3, R() * 3, [1, 0.7 + R() * 0.4, 1])); }
     addCollider(hx - 2.6, Y2, hz - 2.6, hx + 2.6, Y2 + 1.2, hz + 2.6);
