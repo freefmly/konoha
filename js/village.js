@@ -4,7 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, mat4 } from './build.js';
 import { mat, M, weatherize } from './materials.js';
 import { signBoard } from './arch.js';
-import { CLIFF, STAIR, WALL, SITE, DONE_ZONES } from './layout.js';
+import { CLIFF, STAIR, WALL, SITE, DONE_ZONES, NARA_FOREST } from './layout.js';
 import { PLAN } from './plan-data.js';
 
 /* ---------- 땅 높이 ---------- */
@@ -21,10 +21,17 @@ export function mountainH(x, z) {
   return CLIFF.top * (1 - sstep(CLIFF.half, CLIFF.half + CLIFF.fall, Math.abs(x)));
 }
 // 담 밖은 낮은 언덕이 굽이친다(정문 앞길만 평평하다)
-function lowH(x, z) {
+function rawLowH(x, z) {
   const r = Math.hypot(x - WALL.cx, z - WALL.cz);
   const k = sstep(WALL.r + 6, WALL.r + 70, r) * (z > WALL.cz ? sstep(7, 30, Math.abs(x)) : 1);
   return k * (2 + 7 * vnoise(x * 0.021 + 3.1, z * 0.021 + 7.7) + 2 * vnoise(x * 0.07, z * 0.07));
+}
+// 언덕 가운데 평평하게 고른 자리 [x, z, 반지름, 높이] — 나라 숲의 사슴 터와 무덤 자리
+const FLATS = [NARA_FOREST.glade, NARA_FOREST.grave].map(f => [f[0], f[1], f[2], rawLowH(f[0], f[1])]);
+function lowH(x, z) {
+  let h = rawLowH(x, z);
+  for (const f of FLATS) { const d = Math.hypot(x - f[0], z - f[1]); if (d < f[2] + 16) { const t = sstep(f[2], f[2] + 16, d); h = f[3] * (1 - t) + h * t; } }
+  return h;
 }
 
 /* ---------- 물길: 강과 냇물은 굽은 줄, 호수와 못은 다각형. 땅을 그만큼 파 놓고 그 위에 물을 덮는다 ---------- */
@@ -87,6 +94,7 @@ function buildGround(scene, tintOn) {
   g.fillRect(px(-7), pz(WALL.gateZ + 5), 14 * k, 90 * k);                                                    // 정문 밖 길
   g.fillRect(px(STAIR.x0 - 7), pz(CLIFF.z), (STAIR.x1 - STAIR.x0 + 14) * k, 14 * k); stroke([60, -124], [STAIR.x0 + 4, -141], 9);                       // 바위 오르는 계단 밑과 거기로 가는 길
   for (const b of PLAN.bridges) stroke(b[0], b[1], 8);
+  { const tr = NARA_FOREST.trail; for (let i = 0; i < tr.length - 1; i++) stroke(tr[i], tr[i + 1], 3.4); }   // 나라 숲으로 드는 오솔길
   const mask = new THREE.CanvasTexture(c);
   mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.anisotropy = 8;
 

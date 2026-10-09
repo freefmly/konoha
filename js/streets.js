@@ -9,7 +9,7 @@ import { mat } from './materials.js';
 import { makeKit, boxHouse, towerHouse, WALLS, ROOFS, SHOPS } from './town.js';
 import { treeGeometry, bushGeometry, tuftGeometry } from './flora.js';
 import { PLAN } from './plan-data.js';
-import { WALL, CLIFF, STAIR, SITE } from './layout.js';
+import { WALL, CLIFF, STAIR, SITE, NARA_FOREST, inNaraForest, naraTrailDist } from './layout.js';
 import { terrainH, inPoly } from './village.js';
 import { zoneGroups, LOTS, OPEN, BARE } from './zones.js';
 
@@ -303,6 +303,7 @@ export async function build(scene, ctx) {
   };
   const plant = (x, z, s, gap, big = false) => {
     if (Math.abs(Math.hypot(x - WALL.cx, z - WALL.cz) - WALL.r) < 4.5 || !clear(x, z, gap)) return;
+    if (naraTrailDist(x, z) < 3.2) return;                                     // 나라 숲의 오솔길과 사슴 터
     for (const o of OPEN) if (Math.hypot(x - o[0], z - o[1]) < o[2]) return;      // 문 앞은 비워 둔다
     const y = terrainH(x, z);
     if (y < -0.05) return;                                                     // 물
@@ -329,6 +330,8 @@ export async function build(scene, ctx) {
     const d = Math.hypot(x - WALL.cx, z - WALL.cz);
     return d > WALL.r + 8 && d < WALL.r + 88 && z >= CLIFF.z && !(z > WALL.cz && Math.abs(x) < 13);
   });
+  // 나라 숲: 띠 바깥으로 더 깊이, 굵은 나무를 촘촘하게
+  sow(WALL.cx + WALL.r * 0.6, WALL.cz - NARA_FOREST.r1, NARA_FOREST.xMax + 30, WALL.cz, STEP * 0.8, (x, z) => inNaraForest(x, z, 26) && Math.hypot(x - WALL.cx, z - WALL.cz) >= WALL.r + 80, 1.5, 0.9);
   // 바위 꼭대기의 숲(계단을 올라온 자리와 벼랑 끝은 비운다)
   sow(-(CLIFF.half + 30), CLIFF.z - 150, CLIFF.half + 30, CLIFF.z - 10, STEP * 1.4, (x, z) => terrainH(x, z) > CLIFF.top - 12 && !(x > STAIR.x0 - 12 && x < STAIR.x1 + 14 && z > CLIFF.z - 22), 0.8, 0.5);
   // 블록 안마당의 나무

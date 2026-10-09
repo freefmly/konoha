@@ -56,3 +56,25 @@ export const UCHIHA = {
   dirt: [[112, -8, 146, 0], [142, -42, 146.5, 34], [146, -7, 153, -1], [120.5, -20.5, 142, -8], [120.5, 0, 142, 12.5], [146, -36, 154, -30], [156, 12, 160, 18]],   // 흙바닥(길·마당)
 };
 export const inUchiha = (x, z, pad = 0) => x > UCHIHA.x0 - pad && x < UCHIHA.x1 + pad && z > UCHIHA.z0 - pad && z < UCHIHA.z1 + pad;
+
+// 나라 숲(담 밖 북동쪽): 나라 구역 뒤 담에 낸 작은 문에서 오솔길이 사슴 터를 지나 숲 깊은 곳까지 이어진다.
+// 각도는 담의 한가운데에서 잰다(0 = 동, 음수 = 북쪽). a = 문이 난 방향, a0~a1 = 숲이 퍼진 범위, r1 = 숲 끝(걸어갈 수 있는 끝), xMax = 촘촘한 땅이 깔린 동쪽 끝
+export const NARA_FOREST = (() => {
+  const P = (r, a) => [WALL.cx + Math.cos(a) * r, WALL.cz + Math.sin(a) * r];
+  return {
+    a: -0.44, a0: -0.72, a1: -0.26, r1: WALL.r + 205, xMax: 712, gate: P(WALL.r, -0.44),
+    glade: [...P(WALL.r + 106, -0.47), 26],     // 사슴 터 [x, z, 반지름]
+    grave: [...P(WALL.r + 165, -0.6), 10],      // 숲 깊은 곳의 무덤 자리
+    trail: [[WALL.r - 22, -0.44], [WALL.r, -0.44], [WALL.r + 40, -0.445], [WALL.r + 78, -0.46], [WALL.r + 104, -0.47], [WALL.r + 118, -0.5], [WALL.r + 136, -0.55], [WALL.r + 153, -0.585], [WALL.r + 162, -0.598]].map(([r, a]) => P(r, a)),
+  };
+})();
+export const inNaraForest = (x, z, pad = 0) => {
+  const F = NARA_FOREST, dx = x - WALL.cx, dz = z - WALL.cz, d = Math.hypot(dx, dz), a = Math.atan2(dz, dx);
+  return d > WALL.r && d < F.r1 + pad && a > F.a0 - pad / 700 && a < F.a1 + pad / 700 && x < F.xMax + pad;
+};
+// 오솔길·사슴 터·무덤 자리에서 얼마나 떨어져 있나(m). 나무와 풀을 비울 때 쓴다
+export const naraTrailDist = (x, z) => {
+  const F = NARA_FOREST; let d = Math.min(Math.hypot(x - F.glade[0], z - F.glade[1]) - F.glade[2], Math.hypot(x - F.grave[0], z - F.grave[1]) - F.grave[2]);
+  for (let i = 0; i < F.trail.length - 1; i++) { const a = F.trail[i], b = F.trail[i + 1], vx = b[0] - a[0], vz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * vx + (z - a[1]) * vz) / (vx * vx + vz * vz))); d = Math.min(d, Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t)); }
+  return d;
+};

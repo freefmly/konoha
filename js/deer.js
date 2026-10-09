@@ -79,8 +79,8 @@ const inPoly = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length 
 
 // 울타리 안(poly)을 거니는 사슴 떼. tick(t, dt, 보는 눈의 자리)을 매 장면 불러 준다.
 export class Herd {
-  constructor(scene, poly, count, R) {
-    this.poly = poly; this.R = R; this.deer = [];
+  constructor(scene, poly, count, R, hf = null) {   // hf(x, z) = 그 자리의 땅 높이(평지면 안 줘도 된다)
+    this.poly = poly; this.R = R; this.deer = []; this.hf = hf;
     const fur = mat('plain', 0xffffff, { vc: true, rough: 0.92 }), blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.26, depthWrite: false });
     const xs = poly.map(p => p[0]), zs = poly.map(p => p[1]);
     this.box = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
@@ -103,7 +103,7 @@ export class Herd {
   }
   pose(d, t) {
     const w = d.w, g = d.g;
-    d.root.position.set(d.x, w * 0.012 * Math.sin(d.phase * 2), d.z); d.root.rotation.y = -d.th;
+    d.root.position.set(d.x, (this.hf ? this.hf(d.x, d.z) : 0) + w * 0.012 * Math.sin(d.phase * 2), d.z); d.root.rotation.y = -d.th;
     // 목과 머리: 풀을 뜯을 때는 목을 내리고 머리를 세워 주둥이가 땅을 향한다. 서 있을 때는 천천히 둘레를 살핀다
     d.neck.rotation.z = -2.0 * g + w * 0.07 * Math.sin(d.phase * 2) + g * 0.05 * Math.sin(t * 2.3 + d.seed);
     d.head.rotation.z = 0.95 * g;

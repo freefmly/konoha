@@ -1,7 +1,7 @@
 // 가문 구역 — 구역마다 담·대문·그 구역만의 건물을 세우고, 구역 안 집의 생김새를 정해 준다.
 // 집을 블록에 줄지어 세우고 멀리서 가볍게 그리는 일은 streets.js가 맡는다(여기서는 "어느 블록에 어떤 집을"만 알려 준다).
 import * as THREE from '../vendor/three.module.js';
-import { Builder, marks, settle, addCollider, mat4, rng as rngOf } from './build.js';
+import { Builder, marks, settle, addCollider, mat4, tube, rng as rngOf } from './build.js';
 import { M, mat, textMat } from './materials.js';
 import { boxHouse, makeKit, ROOFS } from './town.js';
 import { lantern, signBoard, beamBetween, gableRoof, hipRoof } from './arch.js';
@@ -11,6 +11,7 @@ import { Pack } from './dogs.js';
 import { uchihaKit, uchihaGate } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
 import { terrainH, inPoly } from './village.js';
+import { WALL, NARA_FOREST, naraTrailDist } from './layout.js';
 
 export const LOTS = [];        // 구역의 특별한 건물이 선 터 { x, z, ry, w, d } — 집·나무·풀이 피한다
 export const OPEN = [];        // 나무를 심지 않을 자리 [x, z, 반지름] — 문 앞처럼 트여 있어야 하는 곳
@@ -1089,6 +1090,115 @@ function aburame(scene, out) {
     out.places.push({ n: '아부라메 벌레 사육장', t: '일족이 벌레를 기르고 살피는 곳. 사육 상자 위로 검은 벌레 떼가 구름처럼 떠다닌다.', poly: P, b: bound(P) });
   }
 }
+/* ============================ 나라 숲 ============================
+   담 밖 북동쪽, 나라 구역 바로 뒤의 숲. 구역 뒤 담에 낸 작은 문으로 나가면 오솔길이 사슴 터를 지나 숲 깊은 곳까지 이어진다.
+   원작(나루토 위키 "Nara Clan Forest")에 적힌 것: 마을 변두리에 있는 나라 일족의 숲이라는 것, 일족이 돌보는 사슴이 많이 산다는 것,
+   그 뿔을 약에 쓴다는 것, 일족의 허락 없이는 아무도 들어올 수 없다는 것, 시카마루가 아카츠키의 히단을 이 숲에 묻었고 히단은 지금도 산 채로 묻혀 있다는 것.
+   담의 문, 금줄 문, 사슴 터의 헛간과 먹이통, 무덤 자리를 두른 금줄과 부적은 원작에 없어 지어냈다. 숲의 자리는 도면(plan.mjs)보다 담에 바짝 붙였다. */
+function naraForest(scene, out) {
+  const F = NARA_FOREST, a = F.a, ry = Math.PI / 2 - a, R = rngOf(708);
+  const rope = mat('plain', 0xcdb98a, { rough: 1 }), paper = mat('plain', 0xf4f1ea, { rough: 1, side: 'double' }), horn = mat('plain', 0xd9cdb2, { rough: 0.7 }), hay = mat('plain', 0xc9a85a, { rough: 1 }), planks = mat('planks', 0x6e5a40), tile = mat('tile', ROOFS[2]);
+  const cyl = (rt, rb, h, seg = 10) => new THREE.CylinderGeometry(rt, rb, h, seg);
+  // 사슴뿔 한 가닥(밑동이 원점, +y로 뻗는다)
+  const antler = (B, x, y, z, yaw, s, flip) => {
+    const m = mat4(x, y, z, 0, yaw, 0, s), P3 = (p, q, r) => V(p * flip, q, r), main = [P3(0, 0, 0), P3(0.06, 0.14, 0.02), P3(0.16, 0.28, 0), P3(0.2, 0.44, -0.03), P3(0.16, 0.6, -0.05)];
+    B.geo(horn, tube(main, t => 0.022 * (1 - 0.7 * t), 6, false), m);
+    for (const [k, d] of [[1, [0.02, 0.12, 0.1]], [2, [0.12, 0.1, 0.08]], [3, [0.1, 0.12, 0.06]]]) B.geo(horn, tube([main[k], V(main[k].x + flip * d[0], main[k].y + d[1], main[k].z + d[2])], t => 0.014 * (1 - 0.75 * t), 5, false), m);
+  };
+  // 금줄: 두 점 사이에 늘어진 새끼줄과 흰 종이
+  const shime = (B, p, q, sag, n) => {
+    const pts = []; for (let i = 0; i <= 8; i++) { const t = i / 8; pts.push(V(p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t - sag * 4 * t * (1 - t), p.z + (q.z - p.z) * t)); }
+    B.geo(rope, tube(pts, 0.035, 6, false));
+    const yaw = Math.atan2(q.x - p.x, q.z - p.z) + Math.PI / 2;
+    for (let i = 1; i <= n; i++) { const t = i / (n + 1), c = pts[Math.round(t * 8)]; for (let k = 0; k < 3; k++) B.geo(paper, new THREE.PlaneGeometry(0.12, 0.16), mat4(c.x + (k - 1) * 0.02, c.y - 0.12 - k * 0.14, c.z, 0, yaw + (k % 2 ? 0.5 : -0.5), 0)); }
+  };
+
+  /* ---------- 담의 작은 문: 굵은 나무 문틀과 밖으로 열어 둔 문짝, 안쪽에 문장과 팻말 ---------- */
+  put(scene, { x: F.gate[0], z: F.gate[1], ry }, B => {
+    for (const s of [-1, 1]) { B.box(M.beam, s * 2.55 - 0.28, 0, -1.4, s * 2.55 + 0.28, 4.4, 1.4); B.box(planks, s * 2.3 - 0.07, 0.12, 1.4, s * 2.3 + 0.07, 3.9, 3.6); for (const y of [0.7, 2.0, 3.3]) B.box(M.iron, s * 2.3 - 0.09, y, 1.45, s * 2.3 + 0.09, y + 0.1, 3.55, false); }
+    B.box(M.beam, -3.0, 3.95, -1.46, 3.0, 4.5, 1.46, false);
+    B.box(M.stone, -2.3, 0, -1.3, 2.3, 0.06, 1.3, false);
+    crestDisc(B, drawNara, 'nara', 0, 5.5, -1.14, Math.PI, 0.6);
+    signBoard(B, '奈良一族の森', -5.2, 2.5, -1.16, Math.PI, 2.3, 0.5, { both: false });
+    signBoard(B, '許可なき者 立入禁止', -5.2, 1.8, -1.16, Math.PI, 2.3, 0.4, { both: false, color: '#b3261a' });
+    // 문 안쪽 길가의 돌기둥 둘
+    for (const s of [-1, 1]) { B.box(M.stone, s * 3.6 - 0.22, 0, -4.2, s * 3.6 + 0.22, 1.5, -3.76); B.box(M.stone, s * 3.6 - 0.3, 1.5, -4.28, s * 3.6 + 0.3, 1.62, -3.68, false); }
+  });
+  for (let i = 0; i < F.trail.length; i++) OPEN.push([F.trail[i][0], F.trail[i][1], 5]);
+  OPEN.push([F.glade[0], F.glade[1], F.glade[2] + 2], [F.grave[0], F.grave[1], F.grave[2] + 1]);
+  BARE.push((x, z) => naraTrailDist(x, z) < 1.4 && Math.hypot(x - F.glade[0], z - F.glade[1]) > F.glade[2] && Math.hypot(x - F.grave[0], z - F.grave[1]) > F.grave[2]);
+
+  /* ---------- 숲 들머리의 금줄 문과 길가의 돌 ---------- */
+  {
+    const B = new Builder(), r = WALL.r + 27, c = [WALL.cx + Math.cos(a) * r, WALL.cz + Math.sin(a) * r], tx = -Math.sin(a), tz = Math.cos(a);   // (tx, tz) = 길을 가로지르는 방향
+    const ends = [-1, 1].map(s => { const x = c[0] + tx * s * 2.6, z = c[1] + tz * s * 2.6, y = terrainH(x, z); B.geo(M.beam, cyl(0.2, 0.24, 4.6, 12), mat4(x, y + 2.3, z)); B.geo(M.stone, cyl(0.34, 0.38, 0.3, 12), mat4(x, y + 0.15, z)); addCollider(x - 0.25, y, z - 0.25, x + 0.25, y + 4.6, z + 0.25); antler(B, x, y + 4.55, z, ry, 1.5, 1); antler(B, x, y + 4.55, z, ry, 1.5, -1); return V(x, y + 3.9, z); });
+    shime(B, ends[0], ends[1], 0.45, 4);
+    for (let i = 2; i < F.trail.length - 1; i++) for (let k = 0; k < 2; k++) {                        // 길가에 드문드문 박은 돌
+      const p = F.trail[i], q = F.trail[i + 1], t = 0.25 + k * 0.5, x = p[0] + (q[0] - p[0]) * t, z = p[1] + (q[1] - p[1]) * t, l = Math.hypot(q[0] - p[0], q[1] - p[1]), s = (i + k) % 2 ? 1 : -1;
+      const sx = x - (q[1] - p[1]) / l * s * 2.4, sz = z + (q[0] - p[0]) / l * s * 2.4; if (Math.hypot(sx - F.glade[0], sz - F.glade[1]) < F.glade[2]) continue;
+      B.geo(M.stone, new THREE.DodecahedronGeometry(0.32, 0), mat4(sx, terrainH(sx, sz) + 0.16, sz, R() * 3, R() * 3, 0, [1, 0.8 + R() * 0.6, 1]));
+    }
+    B.finish(scene);
+  }
+
+  /* ---------- 사슴 터: 숲 속 빈터. 헛간과 건초, 먹이통, 물확, 소금 돌 ---------- */
+  const gx = F.glade[0], gz = F.glade[1], Y = terrainH(gx, gz), cs = Math.cos(ry), sn = Math.sin(ry), W = (lx, lz) => [gx + lx * cs + lz * sn, gz - lx * sn + lz * cs];
+  put(scene, { x: gx, z: gz, ry }, B => {
+    // 헛간(x -17~-11.5, z -1.5~5.5): 앞(+x)이 트인 널집
+    B.box(planks, -17, Y, -1.5, -16.85, Y + 2.5, 5.5); B.box(planks, -17, Y, -1.5, -11.5, Y + 2.5, -1.35); B.box(planks, -17, Y, 5.35, -11.5, Y + 2.5, 5.5);
+    for (const z of [-1.4, 2, 5.4]) B.box(M.beam, -11.62, Y, z - 0.09, -11.44, Y + 2.5, z + 0.09);
+    B.box(M.beam, -17.1, Y + 2.42, -1.6, -11.4, Y + 2.56, 5.6, false);
+    gableRoof(B, tile, -17, -1.5, -11.5, 5.5, Y + 2.5, 1.3, { ridge: 'z', over: 0.8, overGable: 0.5 });
+    for (let i = 0; i < 9; i++) B.geo(hay, cyl(0.45, 0.45, 0.9, 12).rotateX(Math.PI / 2), mat4(-16.3 + (i % 3) * 0.05, Y + 0.45 + Math.floor(i / 3) * 0.86, -0.8 + (i % 3) * 0.95)); addCollider(-16.8, Y, -1.3, -15.8, Y + 2.3, 1.7);
+    B.box(M.beamLight, -16.8, Y + 1.5, 2.6, -16.74, Y + 1.56, 5.2, false); for (let k = 0; k < 4; k++) { antler(B, -16.7, Y + 1.5, 2.9 + k * 0.62, Math.PI / 2, 1.1, k % 2 ? 1 : -1); }   // 벽에 건 주운 뿔
+    B.geo(M.beamLight, cyl(0.025, 0.025, 1.9, 6), mat4(-15.4, Y + 0.95, 5.2, 0.12, 0, 0)); B.box(M.iron, -15.6, Y + 1.82, 5.02, -15.2, Y + 1.88, 5.1, false);                                   // 세워 둔 갈퀴
+    B.geo(planks, new THREE.CylinderGeometry(0.34, 0.28, 0.5, 12, 1, true), mat4(-12.6, Y + 0.25, 4.4)); for (let k = 0; k < 4; k++) antler(B, -12.7 + k * 0.07, Y + 0.2, 4.36 + (k % 2) * 0.08, k * 1.7, 0.8, k % 2 ? 1 : -1); addCollider(-12.95, Y, 4.05, -12.25, Y + 0.6, 4.75);
+    signBoard(B, '鹿', -11.42, Y + 2.05, 2, Math.PI / 2, 0.42, 0.42, { both: false, depth: 0.03 });
+    // 건초 시렁과 먹이통 둘
+    for (const [x, z, r] of [[-5, 10, 0.3], [9, -10, 1.2]]) {
+      const c = Math.cos(r), s = Math.sin(r), T = mat4(x, Y, z, 0, r, 0);
+      for (const e of [-1, 1]) for (const d of [-1, 1]) B.geo(M.beam, new THREE.BoxGeometry(0.07, 0.46, 0.07), T.clone().multiply(mat4(e * 0.72, 0.23, d * 0.28)));
+      for (const d of [-1, 1]) B.geo(M.beamLight, new THREE.BoxGeometry(1.6, 0.03, 0.32), T.clone().multiply(mat4(0, 0.44, d * 0.15, d * 0.6, 0, 0)));
+      B.geo(hay, new THREE.BoxGeometry(1.45, 0.1, 0.22), T.clone().multiply(mat4(0, 0.42, 0)));
+      addCollider(x - 0.8 * Math.abs(c) - 0.35 * Math.abs(s), Y, z - 0.8 * Math.abs(s) - 0.35 * Math.abs(c), x + 0.8 * Math.abs(c) + 0.35 * Math.abs(s), Y + 0.6, z + 0.8 * Math.abs(s) + 0.35 * Math.abs(c));
+    }
+    { const x = -6.5, z = -8;                                                                          // 돌 물확
+      B.geo(M.stone, new THREE.LatheGeometry([[0, 0], [0.5, 0], [0.75, 0.3], [0.8, 0.5], [0.68, 0.5], [0.58, 0.28], [0, 0.24]].map(p => new THREE.Vector2(p[0], p[1])), 16), mat4(x, Y, z));
+      const wg = new THREE.CircleGeometry(0.66, 16); wg.rotateX(-Math.PI / 2); B.geo(M.water, wg, mat4(x, Y + 0.44, z)); addCollider(x - 0.7, Y, z - 0.7, x + 0.7, Y + 0.55, z + 0.7); }
+    B.geo(mat('plain', 0xe9e4d8, { rough: 0.8 }), new THREE.DodecahedronGeometry(0.34, 0), mat4(4.5, Y + 0.22, 12.5, 0.4, 0.8, 0, [1.2, 0.8, 1])); B.geo(M.stone, cyl(0.5, 0.55, 0.1, 10), mat4(4.5, Y + 0.05, 12.5));   // 핥는 소금 돌
+    B.geo(M.beam, cyl(0.24, 0.27, 2.4, 10).rotateZ(Math.PI / 2), mat4(-3, Y + 0.26, 15.5, 0, 0.4, 0)); addCollider(-4.2, Y, 15.0, -1.8, Y + 0.5, 16.0);                                            // 앉는 통나무
+    for (let i = 0; i < 4; i++) { const an = i * 1.7 + 0.5, x = Math.cos(an) * 24.5, z = Math.sin(an) * 24.5; B.geo(M.stone, new THREE.DodecahedronGeometry(0.7, 0), mat4(x, Y + 0.3, z, i, i * 2, 0, [1.3, 0.8, 1])); }
+  });
+  const glade = []; for (let i = 0; i < 20; i++) { const an = i / 20 * Math.PI * 2; glade.push(W(Math.max(-9, Math.cos(an) * 22), Math.sin(an) * 22)); }
+  const herd = new Herd(scene, glade, 11, R, terrainH);
+  out.ticks.push((t, dt) => herd.tick(t, dt, out.eye && out.eye.position));
+
+  /* ---------- 숲 깊은 곳: 히단이 묻힌 자리. 무너져 내린 구덩이를 메운 바위 더미, 둘레의 금줄 ---------- */
+  const hx = F.grave[0], hz = F.grave[1], Y2 = terrainH(hx, hz);
+  {
+    const B = new Builder(), dark = mat('plain', 0x5a4632, { rough: 1 });
+    const dg = new THREE.CircleGeometry(3.6, 20); dg.rotateX(-Math.PI / 2); B.geo(dark, dg, mat4(hx, Y2 + 0.03, hz));                                    // 뒤집힌 흙
+    for (let i = 0; i < 22; i++) { const an = R() * 6.283, r = R() * 2.7, s = 0.5 + R() * 0.75; B.geo(M.stone, new THREE.DodecahedronGeometry(s, 0), mat4(hx + Math.cos(an) * r, Y2 + 0.2 + (2.8 - r) * 0.32 + R() * 0.2, hz + Math.sin(an) * r, R() * 3, R() * 3, R() * 3, [1, 0.7 + R() * 0.4, 1])); }
+    addCollider(hx - 2.6, Y2, hz - 2.6, hx + 2.6, Y2 + 1.2, hz + 2.6);
+    const stakes = []; for (let i = 0; i < 6; i++) { const an = i / 6 * Math.PI * 2 + 0.3, x = hx + Math.cos(an) * 4.6, z = hz + Math.sin(an) * 4.6; B.geo(M.beam, cyl(0.07, 0.09, 1.5, 8), mat4(x, Y2 + 0.75, z)); addCollider(x - 0.1, Y2, z - 0.1, x + 0.1, Y2 + 1.5, z + 0.1); stakes.push(V(x, Y2 + 1.3, z)); }
+    for (let i = 0; i < 6; i++) shime(B, stakes[i], stakes[(i + 1) % 6], 0.22, 2);
+    const tag = textMat('封', { w: 64, h: 128, bg: '#efe6cf', color: '#8a1f18', pad: 0.12 });
+    for (let i = 0; i < 6; i++) { const an = i / 6 * Math.PI * 2 + 0.3; B.geo(tag, new THREE.PlaneGeometry(0.14, 0.3), mat4(stakes[i].x + Math.cos(an) * 0.095, Y2 + 0.95, stakes[i].z + Math.sin(an) * 0.095, 0, Math.PI / 2 - an, 0)); }
+    B.finish(scene);
+  }
+
+  const sector = []; for (let i = 0; i <= 10; i++) { const an = F.a0 + (F.a1 - F.a0) * i / 10; sector.push([WALL.cx + Math.cos(an) * (WALL.r + 1.2), WALL.cz + Math.sin(an) * (WALL.r + 1.2)]); }
+  for (let i = 10; i >= 0; i--) { const an = F.a0 + (F.a1 - F.a0) * i / 10, r = Math.min(F.r1, (F.xMax - WALL.cx) / Math.cos(an)); sector.push([WALL.cx + Math.cos(an) * r, WALL.cz + Math.sin(an) * r]); }
+  const circle = (c, r) => Array.from({ length: 16 }, (_, i) => [c[0] + Math.cos(i / 16 * 6.283) * r, c[1] + Math.sin(i / 16 * 6.283) * r]);
+  out.places.push(
+    { n: '나라 숲의 사슴 터', t: '숲 속 빈터. 일족이 건초와 소금 돌을 내어 사슴을 돌본다. 떨어진 뿔은 주워 헛간에 모았다가 약재로 쓴다.', poly: circle(F.glade, F.glade[2]), b: bound(circle(F.glade, F.glade[2])) },
+    { n: '히단이 묻힌 자리', t: '시카마루가 스승 아스마의 원수인 아카츠키의 히단을 묻은 자리. 죽지 않는 몸이라 지금도 바위 밑에 산 채로 묻혀 있고, 나라 일족이 대대로 지킨다.', poly: circle(F.grave, F.grave[2]), b: bound(circle(F.grave, F.grave[2])) },
+    { n: '나라 숲', t: '나라 일족이 대대로 지켜 온 숲. 일족이 돌보는 사슴이 살고, 일족의 허락 없이는 아무도 들어올 수 없다.', poly: sector, b: bound(sector) },
+  );
+  const gi = [F.gate[0] - Math.cos(a) * 9, F.gate[1] - Math.sin(a) * 9], gl = W(0, -20), gr = [hx + 9, hz + 3];
+  out.jumps.push(['나라 숲으로 나가는 문', gi[0], 0, gi[1], yawTo(Math.cos(a), Math.sin(a)), 51.2], ['나라 숲의 사슴 터', gl[0], terrainH(gl[0], gl[1]), gl[1], yawTo(gx - gl[0], gz - gl[1]), 51.3], ['히단이 묻힌 자리', gr[0], terrainH(gr[0], gr[1]), gr[1], yawTo(-9, -3), 51.4]);
+}
+
 const bound = poly => [Math.min(...poly.map(q => q[0])), Math.max(...poly.map(q => q[0])), Math.min(...poly.map(q => q[1])), Math.max(...poly.map(q => q[1]))];
 
 export async function build(scene, ctx) {
@@ -1098,6 +1208,8 @@ export async function build(scene, ctx) {
   uchiha(scene, out);
   await ctx.say('나라 일족의 사슴을 풀어놓는 중…');
   nara(scene, out);
+  await ctx.say('나라 숲의 오솔길을 내는 중…');
+  naraForest(scene, out);
   await ctx.say('아키미치 일족의 솥에 불을 지피는 중…');
   akimichi(scene, out);
   await ctx.say('야마나카 일족의 꽃밭에 물을 주는 중…');
