@@ -19,8 +19,9 @@ export class Player {
     this.touchMode = false; this.touch = { x: 0, z: 0, run: false }; this.jumpQueued = false;   // 터치: 조이스틱 기울기, 달리기, 뛰기 예약
     this.jumpHeld = false; this.hold = 0; this.charge = 0; this.dip = 0;   // 뛰기 단추를 누르고 있는가, 누른 시간, 모인 힘(0~1), 착지 때 무릎 굽힘
     this.sky = false; this.skyPos = new THREE.Vector3(); this.skyVel = new THREE.Vector3();   // 하늘에서 보기: 켜졌는가, 눈의 자리, 나는 속도
+    this.roam = false;   // 지도를 펴 든 채 걷는 중(마우스는 풀려 있다): 자판으로 걷고, 좌우 화살표로 몸을 돌린다
     addEventListener('wheel', e => { if (this.sky && this.locked) this.skyVel.y += Math.sign(e.deltaY) * Math.max(14, this.skyHeight() * 0.9); }, { passive: true });   // 휠: 높이(내리면 올라가고 올리면 내려간다)
-    addEventListener('keydown', e => { this.keys[e.code] = true; if (this.locked && ['Space', 'ArrowUp', 'ArrowDown', 'Tab'].includes(e.code)) e.preventDefault(); });
+    addEventListener('keydown', e => { this.keys[e.code] = true; if ((this.locked || this.roam) && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault(); });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
     document.addEventListener('mousemove', e => {
@@ -92,9 +93,10 @@ export class Player {
   skyUpdate(dt) {
     const k = this.keys, p = this.skyPos, v = this.skyVel;
     let fx = 0, fz = 0, fy = 0;
-    if (this.locked) {
+    if (this.roam) this.yaw += ((k.ArrowLeft ? 1 : 0) - (k.ArrowRight ? 1 : 0)) * dt * 1.9;
+    if (this.locked || this.roam) {
       if (k.KeyW || k.ArrowUp) fz -= 1; if (k.KeyS || k.ArrowDown) fz += 1;
-      if (k.KeyA || k.ArrowLeft) fx -= 1; if (k.KeyD || k.ArrowRight) fx += 1;
+      if (k.KeyA || (k.ArrowLeft && !this.roam)) fx -= 1; if (k.KeyD || (k.ArrowRight && !this.roam)) fx += 1;
       fx += this.touch.x; fz += this.touch.z;
     }
     const h = this.skyHeight(), fast = k.ShiftLeft || k.ShiftRight || this.touch.run, sp = Math.max(18, h * 0.75) * (fast ? 2.6 : 1);
@@ -150,9 +152,10 @@ export class Player {
     if (this.sky) return this.skyUpdate(dt);
     const k = this.keys, p = this.pos, v = this.vel;
     let fx = 0, fz = 0;
-    if (this.locked) {
+    if (this.roam) this.yaw += ((k.ArrowLeft ? 1 : 0) - (k.ArrowRight ? 1 : 0)) * dt * 1.9;
+    if (this.locked || this.roam) {
       if (k.KeyW || k.ArrowUp) fz -= 1; if (k.KeyS || k.ArrowDown) fz += 1;
-      if (k.KeyA || k.ArrowLeft) fx -= 1; if (k.KeyD || k.ArrowRight) fx += 1;
+      if (k.KeyA || (k.ArrowLeft && !this.roam)) fx -= 1; if (k.KeyD || (k.ArrowRight && !this.roam)) fx += 1;
     }
     if (this.locked) { fx += this.touch.x; fz += this.touch.z; }
     // 조이스틱은 기운 만큼 천천히·빨리 걷는다(자판은 늘 제 속도)

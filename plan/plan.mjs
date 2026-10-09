@@ -64,7 +64,7 @@ export const ZONES = [
   { n: 26, name: '병원', fill: '#8c1c2c', at: pol(10.5, 149), pts: sector(2.5, 18, 126, 171.5), note: '새로(겉모습)' },
   { n: 27, name: '도서관', fill: '#c9c9c9', at: pol(10.5, 195), pts: sector(3, 18, 175, 215), note: '새로(겉모습)' },
   { n: 31, name: '경기장', fill: '#f3a6b8', at: pol(26, 216), circle: [...pol(26, 216), 15], note: '새로(겉모습)' },
-  { n: 32, name: '휴가 구역', fill: '#a9a4e6', at: pol(42, 146), fan: [18, 63, 91, 196], walled: '#544fa0', note: '새로(겉모습)' },
+  { n: 32, name: '휴우가 구역', fill: '#a9a4e6', at: pol(42, 146), fan: [18, 63, 91, 196], walled: '#544fa0', note: '새로(겉모습)' },
   { n: 33, name: '우치하 구역', fill: '#e23b2e', at: pol(30, 270), grid: 18, pts: [pol(18, 232), pol(18, 357), pol(24, 345), pol(29, 331), pol(35, 310), pol(41, 285), pol(45, 266)], walled: '#6e140d', note: '이사 + 크게 · 강가 숲 띠 안쪽까지' },
   { n: 36, name: '우치하 센베이', fill: '#ffd9a0', at: pol(27.7, 259), pts: sector(26, 29.5, 252, 266), note: '새로(겉모습)' },
   { n: 37, name: '경무부대 본부', fill: '#33415c', at: pol(21.5, 253), pts: sector(19.5, 23.5, 244, 262), note: '새로(겉모습)' },

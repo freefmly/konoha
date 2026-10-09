@@ -84,7 +84,9 @@
           <span><kbd>1</kbd>–<kbd>4</kbd> 날씨</span>
           <span><kbd>B</kbd> 바람</span>
           <span><kbd>C</kbd> 화풍</span>
-          <span><kbd>M</kbd> 소리</span>
+          <span><kbd>M</kbd> 지도 · 편 채로 걷기(<kbd>←</kbd><kbd>→</kbd> 몸 돌리기)</span>
+          <span><kbd>+</kbd><kbd>−</kbd> 미니맵 확대·축소</span>
+          <span><kbd>N</kbd> 소리</span>
           <span><kbd>Esc</kbd> 이 두루마리</span>
         </footer>
       </div>
@@ -103,18 +105,13 @@
         <button id="btnWind">바람 산들</button>
         <button id="btnStyle">만화</button>
         <button id="btnSky">하늘</button>
+        <button id="btnMap">지도</button>
         <button id="btnMenu" aria-label="메뉴"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
       </div>
     </div>
-    <div id="placeCard">
-      <b id="placeName"></b>
-      <p id="placeText"></p>
-    </div>
-    <div class="status">
-      <span><i>날씨</i><b id="wxNow"></b></span>
-      <span><i>바람</i><b id="windNow"></b></span>
-      <span><i>화풍</i><b id="styleNow"></b></span>
-    </div>
+    <!-- 미니맵: 보는 쪽이 위. 붉은 N이 북쪽 -->
+    <canvas id="mini" aria-label="미니맵"></canvas>
+    <div id="miniZoom"><button id="miniIn" aria-label="미니맵 확대">+</button><button id="miniOut" aria-label="미니맵 축소">−</button></div>
     <div class="aim"></div>
     <!-- 하늘에서 보는 동안: 높이와 조작 -->
     <div id="skyBar" class="hidden">
@@ -123,6 +120,20 @@
     </div>
     <!-- 모아 뛰기: 힘이 모이는 만큼 차오르는 띠 -->
     <div id="charge"><i></i></div>
+  </div>
+
+  <!-- 전체 지도(M): 왼쪽에 지도, 오른쪽 종이에 짚은 자리의 이름과 설명 -->
+  <div id="mapView" class="hidden">
+    <canvas id="mapCanvas"></canvas>
+    <div class="side">
+      <!-- 지금 선 곳: 종이 밖, 어두운 바탕 위에 글씨만 -->
+      <p id="mapHere"><i></i>현재위치: <b></b></p>
+      <aside>
+        <header><h2>나뭇잎 마을 지도</h2><button id="mapClose" aria-label="지도 닫기">닫기</button></header>
+        <div id="mapPanel"></div>
+        <footer class="pc-only"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 걷기 <kbd>마우스</kbd> 방향 돌리기<br><kbd>Tab</kbd> 마우스를 풀어 지도 짚어 보기(다시 누르면 잡기)<br><kbd>M</kbd> 지도 닫기</footer>
+      </aside>
+    </div>
   </div>
 
   <!-- 화풍을 처음 바꿀 때 잠깐 -->
