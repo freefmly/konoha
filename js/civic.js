@@ -1396,7 +1396,15 @@ function shopShell(B, X0, Z0, X1, Z1, H, wallM, trim, floorM, cols, ups = [], pa
   face(B, wallM, 'x', Z1 - T, Z1, X0, X1, 0, H, 1, cols.s || [], ups, trim, M.iron, paper); face(B, wallM, 'x', Z0, Z0 + T, X0, X1, 0, H, -1, cols.n || [], ups, trim, M.iron, paper);
   face(B, wallM, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, H, -1, cols.w || [], ups, trim, M.iron, paper); face(B, wallM, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, H, 1, cols.e || [], ups, trim, M.iron, paper);
   for (const [x, z] of [[X0, Z0], [X0, Z1], [X1, Z0], [X1, Z1]]) B.box(trim, x - 0.13, 0, z - 0.13, x + 0.13, H, z + 0.13, false);
-  for (const y of [0.5, H - 0.1]) { B.box(trim, X0 - 0.05, y - 0.08, Z0 - 0.05, X1 + 0.05, y + 0.08, Z0, false); B.box(trim, X0 - 0.05, y - 0.08, Z1, X1 + 0.05, y + 0.08, Z1 + 0.05, false); B.box(trim, X0 - 0.05, y - 0.08, Z0, X0, y + 0.08, Z1, false); B.box(trim, X1, y - 0.08, Z0, X1 + 0.05, y + 0.08, Z1, false); }
+  // 벽 둘레 나무 띠: 처마 밑 띠는 한 줄로, 무릎 높이 띠는 문 자리에서 끊는다(문 앞을 가로막지 않게)
+  const runs = (u0, u1, side, low) => { const out = []; let u = u0; if (low) for (const [a, b] of (cols[side] || []).filter(c => c[2] === 'd').sort((p, q) => p[0] - q[0])) { if (a > u) out.push([u, a]); u = Math.max(u, b); } if (u1 > u) out.push([u, u1]); return out; };
+  for (const y of [0.5, H - 0.1]) {
+    const low = y < 2.6;
+    for (const [a, b] of runs(X0 - 0.05, X1 + 0.05, 'n', low)) B.box(trim, a, y - 0.08, Z0 - 0.05, b, y + 0.08, Z0, false);
+    for (const [a, b] of runs(X0 - 0.05, X1 + 0.05, 's', low)) B.box(trim, a, y - 0.08, Z1, b, y + 0.08, Z1 + 0.05, false);
+    for (const [a, b] of runs(Z0, Z1, 'w', low)) B.box(trim, X0 - 0.05, y - 0.08, a, X0, y + 0.08, b, false);
+    for (const [a, b] of runs(Z0, Z1, 'e', low)) B.box(trim, X1, y - 0.08, a, X1 + 0.05, y + 0.08, b, false);
+  }
 }
 // 칸막이 좌석: 등받이 높은 긴 의자 둘이 상을 사이에 두고 마주 본다(의자는 ±z, 길이는 x 방향). fire면 상 가운데 숯불 화로.
 function boothAt(B, x, y, z, ry, seatM, fire, glows) {
