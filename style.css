@@ -199,8 +199,8 @@ body.touch .sheet footer { margin-top: 12px; padding-top: 10px; }
 /* 도움말: 오른쪽 아래. 닫혀 있으면 'H 도움말' 한 줄, 열면 자판 안내 */
 #help { position: fixed; right: 22px; bottom: 22px; z-index: 22; color: var(--paper); font-size: 12px; }
 #help kbd { background: rgba(255, 255, 255, .14); color: var(--paper); border-color: rgba(255, 255, 255, .32); }
-#helpTab { display: flex; align-items: center; gap: 6px; padding: 6px 11px 6px 8px; border: 0; border-radius: 3px; background: rgba(29, 26, 22, .6); color: inherit; font: 600 12px var(--sans); cursor: pointer; transition: background .12s; }
-#helpTab:hover { background: rgba(29, 26, 22, .86); }
+#helpTab { display: flex; align-items: center; gap: 6px; padding: 6px 11px 6px 8px; border: 0; border-radius: 3px; background: rgba(29, 26, 22, .34); color: inherit; font: 600 12px var(--sans); cursor: pointer; opacity: .72; transition: background .12s, opacity .12s; }
+#helpTab:hover { background: rgba(29, 26, 22, .86); opacity: 1; }
 #help.open #helpTab { display: none; }
 #helpBody { padding: 12px 16px 13px; border-radius: 4px; background: rgba(29, 26, 22, .92); box-shadow: 0 8px 22px rgba(0, 0, 0, .35); cursor: pointer; }
 #helpBody p { margin: 0 0 9px; padding-bottom: 8px; border-bottom: 1px dashed rgba(239, 229, 207, .28); display: flex; align-items: center; justify-content: space-between; gap: 24px; }
