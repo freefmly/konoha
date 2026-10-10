@@ -333,7 +333,7 @@ async function init() {
     return;
   }
   let gloom = 0, gloomCss = '';
-  const gloomEl = $('#gloom'), GLOOM_FOG = new THREE.Color(0x24364e);
+  const gloomEl = $('#gloom'), GLOOM_FOG = new THREE.Color(0x24364e), GLOOM_SKY = new THREE.Color(0x101a2c);
   function frame() {
     requestAnimationFrame(frame);
     if (innerWidth !== viewW || innerHeight !== viewH) fit();
@@ -364,7 +364,8 @@ async function init() {
     // 죽음의 숲: 철망 안으로 들어갈수록 어두워지고 푸른 빛이 덮인다(안개도 짙고 검푸르게, 볕은 약하게). 하늘에서 볼 때는 덮지 않는다
     { const at = camera.position, dg = !player.sky ? Math.max(0, Math.min(1, (DEATH.rf + 6 - Math.hypot(at.x - DEATH.c[0], at.z - DEATH.c[1])) / 30)) : 0;
       if (gloomCss === '' || Q.get('shot')) gloom = dg; else gloom += (dg - gloom) * (1 - Math.exp(-dt * 1.6));   // 처음 뜰 때와 확인용 화면에서는 곧바로
-      if (gloom > 0.004) { scene.fog.color.lerp(GLOOM_FOG, gloom * 0.9); scene.fog.density += (0.03 - scene.fog.density) * gloom; weather.sun.intensity *= 1 - 0.55 * gloom; renderer.toneMappingExposure *= 1 - 0.18 * gloom; }
+      if (gloom > 0.004) { scene.fog.color.lerp(GLOOM_FOG, gloom * 0.9); scene.fog.density += (0.03 - scene.fog.density) * gloom; weather.sun.intensity *= 1 - 0.55 * gloom; renderer.toneMappingExposure *= 1 - 0.18 * gloom;
+        const su = weather.skyU; su.uTop.value.lerp(GLOOM_SKY, gloom * 0.94); su.uHor.value.lerp(GLOOM_FOG, gloom * 0.94); su.uDark.value += (1 - su.uDark.value) * gloom; su.uFogCol.value.lerp(GLOOM_FOG, gloom * 0.94); }   // 하늘도 안개 빛으로 덮는다(구름은 어둡게)
       const gs = (gloom * 0.86).toFixed(3); if (gs !== gloomCss) gloomEl.style.setProperty('--g', gloomCss = gs); }
     for (const f of ticks) f(weather.t, wdt);
     if (Q.get('freeze')) weather.leaves.visible = false;
