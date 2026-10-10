@@ -8,6 +8,7 @@ import { VillageMap } from './map.js';
 import { setupLod } from './lod.js';
 import { build as buildPeople, PEOPLE } from './people.js';
 import { VERSION, LOG } from './version.js';
+import { initStats, stat, statOnce } from './stats.js';
 import { Player } from './player.js';
 import { LOT, WALL, SITE, DEATH } from './layout.js';
 import { marks, settle } from './build.js';
@@ -18,6 +19,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 // 주소 뒤의 확인용 매개변수(shot·sky·fly 따위)는 내 컴퓨터에서 열었을 때만 듣는다. 공개 주소에서는 모두 무시한다
 const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 const Q = new URLSearchParams(LOCAL ? location.search : '');
+initStats(LOCAL);
 // 터치 기기(스마트폰)인가. 확인용으로 ?touch=1 / ?touch=0 로 강제할 수 있다.
 const TOUCH = Q.get('touch') ? Q.get('touch') === '1' : matchMedia('(pointer: coarse)').matches;
 document.body.classList.toggle('touch', TOUCH);
@@ -157,8 +159,10 @@ async function init() {
   const QUICK = [['정문'], ['마을 중앙', '큰길 한가운데'], ['호카게 관저 앞'], ['닌자 아카데미'], ['이치라쿠 라멘'], ['나루토의 집'], ['사쿠라의 집', '사쿠라의 집 앞'], ['사스케의 집'], ['센쥬 공원']];
   const quick = QUICK.map(([n, at = n]) => { const j = jumps.find(q => q[0] === at); return j && [n, ...j.slice(1)]; }).filter(Boolean);
   $('#jumpBtns').innerHTML = quick.map((j, i) => `<button data-jump="${i}">${j[0]}</button>`).join('');
-  const enter = () => { sound.start(); started = true; resume(); };
-  $('#jumpBtns').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; const j = quick[b.dataset.jump]; player.place(j[1], j[2], j[3], j[4]); enter(); });
+  const enter = () => { sound.start(); if (!started) { statOnce('enter_village'); startedAt = performance.now(); } started = true; resume(); };
+  // 통계: 마을 안에서 머문 시간을 1·3·5·10·20·30분 고비마다 한 번씩 보낸다
+  let startedAt = 0; { const MARKS = [1, 3, 5, 10, 20, 30]; setInterval(() => { if (!startedAt || document.hidden) return; const m = (performance.now() - startedAt) / 60000; for (const k of MARKS) if (m >= k) statOnce('stay_minutes', { minutes: k }); }, 20000); }
+  $('#jumpBtns').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; const j = quick[b.dataset.jump]; stat('jump', { place: j[0] }); player.place(j[1], j[2], j[3], j[4]); enter(); });
   // 하늘에서 둘러보기는 만드는 사람만: 내 컴퓨터(localhost)에서 열었을 때만 단추·자판이 살아 있다
   const DEV = LOCAL && Q.get('dev') !== '0';   // ?dev=0: 내 컴퓨터에서 공개판 모습 확인
   document.body.classList.toggle('dev', DEV); player.canSky = DEV;
@@ -425,7 +429,7 @@ async function init() {
         if (!broad) heldAt = player.sky ? null : [at.x, y, at.z];
         else if (heldAt && !player.sky && Math.hypot(at.x - heldAt[0], at.z - heldAt[2]) < 7 && Math.abs(y - heldAt[1]) < 3.5) n = hereName;
         else heldAt = null;
-        if (n !== hereName) $('#miniName b').textContent = hereName = n;
+        if (n !== hereName) { $('#miniName b').textContent = hereName = n; if (n && started) statOnce('visit_place', { place: n }); }
       }
       if (mapOpen) vmap.mark(at.x, at.z, player.yaw, hereName, player.locked && !player.touchMode);
     }
