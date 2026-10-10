@@ -38,7 +38,7 @@ async function init() {
   const canvas = $('#view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // 폰은 화면 점이 아주 촘촘해서 다 그리면 PC보다 점이 많아진다 → 낮춰 그리고, 느려지면 더 낮춘다
-  let pixelRatio = Math.min(devicePixelRatio, TOUCH ? 1.3 : 1.5);
+  let pixelRatio = Math.min(devicePixelRatio, 1.5);   // 폰도 PC와 같은 촘촘함으로 시작한다(낮게 그리면 먹선이 흐리고 거칠어진다)
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
@@ -128,7 +128,7 @@ async function init() {
   let toon = null, toonOn = false;
   const applyStyle = on => {
     toonOn = on; W.uToon.value = on ? 1 : 0; weather.envDirty = 2; weather.shadowDirty = true;   // 나무 그림자도 화풍 따라 바뀐다(낱잎 ↔ 잎 덩어리)
-    if (on && !toon) toon = new Toon(renderer, { samples: TOUCH ? 2 : 4 });
+    if (on && !toon) toon = new Toon(renderer, { samples: 4 });
   };
   // 마을 사람의 얼굴(눈·눈썹·입)은 늘 그린다. 확인용으로만 ?face=0 으로 끌 수 있다
   PEOPLE.uFace.value = Q.get('face') !== '0' ? 1 : 0;
@@ -387,10 +387,10 @@ async function init() {
     }
     if (weather.shadowDirty) { renderer.shadowMap.needsUpdate = true; weather.shadowDirty = false; }
     const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
-    // 폰이 버거워하면(초당 40장 밑) 그리는 해상도를 한 단계씩 낮춘다. 다시 올리지는 않는다.
+    // 폰이 많이 버거워하면(초당 28장 밑) 그리는 해상도를 한 단계씩 낮춘다. 먹선이 뭉개지지 않게 1.1배 밑으로는 내리지 않는다. 다시 올리지는 않는다.
     if (TOUCH && started && player.locked) {
       fpsN++; fpsT += raw;
-      if (fpsT > 4) { if (fpsN / fpsT < 40 && pixelRatio > 0.8) { pixelRatio = Math.max(0.75, pixelRatio * 0.84); renderer.setPixelRatio(pixelRatio); fit(); } fpsN = fpsT = 0; }
+      if (fpsT > 4) { if (fpsN / fpsT < 28 && pixelRatio > 1.1) { pixelRatio = Math.max(1.1, pixelRatio * 0.88); renderer.setPixelRatio(pixelRatio); fit(); } fpsN = fpsT = 0; }
     } else fpsN = fpsT = 0;
     if (started) { if (!Q.get('fly')) player.update(dt); }
     else { // 들어가기 전: 마을 위 높은 데서 호카게 바위 쪽을 천천히 훑는 화면(마을이 넓게 내려다보인다)
@@ -447,7 +447,15 @@ async function init() {
   }
   frame();
   if (Q.get('stats')) setTimeout(() => {   // 확인용: 그린 삼각형 수와 한 장 그리는 데 걸린 시간
+    if (lod) { for (let i = 0; i < 200000 && lod.stats().pending; i++) lod.tick(); lod.tick(); }
     const t0 = performance.now(); for (let i = 0; i < 5; i++) renderer.render(scene, camera); renderer.getContext().finish();
+    { const fr = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse)), rows = []; let inst = 0, plain = 0, nI = 0, nP = 0; const band = [0, 0, 0, 0, 0];
+      scene.traverse(o => { if (!o.isMesh || !o.visible || !o.geometry.attributes.position) return; let p = o, vis = true; while (p) { if (!p.visible) vis = false; p = p.parent; } if (!vis) return; if (o.frustumCulled && !fr.intersectsObject(o)) return;
+        const g = o.geometry, dr = g.drawRange, n = Math.min(dr.count, g.index ? g.index.count : g.attributes.position.count) / 3, t = n * (o.isInstancedMesh ? o.count : 1);
+        if (o.isInstancedMesh) { inst += t; nI++; } else { plain += t; nP++; }
+        const bs = g.boundingSphere, c = bs ? bs.center.clone().applyMatrix4(o.matrixWorld) : new THREE.Vector3(), d = Math.max(0, c.distanceTo(camera.position) - (bs ? bs.radius : 0)); band[d < 50 ? 0 : d < 120 ? 1 : d < 250 ? 2 : d < 450 ? 3 : 4] += t;
+        rows.push([t, Math.round(d), o.isInstancedMesh ? 'I' + o.count : 'M', (o.material.name || o.material.type || '').slice(0, 14), bs ? Math.round(bs.radius) : 0]); });
+      console.log('STATSBY 묶어찍기 ' + Math.round(inst / 1000) + 'k/' + nI + '개 낱개 ' + Math.round(plain / 1000) + 'k/' + nP + '개 거리별(50,120,250,450,그밖) ' + band.map(b => Math.round(b / 1000) + 'k').join(',') + ' 큰것 ' + rows.sort((p, q) => q[0] - p[0]).slice(0, 14).map(r => Math.round(r[0] / 1000) + 'k@' + r[1] + 'm ' + r[2] + ' r' + r[4]).join(' | ')); }
     console.log('STATS tris', renderer.info.render.triangles, 'calls', renderer.info.render.calls, 'ms/frame', ((performance.now() - t0) / 5).toFixed(1));
   }, 500);
   // 확인용: 그 자리·그 화풍에서 n장을 그려 한 장에 걸린 시간(ms)과 그린 삼각형 수를 잰다. shadow = 그림자 지도도 매번 다시 그릴 때
