@@ -573,7 +573,7 @@ export function build(scene, ctx) {
   yardWall('x', SOUTH, 40.2, 65.72); yardWall('x', SOUTH, 70.28, 95.8);
   yardWall('z', 40.4, -122, -101.3); yardWall('z', 40.4, -96.7, SOUTH - 0.2); yardWall('z', 95.6, -122, -79.3); yardWall('z', 95.6, -74.7, SOUTH - 0.2);
   for (const [x, za, zb, txt] of [[40.4, -101.3, -96.7, '運動場'], [95.6, -79.3, -74.7, '第一演習場']]) {
-    for (const z of [za, zb]) { B.box(BEAM, x - 0.2, 0, z - 0.2, x + 0.2, 2.9, z + 0.2); B.box(M.stone, x - 0.27, 0, z - 0.27, x + 0.27, 0.22, z + 0.27, false); }
+    for (const z of [za, zb]) { B.box(BEAM, x - 0.23, 0, z - 0.23, x + 0.23, 2.9, z + 0.23); B.box(M.stone, x - 0.3, 0, z - 0.3, x + 0.3, 0.22, z + 0.3, false); }   // 기둥은 담의 돌 밑단(반폭 0.2)보다 굵게: 옆면이 한 평면이면 깜빡인다
     B.box(BEAM, x - 0.1, 2.5, za - 0.4, x + 0.1, 2.72, zb + 0.4, false);
     gableRoof(B, ROOF2, x - 0.4, za - 0.2, x + 0.4, zb + 0.2, 2.9, 0.42, { ridge: 'z', over: 0.42, overGable: 0.35, detail: 3 });
     signBoard(B, txt, x, 2.2, (za + zb) / 2, x < 68 ? PI / 2 : -PI / 2, 1.9, 0.4, { both: true, depth: 0.05, bg: '#e9dcc0' });

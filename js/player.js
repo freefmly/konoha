@@ -19,7 +19,7 @@ export class Player {
     this.touchMode = false; this.touch = { x: 0, z: 0, run: false }; this.jumpQueued = false;   // 터치: 조이스틱 기울기, 달리기, 뛰기 예약
     this.jumpHeld = false; this.hold = 0; this.charge = 0; this.dip = 0;   // 뛰기 단추를 누르고 있는가, 누른 시간, 모인 힘(0~1), 착지 때 무릎 굽힘
     this.sky = false; this.skyPos = new THREE.Vector3(); this.skyVel = new THREE.Vector3();   // 하늘에서 보기: 켜졌는가, 눈의 자리, 나는 속도
-    this.roam = false;   // 지도를 펴 든 채 걷는 중(마우스는 풀려 있다): 자판으로 걷고, 좌우 화살표로 몸을 돌린다
+    this.roam = false;   // 지도나 두루마리(메뉴)를 펴 든 채 걷는 중(마우스는 풀려 있다): 자판으로 걷고, 좌우 화살표로 몸을 돌린다. 마우스가 풀려도 누르고 있던 자판은 그대로 살린다(걸음이 끊기지 않게)
     addEventListener('keydown', e => { this.keys[e.code] = true; if ((this.locked || this.roam) && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault(); });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
@@ -28,13 +28,13 @@ export class Player {
       this.yaw -= e.movementX * 0.0022;
       this.pitch = THREE.MathUtils.clamp(this.pitch - e.movementY * 0.0022, -1.5, 1.5);
     });
-    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === dom; if (!this.locked) this.keys = {}; if (this.onLock) this.onLock(this.locked); });
+    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === dom; if (this.onLock) this.onLock(this.locked); });
   }
 
   // 터치 기기에는 마우스 고정이 없다 — 그냥 "걷는 중" 상태로 바꾼다
   lock() {
     if (this.touchMode || !this.dom.requestPointerLock) { this.setActive(true); return; }
-    this.dom.requestPointerLock();
+    const p = this.dom.requestPointerLock(); if (p && p.catch) p.catch(() => {});   // 브라우저가 아직 안 된다고 하면 조용히 넘긴다(부른 쪽에서 다시 청한다)
   }
   unlock() { if (document.pointerLockElement) document.exitPointerLock(); else this.setActive(false); }
   setActive(on) { this.locked = on; if (!on) { this.keys = {}; this.touch.x = this.touch.z = 0; this.touch.run = false; } if (this.onLock) this.onLock(on); }
@@ -45,6 +45,7 @@ export class Player {
 
   // 하늘에서 보기를 켜고 끈다. 켤 때는 서 있던 자리가 내려다보이게 뒤로 물러나 떠오르고, 끌 때는 화면 한가운데로 보던 땅에 내려선다.
   setSky(on) {
+    if (on && !this.canSky) return;                       // 하늘에서 보기를 막아 둔 곳(공개 주소)에서는 켜지지 않는다
     if (on === this.sky) return;
     this.sky = on; this.skyVel.set(0, 0, 0); this.vel.set(0, 0, 0); this.hold = 0; this.charge = 0;
     if (on) {
@@ -113,7 +114,9 @@ export class Player {
   }
 
   place(x, y, z, yaw = this.yaw, pitch = 0) {
+    const wasSky = this.sky;
     this.sky = false; this.pos.set(x, y, z); this.vel.set(0, 0, 0); this.yaw = yaw; this.pitch = pitch; this.eyeY = y; this.sync();
+    if (wasSky && this.onSky) this.onSky(false);   // 하늘에서 보다가 옮겨 서면 하늘 보기의 화면 설정(보는 범위·안내 띠)도 함께 되돌린다
   }
 
   // 그 자리에 설 수 있는 가장 높은 바닥(발에서 한 단 높이 이내)

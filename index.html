@@ -39,26 +39,16 @@
           </div>
           <span class="seal">火</span>
         </header>
-        <p class="lede">호카게 바위 아래 마을을 걸어서 둘러봅니다. 관저·아카데미·이치라쿠 라멘, 나루토·사쿠라·이노의 집은 안으로 들어가 층마다 올라가 볼 수 있습니다.</p>
+        <p class="lede">호카게 바위 아래 펼쳐진 나뭇잎 마을을 걸어서 둘러봅니다. 관저와 아카데미, 이치라쿠 라멘부터 친구들의 집까지, 문이 열린 곳은 어디든 들어가 볼 수 있습니다.</p>
 
         <p class="verline"><button id="verBtn" type="button" aria-expanded="false"></button><span id="verToast" class="hidden"></span></p>
 
         <button id="enterBtn" class="enter">마을로 들어가기</button>
-        <button id="skyBtn" class="skyenter">하늘에서 둘러보기</button>
+        <button id="skyBtn" class="skyenter dev-only">하늘에서 둘러보기</button>
 
         <section>
           <h2>날씨</h2>
           <div id="weatherBtns" class="wxrow"></div>
-        </section>
-
-        <section>
-          <h2>화풍</h2>
-          <div id="styleBtns" class="seg duo"></div>
-        </section>
-
-        <section>
-          <h2>마을 사람 얼굴</h2>
-          <div id="faceBtns" class="seg duo"></div>
         </section>
 
         <section class="two">
@@ -74,7 +64,7 @@
 
         <section>
           <h2>바로 가기</h2>
-          <p class="note">대표적인 장소들을 즉시 이동할 수 있어요. 숨겨진 더 많은 곳을 찾아보세요.</p>
+          <p class="note">대표적인 곳으로 바로 이동합니다. 나머지는 걸으면서 찾아보세요.</p>
           <div id="jumpBtns" class="tags"></div>
         </section>
 
@@ -83,7 +73,7 @@
           <span><kbd>더 멀리 밀기</kbd> 달리기</span>
           <span><kbd>화면 오른쪽</kbd> 끌어서 둘러보기</span>
           <span><kbd>↑ 단추</kbd> 뛰기 · 길게 눌러 모아 뛰기</span>
-          <span><kbd>하늘</kbd> 하늘에서 보기 · ↑ 단추로 높이</span>
+          <span class="dev-only"><kbd>하늘</kbd> 하늘에서 보기 · ↑ 단추로 높이</span>
         </footer>
       </div>
       <div class="rod"></div>
@@ -115,12 +105,11 @@
         <dt><kbd>마우스</kbd></dt><dd>둘러보기</dd>
         <dt><kbd>Shift</kbd></dt><dd>달리기</dd>
         <dt><kbd>Space</kbd></dt><dd>뛰기 · 길게 눌러 닌자 점프</dd>
-        <dt><kbd>V</kbd></dt><dd>하늘에서 보기</dd>
+        <dt class="dev-only"><kbd>V</kbd></dt><dd class="dev-only">하늘에서 보기</dd>
         <dt><kbd>M</kbd></dt><dd>지도</dd>
         <dt><kbd>+</kbd><kbd>−</kbd></dt><dd>미니맵 확대·축소</dd>
         <dt><kbd>1</kbd>–<kbd>4</kbd></dt><dd>날씨</dd>
         <dt><kbd>B</kbd></dt><dd>바람</dd>
-        <dt><kbd>C</kbd></dt><dd>화풍</dd>
         <dt><kbd>N</kbd></dt><dd>소리</dd>
         <dt><kbd>Esc</kbd></dt><dd>두루마리(메뉴)</dd>
       </dl>
@@ -136,8 +125,7 @@
       <div class="tbar">
         <button id="btnWeather">맑음</button>
         <button id="btnWind">바람 산들</button>
-        <button id="btnStyle">만화</button>
-        <button id="btnSky">하늘</button>
+        <button id="btnSky" class="dev-only">하늘</button>
         <button id="btnMap">지도</button>
         <button id="btnMenu" aria-label="메뉴"><svg viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
       </div>
@@ -170,8 +158,6 @@
     </div>
   </div>
 
-  <!-- 화풍을 처음 바꿀 때 잠깐 -->
-  <div id="styleNote" class="hidden">붓을 바꾸는 중…</div>
 
   <!-- 세로로 들었을 때 -->
   <div id="rotate"><div class="phone"></div><p>폰을 가로로 돌려 주세요</p></div>

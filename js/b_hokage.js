@@ -3,7 +3,7 @@
 // 본채 중심 (0, -104). 정면은 남쪽(+z). 층 사이 계단은 본채 한가운데 계단실(곧은 계단 두 줄)에 있다.
 // 건물 몸체(벽·바닥·지붕·계단)는 아래 치수로 지은 뒤 본채 중심에서 S배로 키운다. 가구·난간·등불·실내 팻말은 사람 크기 그대로, 자리만 키운 건물에 맞춰 놓는다.
 import * as THREE from '../vendor/three.module.js';
-import { Builder, wall, stairs, tube, mergeGeos, mat4, rng, addCollider, colliders, marks, rescale } from './build.js';
+import { Builder, wall, stairs, tube, mergeGeos, mat4, rng, addCollider, colliders, marks, rescale, leafMark } from './build.js';
 import { mat, M, textMat, weatherize } from './materials.js';
 import { coneRoof, gableRoof, beamBetween, roundWall, roundWindow, roundRailing, railing, signBoard, lantern, doorUnit, windowUnit } from './arch.js';
 
@@ -102,16 +102,11 @@ function drawMap(g, w, h) {
   g.fillText('木ノ葉隠れの里 全図', cx, h * 0.085);
 }
 
-// 나뭇잎 마을 문장(소용돌이 잎)
+// 나뭇잎 마을 문장(build.js의 것)을 둥근 판에 그린다
 function drawLeaf(g, w) {
   const c = w / 2;
   g.fillStyle = '#efe6cf'; g.beginPath(); g.arc(c, c, c, 0, TAU); g.fill();
-  g.strokeStyle = '#2a1d16'; g.lineWidth = w * 0.06; g.lineCap = 'round'; g.lineJoin = 'round';
-  g.beginPath();
-  for (let i = 0; i <= 60; i++) { const t = i / 60, a = t * TAU * 1.6 + 0.4, r = w * (0.03 + 0.19 * t); const x = c + w * 0.04 + Math.cos(a) * r, y = c + Math.sin(a) * r; i ? g.lineTo(x, y) : g.moveTo(x, y); }
-  g.stroke();
-  g.beginPath(); g.moveTo(c + w * 0.2, c - w * 0.16); g.lineTo(c - w * 0.3, c - w * 0.2); g.lineTo(c - w * 0.38, c + w * 0.02); g.lineTo(c - w * 0.16, c + w * 0.12); g.stroke();
-  g.beginPath(); g.moveTo(c - w * 0.1, c + w * 0.2); g.lineTo(c - w * 0.2, c + w * 0.34); g.stroke();
+  leafMark(g, c, c, w * 0.72, '#2a1d16');
 }
 
 function init() {
@@ -435,7 +430,7 @@ function shell(B) {
   const ent = { a0: PI / 2 - 0.119, a1: PI / 2 + 0.119, ys: [[Y1, 3.4]] };
   const pe = { a0: -0.0795, a1: 0.0795, ys: [[Y1, 3.3]] }, pw = { a0: PI - 0.0795, a1: PI + 0.0795, ys: [[Y1, 3.3]] };
   // 창은 작고 드문드문하다(본편의 관저는 붉은 벽에 작은 창이 점점이 박혀 있다)
-  ringWall(B, CX, CZ, RI, RO, 0, Y2, slots(24, 0.042, [0, 6, 12]), 2.3, 3.3, [ent, pe, pw], 1);
+  ringWall(B, CX, CZ, RI, RO, 0, Y2, slots(24, 0.042, [0, 6, 12]), 2.3, 3.3, [{ ...ent, ys: [[Y1 - 0.04, 3.4]] }, pe, pw], 1);   // 현관 문 밑의 벽 윗면은 바닥보다 낮춘다(같은 높이면 깜빡인다)
   ringWall(B, CX, CZ, RI, RO, Y2, Y3, slots(24, 0.042), 6.95, 7.85, [], 1);
   ringWall(B, CX, CZ, RI, RO, Y3, YR, slots(24, 0.05, [6]), 10.3, 11.5, [], 1);
   for (const a of [0, PI]) roundDoorFrame(B, CX, CZ, RI, RO, a, 0.0795, Y1, 3.3);
@@ -849,7 +844,7 @@ function annex(B, s, R, glows) {
 function front(B, glows) {
   B.box(M.pave, -11, -0.3, -85.8, 11, 0.04, -70.6);
   for (const s of [-1, 1]) B.box(M.stone, s * 11, -0.3, -85.8, s * 11.35, 0.14, -70.6);                // 마당 가장자리 돌
-  B.box(M.stone, -3.6, 0, -91.3, 3.6, Y1, -87.4);
+  B.box(M.stone, -3.6, 0, -91.3, 3.6, Y1 - 0.015, -87.4);                                              // 현관 앞 돌단: 안쪽 끝이 마루 밑으로 들어가므로 마루보다 조금 낮다
   stairs(B, M.stone, 'z', -87.4, 1, 0, Y1, -3.6, 3.6, 0.4);
   for (const s of [-1, 1]) {
     B.box(M.stone, s * 3.6, 0, -87.7, s * 4.4, 1.15, -85.5);                                           // 소맷돌과 그 위 돌등롱
@@ -861,8 +856,9 @@ function front(B, glows) {
     // 문설주와 안으로 열린 문짝
     B.box(M.beam, s * 1.4, Y1, -91.46, s * 1.6, 3.4, -90.94);
     const x = s * 1.34;
-    B.box(M.beamLight, x - 0.03, Y1 + 0.02, -92.95, x + 0.03, 3.36, -91.5);
-    for (const y of [Y1 + 0.02, 2.1, 3.22]) B.box(M.beam, x - 0.045, y, -92.95, x + 0.045, y + 0.14, -91.5, false);
+    // 문짝: 널은 울거미(테) 안쪽으로 들이고, 가로대는 세로대 사이에만 댄다(끝면·윗면이 서로 겹치면 깜빡인다)
+    B.box(M.beamLight, x - 0.03, Y1 + 0.06, -92.9, x + 0.03, 3.32, -91.55);
+    for (const y of [Y1 + 0.03, 2.1, 3.21]) B.box(M.beam, x - 0.04, y, -92.83, x + 0.04, y + 0.14, -91.62, false);
     for (const z of [-92.95, -91.62]) B.box(M.beam, x - 0.045, Y1 + 0.02, z, x + 0.045, 3.36, z + 0.12, false);
     B.put(M.iron, new THREE.TorusGeometry(0.07, 0.012, 6, 14), x - s * 0.05, 2.0, -92.75, PI / 2);
     fin(() => lantern(BF, sx(s * 1.9), sy(3.3) - 0.37, sz(-87.75), { text: '火' })); glows.push([sx(s * 1.9), sy(3.3) - 0.37, sz(-87.75), 1.2]);
@@ -872,7 +868,7 @@ function front(B, glows) {
     B.geo(M.beam, tube([V3(bx0, 5.0, bz), V3(bx0 - s * 0.95, 5.0, bz)], 0.02, 6));
     B.geo(textMat(s > 0 ? '火影邸' : '木ノ葉隠れの里', { w: 128, h: 600, vertical: true, color: '#f4efe2', bg: s > 0 ? '#a82a20' : '#2f4f6a', pad: 0.1 }, 'cloth'), new THREE.PlaneGeometry(0.8, 3.6, 4, 14), mat4(bx0 - s * 0.5, 3.2, bz));
   }
-  B.box(M.beam, -1.6, 3.4, -91.46, 1.6, 3.62, -90.94, false);
+  B.box(M.beam, -1.6, 3.35, -91.46, 1.6, 3.62, -90.94, false);                                         // 윗틀 밑면은 벽 구멍 윗면보다 낮게
   B.box(M.beam, -3.1, 3.3, -87.84, 3.1, 3.5, -87.66, false);
   gableRoof(B, TILE, -3.1, -90.8, 3.1, -87.6, 3.5, 0.9, { ridge: 'z', over: 0.6, overGable: 0.5, gable: M.white });
   signBoard(B, '火影邸', 0, 3.92, -90.93, 0, 1.9, 0.46, { both: false });

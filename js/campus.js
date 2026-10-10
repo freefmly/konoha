@@ -1,9 +1,9 @@
 // 닌자 아카데미 터 — 교사 둘레에 들어선 것들: 앞마당(흙), 제1 훈련장, 달리기 운동장, 실내 훈련장, 창설 기념비, 터의 나무.
 // 교사(b_academy.js)와 같은 좌표로 지어(정면이 +z = 큰길 쪽) 터에 돌려 놓는다. 교사는 x 47~89, z -120~-104.
-// 원작에서 가져온 것: 아카데미를 2대 호카게 센주 토비라마가 세웠다는 것, 그네 나무, 인을 맺은 큰 손 석상(원작에서는 중급닌자 시험 예선장에 선 것).
+// 원작에서 가져온 것: 아카데미를 2대 호카게 센쥬 토비라마가 세웠다는 것, 그네 나무, 인을 맺은 큰 손 석상(원작에서는 중급닌자 시험 예선장에 선 것).
 // 지어낸 것: 훈련장·운동장·실내 훈련장의 생김새와 놓인 자리, 기념비의 모양과 새긴 글.
 import * as THREE from '../vendor/three.module.js';
-import { Builder, marks, settle, addCollider, addRoof, mat4, tube, wall, rng } from './build.js';
+import { Builder, marks, settle, addCollider, addRoof, mat4, tube, wall, rng, leafMark } from './build.js';
 import { M, mat, textMat } from './materials.js';
 import { tilePanel, beamBetween, ridgeLine, hipRoof, gableRoof, windowUnit, doorUnit, signBoard } from './arch.js';
 import { treeGeometry, bushGeometry } from './flora.js';
@@ -30,7 +30,7 @@ const trackD = (x, z, k = 0) => { const t = CAMPUS.track; return Math.hypot((x -
 const onDirt = (x, z, pad = 0) => inRect(x, z, CAMPUS.yard, pad) || inRect(x, z, CAMPUS.court, pad) || inRect(x, z, CAMPUS.train, pad) || inRect(x, z, CAMPUS.hall, pad + 1.5)
   || CAMPUS.paths.some(p => inRect(x, z, p, pad)) || (trackD(x, z, pad) < 1 && trackD(x, z, -CAMPUS.track.w - pad) > 1);
 
-/* ---------- 센주 일족의 문장(기억으로 그린 것): 가운데 곧은 살과, 위아래로 벌어졌다 모이는 두 쌍의 굽은 살 ---------- */
+/* ---------- 센쥬 일족의 문장(기억으로 그린 것): 가운데 곧은 살과, 위아래로 벌어졌다 모이는 두 쌍의 굽은 살 ---------- */
 function senjuCrest(g, cx, cy, r, col) {
   g.fillStyle = col;
   g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r * 0.1, cy - r * 0.32); g.lineTo(cx + r * 0.06, cy); g.lineTo(cx + r * 0.1, cy + r * 0.32); g.lineTo(cx, cy + r);
@@ -291,14 +291,14 @@ export function campus(scene, out) {
     places.push({ n: '실내 훈련장', t: '비 오는 날이나 특별한 수련에 쓰는 마루 깐 훈련장. 안쪽에 인을 맺은 큰 손의 석상이 서 있다.', b: [X0, X1, Z0, Z1 + 3.6], y: [-1, 16] });
   }
 
-  /* ================= 창설 기념비: 2대 호카게 센주 토비라마 ================= */
+  /* ================= 창설 기념비: 2대 호카게 센쥬 토비라마 ================= */
   {
     const [x, z] = CAMPUS.stone;
     B.box(STONE, x - 2.3, 0, z - 1.5, x + 2.3, 0.2, z + 1.5); B.box(STONE, x - 1.8, 0.2, z - 1.1, x + 1.8, 0.42, z + 1.1);
     const s = new THREE.Shape(); [[-1.15, 0], [1.2, 0], [1.3, 1.5], [1.08, 2.85], [0.56, 3.5], [-0.12, 3.7], [-0.78, 3.35], [-1.14, 2.45], [-1.27, 1.15]].forEach((p, i) => (i ? s.lineTo(p[0], p[1]) : s.moveTo(p[0], p[1])));
     const g = new THREE.ExtrudeGeometry(s, { depth: 0.5, bevelEnabled: true, bevelThickness: 0.09, bevelSize: 0.09, bevelSegments: 2 }); g.translate(0, 0, -0.25);
     B.geo(mat('rock', 0x9d998c), g, mat4(x, 0.42, z)); addCollider(x - 1.4, 0.42, z - 0.36, x + 1.4, 4.1, z + 0.36);
-    // 새긴 면: 센주 문장 아래 세로로 두 줄
+    // 새긴 면: 센쥬 문장 아래 세로로 두 줄
     const face = textMat('  ', { w: 512, h: 1024, bg: '#33383a', color: '#33383a', draw: (c, w, h) => {
       c.strokeStyle = '#8f9a94'; c.lineWidth = 8; c.strokeRect(14, 14, w - 28, h - 28);
       senjuCrest(c, w / 2, 150, 96, '#d9d6c6');
@@ -312,7 +312,7 @@ export function campus(scene, out) {
     const corner = [[-2.15, 1.35], [2.15, 1.35], [2.15, -1.35], [-2.15, -1.35]];
     for (const [dx, dz] of corner) { B.geo(GREY, cyl(0.09, 0.11, 0.62, 8), mat4(x + dx, 0.51, z + dz)); B.geo(GREY, new THREE.SphereGeometry(0.11, 10, 8), mat4(x + dx, 0.84, z + dz)); }
     for (const [i, j] of [[1, 2], [2, 3], [3, 0]]) { const a = corner[i], b = corner[j]; B.geo(M.iron, tube([0, 1, 2, 3, 4].map(q => V(x + a[0] + (b[0] - a[0]) * q / 4, 0.74 - 0.16 * Math.sin(q / 4 * PI), z + a[1] + (b[1] - a[1]) * q / 4)), 0.018, 6, false)); }
-    places.push({ n: '아카데미 창설 기념비', t: '닌자를 길러 내는 틀을 세우려고 아카데미를 연 2대 호카게 센주 토비라마를 기리는 돌. 센주 문장 아래 "忍者学校創設之碑 — 二代目火影 千手扉間"이라 새겼다.', b: [x - 2.3, x + 2.3, z - 1.5, z + 3], y: [-1, 5] });
+    places.push({ n: '아카데미 창설 기념비', t: '닌자를 길러 내는 틀을 세우려고 아카데미를 연 2대 호카게 센쥬 토비라마를 기리는 돌. 센쥬 문장 아래 "忍者学校創設之碑 — 二代目火影 千手扉間"이라 새겼다.', b: [x - 2.3, x + 2.3, z - 1.5, z + 3], y: [-1, 5] });
   }
 
   /* ================= 뒤뜰의 걸상과 터의 나무 ================= */
@@ -347,14 +347,5 @@ export function campus(scene, out) {
 }
 const trees = [];   // 터에 심은 나무의 자리(서로 너무 붙지 않게)
 
-// 나뭇잎 표: 소용돌이에서 뾰족한 잎끝으로 이어진다(b_naruto.js의 것과 같은 꼴)
-export function leafMark(g, cx, cy, s, col) {
-  g.strokeStyle = col; g.lineWidth = s * 0.085; g.lineCap = 'round'; g.lineJoin = 'miter';
-  g.beginPath();
-  for (let i = 0; i <= 70; i++) {
-    const a = i / 70 * PI * 3.1 + 0.4, r = s * (0.05 + 0.3 * i / 70), x = cx + s * 0.08 + Math.cos(a) * r, y = cy + Math.sin(a) * r;
-    i ? g.lineTo(x, y) : g.moveTo(x, y);
-  }
-  g.lineTo(cx + s * 0.3, cy - s * 0.36); g.lineTo(cx - s * 0.52, cy - s * 0.2); g.lineTo(cx - s * 0.2, cy + s * 0.34); g.lineTo(cx - s * 0.36, cy + s * 0.5);
-  g.stroke();
-}
+// 나뭇잎 문장은 build.js의 것을 쓴다(여기서 내보내던 이름을 그대로 넘겨준다)
+export { leafMark };

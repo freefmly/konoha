@@ -198,14 +198,14 @@ function standby(scene, out) {
     roundFloor(B, M.stone, 0, 0, R + 0.25, 0, 0.08, [], 0, false);
     roundFloor(B, M.floor, 0, 0, R - 0.05, 0, FY);
     // 둥근 벽: 정면에 문, 나머지 일곱 방향에 창
-    roundWall(B, WALLM, 0, 0, RI, R, 0, TOP, [{ a0: PI / 2 - 0.16, a1: PI / 2 + 0.16, ys: [[FY, 2.5]] }, ...WIN.map(a => ({ a0: a - 0.17, a1: a + 0.17, ys: [[1.05, 2.45]] }))], { matIn: M.white });
+    roundWall(B, WALLM, 0, 0, RI, R, 0, TOP, [{ a0: PI / 2 - 0.16, a1: PI / 2 + 0.16, ys: [[FY - 0.04, 2.5]] }, ...WIN.map(a => ({ a0: a - 0.17, a1: a + 0.17, ys: [[1.05, 2.45]] }))], { matIn: M.white });
     for (const a of WIN) roundWindow(B, 0, 0, RI, R, a - 0.17, a + 0.17, 1.05, 2.45, { frame: TRIM, nx: 3 });
     roundWall(B, TRIM, 0, 0, R, R + 0.05, 0.08, 0.5, [{ a0: PI / 2 - 0.16, a1: PI / 2 + 0.16, ys: [[0.08, 0.5]] }], { collide: false });   // 허리 아래 굽도리
     roundWall(B, TRIM, 0, 0, R, R + 0.05, TOP - 0.22, TOP, [], { collide: false });
     // 문틀
-    for (const s of [-1, 1]) B.box(TRIM, s * 1.08 - 0.09, FY, R - 0.32, s * 1.08 + 0.09, 2.6, R + 0.1, false);
-    B.box(TRIM, -1.2, 2.5, R - 0.32, 1.2, 2.68, R + 0.1, false);
-    B.box(M.stone, -1.5, 0, R - 0.1, 1.5, 0.08, R + 1.0, false);
+    for (const s of [-1, 1]) B.box(TRIM, s * 1.08 - 0.09, FY, R - 0.32, s * 1.08 + 0.09, 2.44, R + 0.1, false);   // 문설주는 윗틀 밑까지만
+    B.box(TRIM, -1.2, 2.44, R - 0.32, 1.2, 2.68, R + 0.1, false);                 // 윗틀 밑면은 벽 구멍 윗면(2.5)보다 낮게, 문 밑의 벽 윗면은 마루보다 낮게(같은 높이면 깜빡인다)
+    B.box(M.stone, -1.5, 0, R + 0.2, 1.5, 0.074, R + 1.0, false);                  // 문 앞 디딤돌: 둥근 기단과 겹치는 자리는 조금 낮춘다
     // 천장
     plate(B, M.white, -RI, -RI, RI, RI, TOP - 0.1, TOP - 0.02, (x, z) => x * x + z * z < RI * RI, false);
     addCollider(-4.5, TOP - 0.1, -4.5, 4.5, TOP, 4.5);
@@ -603,10 +603,11 @@ function intel(scene, out) {
       const ax = -22, az = -3.6, AR = 6.2, AI = 6.0, AT = 4.2;
       roundFloor(B, M.stone, ax, az, AR + 0.2, 0, 0.1, [], 0, false); roundFloor(B, GREYF, ax, az, AR - 0.05, 0, F);
       const slits = [0, 1, 2, 3, 4, 5].map(k => PI / 2 + PI / 3 * (k + 0.5));
-      roundWall(B, WALLM, ax, az, AI, AR, 0, AT, [{ a0: PI / 2 - 0.17, a1: PI / 2 + 0.17, ys: [[F, 2.5]] }, ...slits.map(a => ({ a0: a - 0.12, a1: a + 0.12, ys: [[3.0, 3.6]] }))], { matIn: M.white });
+      roundWall(B, WALLM, ax, az, AI, AR, 0, AT, [{ a0: PI / 2 - 0.17, a1: PI / 2 + 0.17, ys: [[F - 0.04, 2.5]] }, ...slits.map(a => ({ a0: a - 0.12, a1: a + 0.12, ys: [[3.0, 3.6]] }))], { matIn: M.white });
       for (const a of slits) roundWindow(B, ax, az, AI, AR, a - 0.12, a + 0.12, 3.0, 3.6, { frame: TRIM, nx: 2, ny: 1 });
-      for (const s of [-1, 1]) B.box(TRIM, ax + s * 1.08 - 0.09, F, az + AR - 0.32, ax + s * 1.08 + 0.09, 2.6, az + AR + 0.1, false);
-      B.box(TRIM, ax - 1.2, 2.5, az + AR - 0.32, ax + 1.2, 2.68, az + AR + 0.1, false);
+      // 문틀: 문설주는 윗틀 밑까지만 올린다(윗틀 속까지 올리면 앞면이 겹쳐 깜빡인다). 윗틀 밑면은 벽 구멍 윗면(2.5)보다 낮게
+      for (const s of [-1, 1]) B.box(TRIM, ax + s * 1.08 - 0.09, F, az + AR - 0.32, ax + s * 1.08 + 0.09, 2.44, az + AR + 0.1, false);
+      B.box(TRIM, ax - 1.2, 2.44, az + AR - 0.32, ax + 1.2, 2.68, az + AR + 0.1, false);
       roundWall(B, TRIM, ax, az, AR, AR + 0.05, AT - 0.22, AT, [], { collide: false });
       plate(B, M.white, ax - AI, az - AI, ax + AI, az + AI, AT - 0.1, AT - 0.02, (x, z) => (x - ax) ** 2 + (z - az) ** 2 < AI * AI, false);
       addCollider(ax - 4.2, AT - 0.1, az - 4.2, ax + 4.2, AT, az + 4.2);
@@ -1790,9 +1791,9 @@ function homes3(scene, out) {
     }));
   }
 }
-/* ============================ 센주 공원 ============================
+/* ============================ 센쥬 공원 ============================
    번화가 동쪽의 큰 공원. 못 한가운데 섬에 아주 큰 나무가 서 있고, 남쪽에 놀이터가 있다.
-   원작(나루토 위키 "Senju Park")에 적힌 것: 이름(千手公園), 센주 일족과 얽힌 넓은 숲이라는 것,
+   원작(나루토 위키 "Senju Park")에 적힌 것: 이름(千手公園), 센쥬 일족과 얽힌 넓은 숲이라는 것,
    못에 둘러싸인 큰 나무와 놀이터가 있다는 것.
    지어낸 것: 섬으로 건너가는 붉은 다리, 나무에 두른 금줄, 정자, 벚나무, 돌등, 꽃밭, 울타리와 문기둥,
    놀이 기구의 종류와 놓인 자리, 못의 잉어와 연잎. */
@@ -1902,7 +1903,7 @@ function park(scene, out) {
       }
       // 나무 앞의 알림판
       { const x = C[0] + 3.4, z = C[1] + 6.2; for (const s of [-1, 1]) B.box(LOG, x + s * 0.62 - 0.05, 0, z - 0.05, x + s * 0.62 + 0.05, 1.45, z + 0.05, false); signBoard(B, '千手公園の大樹', x, 1.22, z, 0, 1.3, 0.3, { both: false, bg: '#efe6cf' }); signBoard(B, '木に登らないこと', x, 0.9, z, 0, 1.3, 0.24, { both: false, bg: '#efe6cf', color: '#8a2a20' }); addCollider(x - 0.7, 0, z - 0.08, x + 0.7, 1.45, z + 0.08); }
-      places.push({ n: '센주 공원의 큰 나무', t: '못 한가운데 섬에 선 아주 큰 나무. 공원이 생기기 전부터 이 자리에 있었다고 한다.', b: [C[0] - 9, C[0] + 9, C[1] - 9, C[1] + 9], y: [-1, 45] });
+      places.push({ n: '센쥬 공원의 큰 나무', t: '못 한가운데 섬에 선 아주 큰 나무. 공원이 생기기 전부터 이 자리에 있었다고 한다.', b: [C[0] - 9, C[0] + 9, C[1] - 9, C[1] + 9], y: [-1, 45] });
     }
 
     /* ---- 섬으로 건너가는 붉은 다리 ---- */
@@ -1951,7 +1952,7 @@ function park(scene, out) {
       });
       const swim = t => { for (const f of kois) { const a = f.p + t * f.w, wob = Math.sin(t * 0.7 + f.p * 3) * 0.05, x = C[0] + Math.cos(a) * PA * (f.k + wob), z = C[1] + Math.sin(a) * PB * (f.k + wob), dx = -Math.sin(a) * PA * f.w, dz = Math.cos(a) * PB * f.w; f.m.matrix.copy(mat4(x, WY - 0.09, z, 0, Math.atan2(dx, dz) + Math.sin(t * 3 + f.p) * 0.12, 0, f.s)); } };
       swim(0); ticks.push(swim);
-      places.push({ n: '센주 공원의 못', t: '큰 나무를 둘러싼 못. 연잎 사이로 잉어가 돈다.', b: [C[0] - PA, C[0] + PA, C[1] - PB, C[1] + PB], y: [-2, 3] });
+      places.push({ n: '센쥬 공원의 못', t: '큰 나무를 둘러싼 못. 연잎 사이로 잉어가 돈다.', b: [C[0] - PA, C[0] + PA, C[1] - PB, C[1] + PB], y: [-2, 3] });
     }
 
     /* ---- 돌등·가로등·걸상 ---- */
@@ -2114,14 +2115,14 @@ function park(scene, out) {
         const fx = -6.2, fz = 27; B.box(CONC, fx - 0.25, 0, fz - 0.25, fx + 0.25, 0.85, fz + 0.25); B.geo(STEEL, cyl(0.2, 0.14, 0.06, 14), mat4(fx, 0.88, fz)); B.geo(STEEL, cyl(0.015, 0.015, 0.1, 6), mat4(fx, 0.95, fz)); B.geo(STEEL, SPH, mat4(fx, 1.0, fz, 0, 0, 0, 0.03));
         B.geo(STEEL, cyl(0.012, 0.012, 0.14, 6).rotateX(PI / 2), mat4(fx, 0.45, fz + 0.3)); B.geo(STEEL, cyl(0.03, 0.03, 0.02, 8), mat4(fx, 0.47, fz + 0.36)); B.box(CONC, fx - 0.3, 0, fz + 0.25, fx + 0.3, 0.06, fz + 0.75, false);
       }
-      places.push({ n: '센주 공원 놀이터', t: '그네, 미끄럼틀, 시소, 정글짐, 철봉, 모래밭, 토관이 있는 놀이터. 과녁에는 아이들이 던진 수리검이 꽂혀 있다.', b: [PG[0], PG[2], PG[1], PG[3]], y: [0, 5] });
+      places.push({ n: '센쥬 공원 놀이터', t: '그네, 미끄럼틀, 시소, 정글짐, 철봉, 모래밭, 토관이 있는 놀이터. 과녁에는 아이들이 던진 수리검이 꽂혀 있다.', b: [PG[0], PG[2], PG[1], PG[3]], y: [0, 5] });
     }
-    return { places, glows, lights, jumps: [['센주 공원', -57, 0, C[1], -PI / 2, 91], ['센주 공원 놀이터', 0, 0, PG[1] - 2, PI, 92]] };
+    return { places, glows, lights, jumps: [['센쥬 공원', -57, 0, C[1], -PI / 2, 91], ['센쥬 공원 놀이터', 0, 0, PG[1] - 2, PI, 92]] };
   });
   // 공원 터에는 숲의 나무를 심지 않는다(나무는 여기서 심었다)
   for (let x = -HX + 7; x < HX; x += 13) for (let z = -HZ + 7; z < HZ; z += 13) OPEN.push([at.x + x, at.z + z, 11.5]);
   BARE.push((x, z) => Math.abs(x - at.x) < HX && Math.abs(z - at.z) < HZ && bare(x - at.x, z - at.z));   // 흙길과 모래 마당에는 풀포기가 나지 않는다
-  out.places.push({ n: '센주 공원', t: '센주 일족의 이름이 붙은 큰 공원. 못에 둘러싸인 큰 나무와 놀이터가 있다.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
+  out.places.push({ n: '센쥬 공원', t: '센쥬 일족의 이름이 붙은 큰 공원. 못에 둘러싸인 큰 나무와 놀이터가 있다.', poly: Z.poly, b: bound(Z.poly) }, ...res.places);
   out.jumps.push(...res.jumps); out.glows.push(...res.glows); out.lights.push(...res.lights); out.ticks.push(...ticks);
 }
 /* ============================ 중급닌자 시험 경기장 ============================

@@ -1,7 +1,7 @@
 // 호카게 바위 — 북쪽 절벽에 새긴 역대 호카게 여섯 얼굴(왼쪽부터 초대 하시라마 … 6대 카카시. 나루토가 호카게가 되기 전이라 7대의 얼굴은 없다)과, 바위 꼭대기로 오르는 나무 계단.
 // 얼굴은 "앞으로 얼마나 튀어나왔나"를 (x, y)마다 계산해 절벽 면을 밀어내 빚는다: 이마·광대·코·입술·머리카락을 둥근 덩이로 쌓고, 눈매·입·수염 자국은 홈으로 판다.
 import * as THREE from '../vendor/three.module.js';
-import { Builder, addCollider, stairs } from './build.js';
+import { Builder, addCollider, stairs, LEAF_PTS, LEAF_TRI } from './build.js';
 import { mat, M, weatherize } from './materials.js';
 import { beamBetween, railing } from './arch.js';
 import { CLIFF, STAIR } from './layout.js';
@@ -37,25 +37,20 @@ function groove(u, v, ax, ay, bx, by, w) {
 const poly = (u, v, pts, w) => { let g = 0; for (let i = 0; i < pts.length - 1; i++) g = Math.max(g, groove(u, v, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], w)); return g; };
 const ring = (u, v, cu, cv, r, w) => { const d = Math.abs(Math.hypot(u - cu, v - cv) - r); if (d >= w) return 0; const g = 1 - d / w; return g * g * (3 - 2 * g); };
 
-// 이마 보호대에 새기는 나뭇잎 표식(소용돌이 + 잎꼭지)
-const LEAF = (() => {
-  const p = [];
-  for (let i = 0; i <= 26; i++) { const a = i / 26 * Math.PI * 3.1 + 0.4, r = 0.12 + 0.62 * i / 26; p.push([Math.cos(a) * r * 1.05, Math.sin(a) * r * 0.9]); }
-  p.push([-1.25, -0.72]);
-  return p;
-})();
+// 이마 보호대에 새기는 나뭇잎 문장(build.js의 것). 판 위의 좌표를 한가운데가 0, 위가 +인 자리로 옮긴다
+const LEAF = LEAF_PTS.map(([x, y]) => [(x - 52) / 40, (52 - y) / 40]), LEAF_T = [...LEAF_TRI, LEAF_TRI[0]].map(([x, y]) => [(x - 52) / 40, (52 - y) / 40]);
 
 /* ---------- 여섯 호카게: 얼굴 생김새의 차이 ----------
    원작의 바위 얼굴처럼 각지게 깎는다: 뾰족한 턱, 날 선 콧날, 큼직하게 판 눈매, 덩어리진 머리카락.
    fans: 머리카락 뭉치 묶음 [가닥 수, 시작 각, 끝 각(도, 0=위·+는 보는 쪽 오른쪽), 길이, 밑동 굵기, 기울임, 앞으로 나온 정도, 씨앗]
    locks: 길게 늘어진 머리 [ax,ay,az,ra, bx,by,bz,rb], lines: 얼굴에 판 선 */
 const HOKAGE = [
-  { name: '초대 호카게 · 센주 하시라마', band: true, w: 1.0, jaw: 1.12, brow: -0.1, mouth: -0.05, scalp: true, seed: 3,
+  { name: '초대 호카게 · 센쥬 하시라마', band: true, w: 1.0, jaw: 1.12, brow: -0.1, mouth: -0.05, scalp: true, seed: 3,
     locks: [[-1.2, 9.6, 3.6, 2.3, -5.9, 4.6, 3.0, 2.2], [-5.9, 4.6, 3.0, 2.2, -6.5, -3.5, 2.2, 1.9], [-6.5, -3.5, 2.2, 1.9, -6.2, -12.5, 1.2, 1.3],
       [1.2, 9.6, 3.6, 2.3, 5.9, 4.6, 3.0, 2.2], [5.9, 4.6, 3.0, 2.2, 6.5, -3.5, 2.2, 1.9], [6.5, -3.5, 2.2, 1.9, 6.2, -12.5, 1.2, 1.3],
       [-0.8, 6.0, 5.5, 1.0, -4.9, 1.5, 4.4, 0.85], [-4.9, 1.5, 4.4, 0.85, -5.1, -6.0, 3.2, 0.5], [0.8, 6.0, 5.5, 1.0, 4.9, 1.5, 4.4, 0.85], [4.9, 1.5, 4.4, 0.85, 5.1, -6.0, 3.2, 0.5]],
     lines: [] },
-  { name: '2대 호카게 · 센주 토비라마', band: true, guard: true, w: 0.97, jaw: 1.0, brow: -0.4, mouth: -0.12, seed: 7,
+  { name: '2대 호카게 · 센쥬 토비라마', band: true, guard: true, w: 0.97, jaw: 1.0, brow: -0.4, mouth: -0.12, seed: 7,
     fans: [[6, -95, 95, 5.6, 2.6, 0, 0, 2], [5, -70, 70, 3.6, 2.1, 0, 1.2, 4]],
     lines: [[[-2.7, -0.3], [-3.2, -3.6]], [[2.7, -0.3], [3.2, -3.6]], [[0, -5.9], [0, -8.2]]] },
   { name: '3대 호카게 · 사루토비 히루젠', band: true, w: 1.03, jaw: 1.1, brow: -0.05, mouth: -0.02, goatee: true, seed: 11,
@@ -166,7 +161,7 @@ function headDepth(H, u0, v) {
       const plate = sstep(3.15, 3.0, au);
       b += 0.2 * plate;
       if (plate > 0) {
-        b -= 0.17 * poly((u - 0.1) / 0.72, (v - (v0 + v1) / 2) / 0.72, LEAF, 0.17);
+        b -= 0.17 * Math.max(poly((u - 0.1) / 0.72, (v - (v0 + v1) / 2) / 0.72, LEAF, 0.17), poly((u - 0.1) / 0.72, (v - (v0 + v1) / 2) / 0.72, LEAF_T, 0.13));
         b -= 0.13 * sstep(0.17, 0.07, Math.hypot(au - 2.62, v - (v0 + v1) / 2));               // 못 자리
       }
       z += (Math.max(z, b) - z) * inb;

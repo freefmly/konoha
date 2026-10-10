@@ -15,7 +15,9 @@ import { buildVillage, terrainH, inPoly } from './village.js';
 
 const $ = s => document.querySelector(s);
 const tick = () => new Promise(r => setTimeout(r, 0));
-const Q = new URLSearchParams(location.search);
+// 주소 뒤의 확인용 매개변수(shot·sky·fly 따위)는 내 컴퓨터에서 열었을 때만 듣는다. 공개 주소에서는 모두 무시한다
+const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+const Q = new URLSearchParams(LOCAL ? location.search : '');
 // 터치 기기(스마트폰)인가. 확인용으로 ?touch=1 / ?touch=0 로 강제할 수 있다.
 const TOUCH = Q.get('touch') ? Q.get('touch') === '1' : matchMedia('(pointer: coarse)').matches;
 document.body.classList.toggle('touch', TOUCH);
@@ -116,29 +118,14 @@ async function init() {
     document.querySelectorAll('[data-wind]').forEach(b => b.classList.toggle('on', +b.dataset.wind === lv));
     $('#btnWind').textContent = '바람 ' + WIND[lv];
   };
-  // 화풍: 만화(기본) ↔ 실사. 재질은 그대로 두고 칠하는 법(W.uToon)만 바꾼다. 만화는 먹선을 긋느라 한 번 거쳐 그린다(toon.js).
+  // 화풍은 만화 하나뿐이다(고르는 단추는 없앴다). 실사로 칠하는 길은 확인용(?toon=0)으로만 남겨 둔다. 만화는 먹선을 긋느라 한 번 거쳐 그린다(toon.js).
   let toon = null, toonOn = false;
-  const STYLE = ['실사', '만화'];
   const applyStyle = on => {
     toonOn = on; W.uToon.value = on ? 1 : 0; weather.envDirty = 2; weather.shadowDirty = true;   // 나무 그림자도 화풍 따라 바뀐다(낱잎 ↔ 잎 덩어리)
     if (on && !toon) toon = new Toon(renderer, { samples: TOUCH ? 2 : 4 });
-    document.querySelectorAll('[data-style]').forEach(b => b.classList.toggle('on', (b.dataset.style === '1') === on));
-    $('#btnStyle').textContent = STYLE[+on];
   };
-  const setStyle = on => {
-    if (on === toonOn) return;
-    if (!on || toon) return applyStyle(on);
-    // 처음 만화로 바꿀 때는 칠하는 법을 새로 준비하느라 잠깐 멈춘다 → 알림을 먼저 띄우고 바꾼다
-    $('#styleNote').classList.remove('hidden');
-    setTimeout(() => { applyStyle(true); requestAnimationFrame(() => requestAnimationFrame(() => $('#styleNote').classList.add('hidden'))); }, 40);
-  };
-  $('#styleBtns').innerHTML = [1, 0].map(i => `<button data-style="${i}">${STYLE[i]}</button>`).join('');   // 기본인 만화를 앞에 둔다
-  $('#styleBtns').addEventListener('click', e => { const b = e.target.closest('[data-style]'); if (b) setStyle(b.dataset.style === '1'); });
-  // 마을 사람의 얼굴(눈·눈썹·입)을 그릴지. 확인용으로 ?face=0 으로 끄고 시작할 수 있다
-  const setFace = on => { PEOPLE.uFace.value = on ? 1 : 0; for (const b of $('#faceBtns').children) b.classList.toggle('on', (b.dataset.face === '1') === on); };
-  $('#faceBtns').innerHTML = [['1', '그리기'], ['0', '비우기']].map(([v, n]) => `<button data-face="${v}">${n}</button>`).join('');
-  $('#faceBtns').addEventListener('click', e => { const b = e.target.closest('[data-face]'); if (b) setFace(b.dataset.face === '1'); });
-  setFace(Q.get('face') !== '0');
+  // 마을 사람의 얼굴(눈·눈썹·입)은 늘 그린다. 확인용으로만 ?face=0 으로 끌 수 있다
+  PEOPLE.uFace.value = Q.get('face') !== '0' ? 1 : 0;
   const WX_NAME = { clear: '맑은 날', cloudy: '구름 낀 날', rain: '비 오는 날', snow: '눈 오는 날' };
   $('#weatherBtns').innerHTML = WEATHERS.map(([k], i) => `<button data-weather="${k}"><i class="wx wx-${k}"></i><span>${WX_NAME[k]}</span><kbd>${i + 1}</kbd></button>`).join('');
   $('#weatherBtns').addEventListener('click', e => { const b = e.target.closest('[data-weather]'); if (b) setWeather(b.dataset.weather); });
@@ -166,13 +153,15 @@ async function init() {
       else show(fresh.length ? fresh : LOG);
       try { localStorage.setItem(KEY, VERSION); } catch (e) { /* 적지 못하면 다음에도 뜬다 */ }
     } }
-  // 두루마리에는 대표적인 곳만 올린다(이 차례대로). 나머지 자리는 지도의 붉은 점으로만 남는다
-  const QUICK = ['정문', '호카게 관저 앞', '호카게 집무실', '호카게 바위 앞', '바위 꼭대기', '닌자 아카데미', '그네 나무', '이치라쿠 라멘', '나루토의 집', '번화가',
-    '나뭇잎 병원', '나뭇잎 온천', '중급닌자 시험 경기장', '묘지', '우치하 구역 대문', '사스케의 집', '야마나카 꽃집 앞', '제3 훈련장', '죽음의 숲 중앙 탑', '엄중 교정 시설'];
-  const quick = QUICK.map(n => jumps.find(j => j[0] === n)).filter(Boolean);
+  // 두루마리에는 대표적인 곳만 올린다(이 차례대로). [단추에 적을 이름, 바로 가기 자리의 이름]. 나머지 자리는 지도의 붉은 점으로만 남는다
+  const QUICK = [['정문'], ['마을 중앙', '큰길 한가운데'], ['호카게 관저 앞'], ['닌자 아카데미'], ['이치라쿠 라멘'], ['나루토의 집'], ['사쿠라의 집', '사쿠라의 집 앞'], ['사스케의 집'], ['센쥬 공원']];
+  const quick = QUICK.map(([n, at = n]) => { const j = jumps.find(q => q[0] === at); return j && [n, ...j.slice(1)]; }).filter(Boolean);
   $('#jumpBtns').innerHTML = quick.map((j, i) => `<button data-jump="${i}">${j[0]}</button>`).join('');
-  const enter = () => { sound.start(); started = true; player.lock(); };
+  const enter = () => { sound.start(); started = true; resume(); };
   $('#jumpBtns').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; const j = quick[b.dataset.jump]; player.place(j[1], j[2], j[3], j[4]); enter(); });
+  // 하늘에서 둘러보기는 만드는 사람만: 내 컴퓨터(localhost)에서 열었을 때만 단추·자판이 살아 있다
+  const DEV = LOCAL && Q.get('dev') !== '0';   // ?dev=0: 내 컴퓨터에서 공개판 모습 확인
+  document.body.classList.toggle('dev', DEV); player.canSky = DEV;
   $('#enterBtn').addEventListener('click', () => { player.setSky(false); enter(); });
   $('#skyBtn').addEventListener('click', () => { player.setSky(true); enter(); });
   const muteBtn = $('#muteBtn');
@@ -188,9 +177,9 @@ async function init() {
     // 지도를 편 것이면 두루마리는 띄우지 않는다. 걷다가 Esc로 두루마리를 띄웠을 때도 미니맵은 그대로 보인다(HUD에서 미니맵만 남긴다)
     const menuUp = !locked && !mapOpen;
     ui.menu.classList.toggle('hidden', !menuUp); ui.hud.classList.toggle('hidden', menuUp && !started); ui.hud.classList.toggle('menu', menuUp && started);
-    player.roam = mapOpen && !locked; if (!locked) freedAt = performance.now(); else waitLock = false;   // 지도를 편 채 마우스가 풀렸으면 자판만으로 걷는다
+    player.roam = !locked && (mapOpen || (started && !player.touchMode)); if (!locked) freedAt = performance.now(); else waitLock = false;   // 지도나 두루마리를 편 채 마우스가 풀렸으면 자판만으로 계속 걷는다
     $('#enterBtn').textContent = started ? '계속 걷기' : '마을로 들어가기';
-    if (sound.ctx) locked || mapOpen ? sound.ctx.resume() : sound.ctx.suspend();
+    if (sound.ctx) locked || mapOpen || player.roam ? sound.ctx.resume() : sound.ctx.suspend();
   };
   /* ---------- 지도: 걷는 동안의 미니맵, M으로 여닫는 전체 지도 ---------- */
   const vmap = new VillageMap({ places, jumps, mini: $('#mini'), view: $('#mapView'), canvas: $('#mapCanvas'), panel: $('#mapPanel'), here: $('#mapHere') });
@@ -211,11 +200,21 @@ async function init() {
     mapOpen = player.roam = false; ui.hud.classList.remove('map'); vmap.close();
     if (player.locked) return;
     // Esc로 닫으면 브라우저가 마우스를 바로 잡게 해 주지 않는다. 두루마리를 띄우지 않고 걷는 화면에 그대로 두었다가, 다음에 누르는 자판이나 마우스에 잡는다
+    waitLock = !player.touchMode; player.roam = waitLock; player.lock();   // 마우스를 잡기 전에도 자판으로는 바로 걷는다
+  };
+  ui.menu.addEventListener('click', e => { const b = e.target.closest('button'); if (b) b.blur(); });   // 누른 단추에 자판이 붙어 있으면 걷다가 누른 Space에 다시 눌린다
+  // 두루마리를 걷고 걷는 화면으로 돌아간다. Esc로 마우스를 푼 바로 뒤에는 브라우저가 마우스를 다시 잡게 해 주지 않으므로(1초쯤),
+  // 두루마리부터 걷어 놓고 잡힐 때까지 몇 번 다시 청한다. 그래도 못 잡으면 다음에 누르는 자판이나 마우스에 잡는다(grab)
+  let lockT = 0;
+  const resume = () => {
+    ui.menu.classList.add('hidden'); ui.hud.classList.remove('hidden', 'menu');
     waitLock = !player.touchMode; player.lock();
+    clearInterval(lockT); let n = 0;
+    lockT = setInterval(() => { if (player.locked || !waitLock || ++n > 14) return clearInterval(lockT); player.lock(); }, 150);
   };
   const grab = e => {
     if (!waitLock || mapOpen || player.locked) return;
-    if (e.code === 'Escape') { waitLock = false; player.onLock(false); return; }   // 기다리는 중의 Esc는 메뉴를 연다
+    if (e.code === 'Escape') { waitLock = false; e.menuDone = true; player.onLock(false); return; }   // 기다리는 중의 Esc는 메뉴를 연다
     player.lock();
   };
   addEventListener('keydown', grab); addEventListener('mousedown', grab);
@@ -237,12 +236,13 @@ async function init() {
     if (e.code === 'Escape' && mapOpen) { if (!player.locked && performance.now() - freedAt > 300) closeMap(); return; }   // 마우스를 잡고 있을 때의 Esc는 마우스만 푼다(브라우저가 한다)
     if ((player.locked || mapOpen) && (e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) { zoomMini(e.code === 'NumpadAdd' ? 1 : -1); return; }
     if (e.code === 'KeyH' && !e.repeat && !TOUCH) { setHelp(!helpOn); return; }
+    // 두루마리가 떠 있을 때의 Esc는 두루마리를 걷는다(들어가기 전의 첫 화면에서는 아니다)
+    if (e.code === 'Escape' && !e.repeat && !e.menuDone && started && !player.locked && !ui.menu.classList.contains('hidden') && performance.now() - freedAt > 300) { resume(); return; }
     if (!player.locked) return;
     const i = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
     if (i >= 0) setWeather(WEATHERS[i][0]);
     if (e.code === 'KeyN') setMute(!sound.muted);
     if (e.code === 'KeyB') setWind((windLevel + 1) % 3);
-    if (e.code === 'KeyC') setStyle(!toonOn);
     if (e.code === 'KeyV') player.setSky(!player.sky);
   });
   // 화면 크기 맞추기. 폰은 홈 화면에서 열거나 돌릴 때 처음 알려 주는 크기가 틀릴 때가 있어, 직접 재서 모든 겹에 똑같이 적용하고 매 장면마다 바뀌었는지 다시 본다.
@@ -294,7 +294,6 @@ async function init() {
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) jb.addEventListener(ev, jumpEnd);
     tap('#btnWeather', () => setWeather(WEATHERS[(WEATHERS.findIndex(w => w[0] === weatherType) + 1) % WEATHERS.length][0]));
     tap('#btnWind', () => setWind((windLevel + 1) % 3));
-    tap('#btnStyle', () => setStyle(!toonOn));
     tap('#btnSky', () => player.setSky(!player.sky));
     tap('#btnMap', () => { endMove(); lookId = null; openMap(); });
     tap('#btnMenu', () => { endMove(); lookId = null; player.unlock(); });
@@ -305,7 +304,7 @@ async function init() {
   }
   setWeather(Q.get('w') || 'clear', true);
   setWind(Q.get('wind') ? +Q.get('wind') : 1);
-  // 화풍은 들어올 때마다 만화로 시작한다(실사는 보는 동안만 — 새로 고치면 만화로 돌아온다). 확인용으로 ?toon=1 / ?toon=0 으로 강제할 수 있다.
+  // 화풍은 늘 만화다. 확인용으로 ?toon=1 / ?toon=0 으로 강제할 수 있다.
   dressLeaves(scene);
   const lod = Q.get('lod') === '0' ? null : setupLod(scene, camera);   // 먼 건물의 잔 장식과 먼 나무를 가볍게(확인용: &lod=0 이면 끈다)
   applyStyle((Q.get('toon') ?? '1') === '1');
@@ -383,15 +382,15 @@ async function init() {
       if (fpsT > 4) { if (fpsN / fpsT < 40 && pixelRatio > 0.8) { pixelRatio = Math.max(0.75, pixelRatio * 0.84); renderer.setPixelRatio(pixelRatio); fit(); } fpsN = fpsT = 0; }
     } else fpsN = fpsT = 0;
     if (started) { if (!Q.get('fly')) player.update(dt); }
-    else { // 들어가기 전: 정문 위에서 호카게 바위 쪽을 천천히 훑는 화면
+    else { // 들어가기 전: 마을 위 높은 데서 호카게 바위 쪽을 천천히 훑는 화면(마을이 넓게 내려다보인다)
       orbit += dt * 0.04;
-      camera.position.set(Math.sin(orbit) * 70, 46 + Math.sin(orbit * 0.6) * 6, 120 + Math.cos(orbit * 0.8) * 30);
-      camera.lookAt(Math.sin(orbit) * 10, 26, -150);
+      camera.position.set(Math.sin(orbit) * 120, 150 + Math.sin(orbit * 0.6) * 12, 340 + Math.cos(orbit * 0.8) * 40);
+      camera.lookAt(Math.sin(orbit) * 16, 6, -70);
     }
     if (player.charge !== lastCharge) { lastCharge = player.charge; chargeEl.style.setProperty('--c', lastCharge); chargeEl.classList.toggle('on', lastCharge > 0); chargeEl.classList.toggle('full', lastCharge >= 1); }
     const wdt = Q.get('freeze') ? 0 : dt;   // 확인용: 날씨·바람의 시간을 멈춘다(두 장을 찍어 깜빡이는 면을 찾을 때)
     weather.update(wdt, camera);
-    if (player.sky && started) scene.fog.density *= 0.3;   // 하늘에서는 안개를 걷어 마을 끝까지 보이게
+    if (player.sky || !started) scene.fog.density *= 0.3;   // 하늘에서는 안개를 걷어 마을 끝까지 보이게
     if (toonOn) scene.fog.density *= 0.5;                  // 만화 화풍은 먼 데까지 또렷하다(바위가 뿌옇게 바래지 않게)
     // 죽음의 숲: 철망 안으로 들어갈수록 어두워지고 푸른 빛이 덮인다(안개도 짙고 검푸르게, 볕은 약하게). 하늘에서 볼 때는 덮지 않는다
     { const at = camera.position, dg = !player.sky ? Math.max(0, Math.min(1, (DEATH.rf + 6 - Math.hypot(at.x - DEATH.c[0], at.z - DEATH.c[1])) / 30)) : 0;
@@ -474,6 +473,7 @@ async function init() {
     return out;
   };
   window.__places = places; window.__jumps = jumps;
+  if (Q.get('jumps')) console.log('JUMPS ' + jumps.map(j => j[0] + '=' + [j[1], j[2], j[3]].map(n => Math.round(n)).join(',')).join(' | '));   // 확인용: 바로 가기 자리 찍어 보기
   window.__ready = true; window.__player = player; window.__scene = scene; window.__camera = camera; window.__lod = lod;   // 확인용
 }
 

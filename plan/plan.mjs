@@ -27,6 +27,8 @@ export const sector = (a0, a1, r0, r1) => {
 // 반평면으로 자르기: f(p) ≥ 0 인 쪽만 남긴다
 const cut = (poly, f) => { const out = []; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length], fa = f(a), fb = f(b); if (fa >= 0) out.push(a); if ((fa >= 0) !== (fb >= 0)) { const t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } } return out; };
 const clipX = (poly, xmax) => cut(poly, p => xmax - p[0]);
+// 큰길가 터: 큰길 쪽 가장자리를 큰길과 나란히 자른다(부채꼴 그대로 두면 관저에서 멀어질수록 길에서 벌어져, 큰길이 아래로 갈수록 넓어 보인다). 3.5 = 위쪽 블록들이 큰길에서 떨어진 만큼
+const roadSide = poly => cut(poly, p => p[1] - (FAN.y + 3.5)).map(p => [r1(p[0]), r1(p[1])]);
 
 // 구역: n 번호, name 이름, fill 색, at 번호 자리, note 처리. 모양은 pts / rect / circle.
 // fan [a0,a1,r0,r1] 이 있으면 부채꼴 구역(안의 블록도 고리 조각), grid 가 있으면 격자 구역
@@ -61,8 +63,8 @@ export const ZONES = [
   { n: 22, name: '이누즈카 견사', fill: '#5a5a5a', grid: 0, at: [433, 135], pts: [[420, 118], [444, 118], [448, 152], [420, 152]], note: '새로(겉모습)' },
   { n: 23, name: '리의 집', fill: '#3fbf4a', at: [307, 107], rect: [303, 103, 311, 111], note: '새로(겉모습)' },
   // ── 아래쪽 부채꼴
-  { n: 26, name: '병원', fill: '#8c1c2c', at: pol(10.5, 149), pts: sector(2.5, 18, 126, 171.5), note: '새로(겉모습)' },
-  { n: 27, name: '도서관', fill: '#c9c9c9', at: pol(10.5, 195), pts: sector(3, 18, 175, 215), note: '새로(겉모습)' },
+  { n: 26, name: '병원', fill: '#8c1c2c', at: pol(10.5, 149), pts: roadSide(sector(0, 18, 126, 171.5)), note: '새로(겉모습)' },
+  { n: 27, name: '도서관', fill: '#c9c9c9', at: pol(10.5, 195), pts: roadSide(sector(0, 18, 175, 215)), note: '새로(겉모습)' },
   { n: 31, name: '경기장', fill: '#f3a6b8', at: pol(26, 216), circle: [...pol(26, 216), 15], note: '새로(겉모습)' },
   { n: 32, name: '휴우가 구역', fill: '#a9a4e6', at: pol(42, 146), fan: [18, 63, 91, 196], walled: '#544fa0', note: '새로(겉모습)' },
   { n: 33, name: '우치하 구역', fill: '#e23b2e', at: pol(30, 270), grid: 18, pts: [pol(18, 232), pol(18, 357), pol(24, 345), pol(29, 331), pol(35, 310), pol(41, 285), pol(45, 266)], walled: '#6e140d', note: '이사 + 크게 · 강가 숲 띠 안쪽까지' },
@@ -112,7 +114,7 @@ export const EXTRA_BLOCKS = [[[447.5, 251.1], [466, 251.1], [466, 264.5], [447.5
 // 관저를 두른 집 블록 여덟(나무 고리였던 자리). 바큇살 길과 큰길 자리만큼 안으로 들여 자른다
 EXTRA_BLOCKS.push(sector(-88, -66, 31, 51.5), sector(-66, -42, 31, 51.5), sector(-42, -17, 31, 51.5), sector(-17, -6, 31, 51.5), sector(6, 18, 31, 51.5), sector(18, 45, 31, 51.5), sector(45, 63, 31, 51.5), sector(63, 88, 31, 51.5));   // 블록끼리 맞닿는다: 사이의 바큇살 길은 풀밭으로 덮고 큰길만 남긴다
 export const PONDS = [[463, 322, 11, 9], [398, 344, 10, 7], [460, 238, 7, 6]];   // 작은 못: 나카 강이 끝나는 못, 공원 못, 냇물이 끝나는 못 [x, y, rx, ry]
-export const PARK_POND = { x: 350.6, y: 176, rx: 9.6, ry: 12, isle: 4.4 };            // 센주 공원의 못과 한가운데 섬(큰 나무가 선다)
+export const PARK_POND = { x: 350.6, y: 176, rx: 9.6, ry: 12, isle: 4.4 };            // 센쥬 공원의 못과 한가운데 섬(큰 나무가 선다)
 export const BROOK = [[330, 22], [334, 60], [322, 96]];                          // 제3 훈련장의 냇물
 export const BRIDGES = [[pol(45, 275), pol(45, 290)], [pol(18, 367), pol(18, 382)], [[452, 331], [466, 337]]];   // 다리: 강을 건너는 자리 [한쪽 끝, 다른 쪽 끝]
 export const VROADS = [[XGRID, 40, 340, 4.5], [XMID, 46, 266, 4], [440, 150, 400, 3]];                           // 세로 길 [x, y0, y1, 폭]

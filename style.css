@@ -11,6 +11,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1410; col
 /* 죽음의 숲: 화면 전체에 곱해 덮는 어둡고 푸른 빛과 가장자리의 어둠. 짙기(--g)는 main.js가 정한다 */
 #gloom { position: fixed; inset: 0; pointer-events: none; opacity: var(--g, 0); mix-blend-mode: multiply; background: radial-gradient(ellipse at 50% 55%, #5f7fb4 0%, #3c588e 55%, #17264a 100%); }
 .hidden { display: none !important; }
+/* 만드는 사람만 쓰는 것(하늘에서 둘러보기): 내 컴퓨터에서 연 것이 아니면 숨긴다 */
+body:not(.dev) .dev-only { display: none !important; }
 kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: rgba(255, 255, 255, .45); color: var(--ink); }
 
 .leafmark { width: 54px; height: 54px; color: var(--leaf); flex: none; }
@@ -139,8 +141,6 @@ kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--li
 #charge i { display: block; height: 100%; width: calc(var(--c, 0) * 100%); background: var(--paper); }
 #charge.full i { background: var(--red); }
 
-/* 화풍을 처음 바꿀 때 잠깐 뜨는 쪽지 */
-#styleNote { position: fixed; left: 50%; top: 50%; translate: -50% -50%; z-index: 25; padding: 12px 22px; background: rgba(239, 229, 207, .94); border-left: 5px solid var(--red); box-shadow: 0 6px 18px rgba(0, 0, 0, .3); font: 700 16px var(--serif); letter-spacing: .04em; pointer-events: none; }
 
 /* ============================================================
    스마트폰(터치) — 가로로 든 화면 기준. body.touch 일 때만 먹는다.

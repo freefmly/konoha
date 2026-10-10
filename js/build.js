@@ -405,3 +405,30 @@ export function rng(seed) {
   let s = seed >>> 0;
   return () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
+
+/* ---------- 나뭇잎 마을 문장 ----------
+   안에서 밖으로 풀리는 소용돌이가 왼쪽 아래 잎끝으로 뾰족하게 빠지고, 오른쪽 위에 작은 세모가 붙는다. 두루마리(메뉴) 머리의 문장(index.html의 #leaf)과 같은 그림이며,
+   마을 어디서나 이 하나를 쓴다(간판·깃발·바닥·바위 얼굴의 이마 보호대). 좌표는 100칸짜리 판 위의 것이고 한가운데는 (52, 52)이다. */
+const LEAF_SEG = [[51, 51], ['C', 51, 46, 58, 45, 60, 51], ['C', 63, 60, 52, 66, 44, 61], ['C', 33, 54, 37, 37, 51, 34], ['C', 68, 31, 80, 46, 76, 62], ['C', 73, 76, 58, 84, 44, 80], ['L', 20, 90], ['L', 30, 68], ['C', 22, 56, 23, 40, 33, 30]];
+export const LEAF_TRI = [[70, 22], [84, 14], [80, 30]];
+// 붓길을 따라 찍은 점들(그림이 아니라 깎거나 새길 때 쓴다)
+export const LEAF_PTS = (() => {
+  const p = [LEAF_SEG[0]]; let [x, y] = LEAF_SEG[0];
+  for (const q of LEAF_SEG.slice(1)) {
+    if (q[0] === 'L') p.push([q[1], q[2]]);
+    else for (let i = 1; i <= 5; i++) { const t = i / 5, u = 1 - t; p.push([u * u * u * x + 3 * u * u * t * q[1] + 3 * u * t * t * q[3] + t * t * t * q[5], u * u * u * y + 3 * u * u * t * q[2] + 3 * u * t * t * q[4] + t * t * t * q[6]]); }
+    x = q[q.length - 2]; y = q[q.length - 1];
+  }
+  return p;
+})();
+// 그림판에 문장을 그린다. (cx, cy) = 한가운데, s = 문장의 크기(키가 0.9s쯤), col = 먹빛
+export function leafMark(g, cx, cy, s, col) {
+  const k = s / 86;
+  g.save(); g.translate(cx - 52 * k, cy - 52 * k); g.scale(k, k);
+  g.strokeStyle = g.fillStyle = col; g.lineWidth = 7.5; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.beginPath(); g.moveTo(LEAF_SEG[0][0], LEAF_SEG[0][1]);
+  for (const q of LEAF_SEG.slice(1)) q[0] === 'L' ? g.lineTo(q[1], q[2]) : g.bezierCurveTo(q[1], q[2], q[3], q[4], q[5], q[6]);
+  g.stroke();
+  g.beginPath(); LEAF_TRI.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y))); g.closePath(); g.fill();
+  g.restore();
+}

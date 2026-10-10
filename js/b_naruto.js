@@ -1,7 +1,7 @@
 // 나루토의 집 — 둥근 탑이 붙은 3층 회벽 공동주택. 1층 현관 홀·창고·세탁실, 2층 셋방 두 칸, 3층 나루토의 방, 옥상 물탱크.
 // 남쪽 바깥 계단과 복도(난간)로 층을 오르고, 동쪽 바깥 계단으로 옥상에 오른다.
 import * as THREE from '../vendor/three.module.js';
-import { Builder, wall, stairs, tube, mat4, rng, addCollider } from './build.js';
+import { Builder, wall, stairs, tube, mat4, rng, addCollider, leafMark } from './build.js';
 import { mat, M, textMat, toonize } from './materials.js';
 import { tilePanel, beamBetween, gableRoof, coneRoof, roundWall, roundWindow, windowUnit, doorUnit, boxWalls, railing, signBoard } from './arch.js';
 
@@ -25,17 +25,7 @@ function pic(w, h, draw) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return toonize(new THREE.MeshStandardMaterial({ map: t, roughness: 0.85 }));
 }
-// 나뭇잎 표식: 소용돌이에서 뾰족한 잎끝으로 이어진다
-function leafMark(g, cx, cy, s, col) {
-  g.strokeStyle = col; g.lineWidth = s * 0.085; g.lineCap = 'round'; g.lineJoin = 'miter';
-  g.beginPath();
-  for (let i = 0; i <= 70; i++) {
-    const a = i / 70 * PI * 3.1 + 0.4, r = s * (0.05 + 0.3 * i / 70), x = cx + s * 0.08 + Math.cos(a) * r, y = cy + Math.sin(a) * r;
-    i ? g.lineTo(x, y) : g.moveTo(x, y);
-  }
-  g.lineTo(cx + s * 0.3, cy - s * 0.36); g.lineTo(cx - s * 0.52, cy - s * 0.2); g.lineTo(cx - s * 0.2, cy + s * 0.34); g.lineTo(cx - s * 0.36, cy + s * 0.5);
-  g.stroke();
-}
+
 
 // 잎 한 장: 밑동에서 +z로 뻗으며 휘어 내린다. up = 처음 치켜든 각, bend = 휘는 정도, fold = 가운데 골
 function leafGeo(L, W, up = 0.9, bend = 0.9, fold = 0.3, seg = 5) {
