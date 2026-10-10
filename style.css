@@ -74,6 +74,7 @@ kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--li
 .toggle { width: 100%; padding: 9px 0; border: 1px solid var(--line); border-radius: 4px; background: rgba(255, 255, 255, .35); cursor: pointer; font-size: 13px; font-weight: 600; }
 .toggle.on { background: var(--leaf); color: #f3f6ea; border-color: var(--leaf); }
 
+.sheet .note { margin: -2px 0 9px; font: 400 12.5px/1.6 var(--sans); color: var(--ink-2); }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .tags button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, .4); cursor: pointer; font-size: 12.5px; transition: background .12s, color .12s; }
 .tags button:hover { background: var(--red); color: var(--paper); border-color: var(--red); }

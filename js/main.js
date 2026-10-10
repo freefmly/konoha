@@ -144,9 +144,13 @@ async function init() {
   $('#windBtns').innerHTML = WIND.map((n, i) => `<button data-wind="${i}">${n}</button>`).join('');
   $('#windBtns').addEventListener('click', e => { const b = e.target.closest('[data-wind]'); if (b) setWind(+b.dataset.wind); });
   jumps.sort((a, b) => a[0].localeCompare(b[0], 'ko'));   // 바로 가기는 가나다 차례로
-  $('#jumpBtns').innerHTML = jumps.map((j, i) => `<button data-jump="${i}">${j[0]}</button>`).join('');
+  // 두루마리에는 대표적인 곳만 올린다(이 차례대로). 나머지 자리는 지도의 붉은 점으로만 남는다
+  const QUICK = ['정문', '호카게 관저 앞', '호카게 집무실', '호카게 바위 앞', '바위 꼭대기', '닌자 아카데미', '그네 나무', '이치라쿠 라멘', '나루토의 집', '번화가',
+    '나뭇잎 병원', '나뭇잎 온천', '중급닌자 시험 경기장', '묘지', '우치하 구역 대문', '사스케의 집', '야마나카 꽃집 앞', '제3 훈련장', '죽음의 숲 중앙 탑', '엄중 교정 시설'];
+  const quick = QUICK.map(n => jumps.find(j => j[0] === n)).filter(Boolean);
+  $('#jumpBtns').innerHTML = quick.map((j, i) => `<button data-jump="${i}">${j[0]}</button>`).join('');
   const enter = () => { sound.start(); started = true; player.lock(); };
-  $('#jumpBtns').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; const j = jumps[b.dataset.jump]; player.place(j[1], j[2], j[3], j[4]); enter(); });
+  $('#jumpBtns').addEventListener('click', e => { const b = e.target.closest('[data-jump]'); if (!b) return; const j = quick[b.dataset.jump]; player.place(j[1], j[2], j[3], j[4]); enter(); });
   $('#enterBtn').addEventListener('click', () => { player.setSky(false); enter(); });
   $('#skyBtn').addEventListener('click', () => { player.setSky(true); enter(); });
   const muteBtn = $('#muteBtn');
