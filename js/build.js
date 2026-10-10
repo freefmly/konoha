@@ -5,14 +5,10 @@ import * as THREE from '../vendor/three.module.js';
    폰 브라우저는 한 페이지가 쓸 수 있는 메모리가 작아, 마을을 PC와 똑같이 지으면 페이지가 닫힌다.
    손가락으로 쓰는 기기에서는 기와의 물결(지붕은 평평한 판에 기와 무늬만)과 아주 작은 둥근 장식(못·구슬 따위)을 짓지 않는다. PC는 그대로다.
    확인용: 내 컴퓨터에서는 ?touch=1 / ?touch=0 으로 바꿔 볼 수 있다 */
-// 가벼운 화질: 그래픽이 버거운 PC가 스스로 켠다(main.js — 그래픽이 끊기면 이 표시를 남기고 다시 연다). 폰은 늘 가볍게 짓는다
-export const LIGHT_KEY = 'konoha.light';
-export function lightSaved() { try { return localStorage.getItem(LIGHT_KEY) === '1'; } catch (e) { return false; } }
 export const LITE = (() => {
   if (typeof location === 'undefined') return false;
-  const P = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) ? new URLSearchParams(location.search) : new URLSearchParams(''), q = P.get('touch');
-  if (P.get('light')) return P.get('light') === '1';
-  return (q ? q === '1' : matchMedia('(pointer: coarse)').matches) || lightSaved();
+  const q = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) ? new URLSearchParams(location.search).get('touch') : null;
+  return q ? q === '1' : matchMedia('(pointer: coarse)').matches;
 })();
 
 /* ---------- 충돌 상자 ---------- */

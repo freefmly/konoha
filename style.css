@@ -41,8 +41,6 @@ kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--li
 .seal { margin-left: auto; width: 46px; height: 46px; display: grid; place-items: center; font: 900 27px var(--serif); color: var(--paper); background: var(--red);
   border-radius: 7px; transform: rotate(-4deg); box-shadow: inset 0 0 0 2px var(--red), inset 0 0 0 3.5px rgba(239, 229, 207, .7); }
 /* 판 번호 단추(소개글 밑)와, 옆에 펼쳐지는 '바뀐 내용' 두루마리 */
-#lightNote { margin: 0 0 14px; }
-#lightOff { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
 .verline { margin: -8px 0 16px; display: flex; align-items: center; gap: 10px; min-height: 26px; }
 #verBtn { padding: 4px 11px 4px 9px; border: 1px solid var(--line); border-radius: 3px; background: rgba(255, 255, 255, .4); cursor: pointer; font: 700 12px/1.4 var(--serif); letter-spacing: .04em; color: var(--ink-2); display: inline-flex; align-items: center; gap: 7px; transition: background .12s, color .12s, border-color .12s; }
 #verBtn::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
