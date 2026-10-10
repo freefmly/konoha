@@ -11,6 +11,7 @@ import { LOTS, OPEN, BARE, zoneGroups } from './zones.js';
 import { inPoly } from './village.js';
 import { campus } from './campus.js';
 import { deathForest } from './deathforest.js';
+import { grounds } from './grounds.js';
 
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
 const zone = n => PLAN.zones.find(z => z.n === n);
@@ -2451,6 +2452,8 @@ export async function build(scene, ctx) {
   campus(scene, out);
   await ctx.say('죽음의 숲에 철망을 두르는 중…');
   deathForest(scene, out);
+  await ctx.say('훈련장의 통나무를 세우는 중…');
+  grounds(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }

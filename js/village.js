@@ -234,7 +234,7 @@ function buildSigns(scene) {
     addCollider(x - 0.3, y, z - 0.3, x + 0.3, y + 3.6, z + 0.3);
   };
   for (const z of PLAN.zones) if (!BUILT.has(z.n)) post(z.name, z.at[0], z.at[1]);
-  for (const t of PLAN.train) if (t.id !== '0' && t.id !== '1' && t.id !== '44') post(t.name.split(' — ')[0], t.at[0] + 4, t.at[1] + 4);   // 제1 훈련장은 아카데미 터 안에 지었다(campus.js) — 푯말을 따로 세우지 않는다
+  for (const t of PLAN.train) if (false) post(t.name.split(' — ')[0], t.at[0] + 4, t.at[1] + 4);   // 제1 훈련장은 아카데미 터 안에 지었다(campus.js) — 푯말을 따로 세우지 않는다
   B.finish(scene);
 }
 
@@ -249,7 +249,7 @@ export async function buildVillage(scene, ctx) {
     { n: '정문', t: '마을의 남쪽 대문. 왼쪽 문짝에 あ, 오른쪽 문짝에 ん이 적혀 있다.', b: [-16, 16, WALL.gateZ - 16, WALL.gateZ + 6] },
     { n: '섬 있는 못', t: '나카 강이 시작되는 못. 제2 훈련장.', poly: WT.isle, b: bounds(WT.isle) },
     ...PLAN.zones.filter(z => !BUILT.has(z.n)).map(z => ({ n: z.name, t: '새 배치의 자리. 아직 빈 터다.', poly: z.poly, b: bounds(z.poly) })),
-    ...PLAN.train.filter(t => t.id !== '1' && t.id !== '44').map(t => ({ n: t.name.split(' — ')[0], t: t.name.split(' — ')[1] || '', b: [t.at[0] - 18, t.at[0] + 18, t.at[1] - 18, t.at[1] + 18] })),
+    ...PLAN.train.filter(t => t.id === '0').map(t => ({ n: t.name.split(' — ')[0], t: t.name.split(' — ')[1] || '', b: [t.at[0] - 18, t.at[0] + 18, t.at[1] - 18, t.at[1] + 18] })),
   ];
   // 바로 가기: 구역마다 번호 자리 앞에 선다(관저 쪽을 등지고 구역을 본다)
   const face = (x, z) => Math.atan2(PLAN.fan[0] - x, PLAN.fan[1] - z) + Math.PI;
