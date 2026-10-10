@@ -225,12 +225,18 @@ async function init() {
   const MINI = [50, 80, 120, 200, 350, 600]; let miniI = 2;
   const zoomMini = d => { miniI = Math.max(0, Math.min(MINI.length - 1, miniI - d)); };
   for (const [sel, d] of [['#miniIn', 1], ['#miniOut', -1]]) $(sel).addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); zoomMini(d); });
+  // 도움말: H로 여닫는다(눌러도 된다). 켜 둔 것은 브라우저가 기억한다
+  let helpOn = false;
+  const setHelp = on => { helpOn = on; $('#help').classList.toggle('open', on); $('#helpBody').classList.toggle('hidden', !on); try { localStorage.setItem('konoha.help', on ? '1' : '0'); } catch (e) { /* 못 적어도 그만 */ } };
+  $('#helpTab').addEventListener('click', () => setHelp(true)); $('#helpBody').addEventListener('click', () => setHelp(false));
+  { let on = Q.get('help') === '1'; try { on = on || localStorage.getItem('konoha.help') === '1'; } catch (e) { /* 없음 */ } if (on) setHelp(true); if (Q.get('nohud')) $('#help').classList.add('hidden'); }
   addEventListener('keydown', e => {
     if (e.code === 'KeyM' && !e.repeat) { if (mapOpen) closeMap(); else if (player.locked) openMap(); return; }
     // Tab: 지도를 편 채 마우스를 풀거나 다시 잡는다. 우리가 푼 것이라 브라우저가 언제든 바로 다시 잡게 해 준다(Esc로 풀린 것은 그렇지 않다)
     if (e.code === 'Tab' && mapOpen && !player.touchMode && !e.repeat) { e.preventDefault(); if (player.locked) player.unlock(); else player.lock(); return; }
     if (e.code === 'Escape' && mapOpen) { if (!player.locked && performance.now() - freedAt > 300) closeMap(); return; }   // 마우스를 잡고 있을 때의 Esc는 마우스만 푼다(브라우저가 한다)
     if ((player.locked || mapOpen) && (e.code === 'NumpadAdd' || e.code === 'NumpadSubtract')) { zoomMini(e.code === 'NumpadAdd' ? 1 : -1); return; }
+    if (e.code === 'KeyH' && !e.repeat && !TOUCH) { setHelp(!helpOn); return; }
     if (!player.locked) return;
     const i = ['Digit1', 'Digit2', 'Digit3', 'Digit4'].indexOf(e.code);
     if (i >= 0) setWeather(WEATHERS[i][0]);
