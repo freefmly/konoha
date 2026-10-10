@@ -62,6 +62,8 @@ async function init() {
     places.push(...(r.places || [])); jumps.push(...(r.jumps || [])); lights.push(...(r.lights || []));
     glows.push(...(r.glows || [])); skip.push(...(r.skip || [])); if (r.tick) ticks.push(r.tick);
   };
+  // 확인용(?mem=1): 짓는 단계마다 도형 자료가 얼마나 늘었는지 적어 둔다
+  const memSeen = new Set(), memLog = []; window.__memMark = name => { if (!Q.get('mem')) return; let b = 0, tri = 0; scene.traverse(o => { const g = o.geometry; if (!g || memSeen.has(g)) return; memSeen.add(g); for (const k in g.attributes) b += g.attributes[k].array.byteLength; if (g.index) b += g.index.array.byteLength; tri += (g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) / 3; }); memLog.push(name + '=' + (b / 1048576).toFixed(0) + 'MB/' + Math.round(tri / 1000) + 'k'); };
   const only = Q.get('only');   // 확인용: ?only=hokage 처럼 주면 그 건물만 짓는다(마을 채움 건물·숲은 생략)
   const sq = (Q.get('shot') || '').split(',').map(Number);
   const ctx = { LOT, renderer, say, camera, weather, shotAt: sq.length >= 3 && !Q.get('sky') ? { x: sq[0], y: 0, z: sq[2] } : null, lite: !!only && only !== 'none', part: Q.get('part'), mobile: TOUCH, tint: Q.get('tint') !== '0' };   // only=none: 필수 건물 없이 마을만
@@ -78,6 +80,7 @@ async function init() {
       }
     }
     catch (e) { console.error('건물 짓기 실패: ' + name, e); }
+    window.__memMark(name);
   }
   take(await buildVillage(scene, ctx));
   if (!only && Q.get('ppl') !== '0') { await say('마을 사람들이 나오는 중…'); ctx.pplRow = !!Q.get('pplrow'); ctx.pplLog = !!Q.get('ppllog'); ctx.pplWarm = +Q.get('pplwarm') || 0; try { take(await buildPeople(scene, ctx)); } catch (e) { console.error('마을 사람 세우기 실패', e); } }
@@ -310,6 +313,7 @@ async function init() {
   setWind(Q.get('wind') ? +Q.get('wind') : 1);
   // 화풍은 늘 만화다. 확인용으로 ?toon=1 / ?toon=0 으로 강제할 수 있다.
   dressLeaves(scene);
+  window.__memMark('나머지'); if (Q.get('mem')) console.log('MEMSTEP ' + memLog.join(' | '));
   leanScene(scene);   // 고정 도형은 그래픽 카드로 올린 뒤 이쪽 사본을 버리게 해 둔다(폰의 메모리가 모자라 페이지가 닫히던 문제)
   const lod = Q.get('lod') === '0' ? null : setupLod(scene, camera);   // 먼 건물의 잔 장식과 먼 나무를 가볍게(확인용: &lod=0 이면 끈다)
   applyStyle((Q.get('toon') ?? '1') === '1');

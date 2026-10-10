@@ -1,6 +1,16 @@
 // 건물 조립기(솔로몬 성전 앱에서 쓰던 것을 가져와 손봄) — 상자·각기둥·임의 도형을 재질별로 모아 한 덩어리로 합치고, 걸어 다닐 때 쓸 충돌 상자도 같이 등록한다.
 import * as THREE from '../vendor/three.module.js';
 
+/* ---------- 가볍게 짓기(폰) ----------
+   폰 브라우저는 한 페이지가 쓸 수 있는 메모리가 작아, 마을을 PC와 똑같이 지으면 페이지가 닫힌다.
+   손가락으로 쓰는 기기에서는 기와의 물결(지붕은 평평한 판에 기와 무늬만)과 아주 작은 둥근 장식(못·구슬 따위)을 짓지 않는다. PC는 그대로다.
+   확인용: 내 컴퓨터에서는 ?touch=1 / ?touch=0 으로 바꿔 볼 수 있다 */
+export const LITE = (() => {
+  if (typeof location === 'undefined') return false;
+  const q = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname) ? new URLSearchParams(location.search).get('touch') : null;
+  return q ? q === '1' : matchMedia('(pointer: coarse)').matches;
+})();
+
 /* ---------- 충돌 상자 ---------- */
 export const colliders = []; // [x0,y0,z0,x1,y1,z1] — 마을 좌표에 똑바로 놓인 것들
 const CELL = 6;
@@ -251,6 +261,7 @@ export class Builder {
     const flip = m && m.determinant() < 0;
     if (m) _nm.getNormalMatrix(m);
     const cnt = pos.count;
+    if (LITE && cnt > 180) { if (!g.boundingSphere) g.computeBoundingSphere(); if (g.boundingSphere.radius * (m ? m.getMaxScaleOnAxis() : 1) < 0.12) return; }   // 폰: 손톱만 한 둥근 장식은 짓지 않는다
     for (let t = 0; t < cnt; t += 3) {
       for (let k = 0; k < 3; k++) {
         const i = t + (flip ? 2 - k : k);

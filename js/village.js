@@ -264,15 +264,15 @@ export async function buildVillage(scene, ctx) {
   const take = r => { for (const k of ['places', 'jumps', 'skip', 'lights', 'glows']) out[k].push(...(r[k] || [])); if (r.tick) out.ticks.push(r.tick); };
   if (!ctx.lite) {
     // 호카게 바위와 담·정문(건물 하나만 확인할 때는 건너뛴다). 거리의 집과 나무는 다음 단계에서 새 자리표로 세운다.
-    if (!ctx.part || ctx.part === 'rock') { await ctx.say('절벽에 호카게의 얼굴을 새기는 중…'); try { take(await (await import('./rock.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: rock', e); } }
+    if (!ctx.part || ctx.part === 'rock') { await ctx.say('절벽에 호카게의 얼굴을 새기는 중…'); try { take(await (await import('./rock.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: rock', e); } } if (window.__memMark) window.__memMark('rock');
     if (!ctx.part || ctx.part === 'wall') {
       await ctx.say('담을 두르고 정문을 세우는 중…');
       try { const town = await import('./town.js'); town.buildWall(scene, town.makeKit(), out.glows); } catch (e) { console.error('짓기 실패: wall', e); }
-    }
+    } if (window.__memMark) window.__memMark('wall');
     if (!ctx.part) { await ctx.say('구역 팻말을 세우는 중…'); buildSigns(scene); }
-    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./zones.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: zones', e); } }
-    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./civic.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: civic', e); } }   // 관저 둘레의 시설(대기소·정보부·전서구 탑)
-    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./streets.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: streets', e); } }
+    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./zones.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: zones', e); } } if (window.__memMark) window.__memMark('zones');
+    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./civic.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: civic', e); } } if (window.__memMark) window.__memMark('civic');   // 관저 둘레의 시설(대기소·정보부·전서구 탑)
+    if (!ctx.part || ctx.part === 'streets') { try { take(await (await import('./streets.js')).build(scene, ctx)); } catch (e) { console.error('짓기 실패: streets', e); } } if (window.__memMark) window.__memMark('streets');
   }
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;

@@ -1,7 +1,7 @@
 // 건축 부품 — 기와지붕(맞배·우진각·원뿔), 둥근 벽과 바닥, 창·문틀, 난간, 포렴, 간판, 등롱.
 // 모든 각도는 a → (cx + r·cos a, cz + r·sin a). a=0 동(+x), a=π/2 남(+z), a=π 서, a=-π/2 북.
 import * as THREE from '../vendor/three.module.js';
-import { addCollider, addRoof, mat4, tube, wall } from './build.js';
+import { addCollider, addRoof, mat4, tube, wall, LITE } from './build.js';
 
 const TILE_TOP = 0.09;   // 기와 두께만큼 밟는 면을 올린다
 import { mat, M, textMat, toonize } from './materials.js';
@@ -14,9 +14,10 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
    lip=false면 기와 아랫단 턱을 생략한다(멀리 있는 집의 삼각형 수를 줄일 때). */
 export function tilePanel(B, m, o, U, V, w, len, range = null, detail = 4, lip = true) {
   const N = new THREE.Vector3().crossVectors(U, V).normalize();
-  const P = 0.3, C = 0.36, AMP = 0.055, LIP = 0.035, du = P / detail;
+  if (LITE) { detail = 1; lip = false; }                            // 폰: 기와의 물결과 턱을 빚지 않는다(평평한 판에 기와 무늬만 남는다)
+  const P = 0.3, C = LITE ? 1.6 : 0.36, AMP = 0.055, LIP = 0.035, du = LITE ? 2.4 : P / detail;
   const pos = [], uv = [], idx = [], hgt = [];
-  const wave = u => AMP * Math.pow(Math.abs(Math.cos(Math.PI * u / P)), 0.7);
+  const wave = u => (LITE ? AMP * 0.5 : AMP * Math.pow(Math.abs(Math.cos(Math.PI * u / P)), 0.7));
   const push = (u, v, lift, edge = false) => {
     const h = (edge && range ? 0 : wave(u)) + lift;
     pos.push(o.x + U.x * u + V.x * v + N.x * h, o.y + U.y * u + V.y * v + N.y * h, o.z + U.z * u + V.z * v + N.z * h);
@@ -36,7 +37,7 @@ export function tilePanel(B, m, o, U, V, w, len, range = null, detail = 4, lip =
     rowA.push(push(b0, v0, L0, true)); rowB.push(push(b1, v1, 0, true));
     for (let i = 0; i < rowA.length - 1; i++) idx.push(rowA[i], rowA[i + 1], rowB[i + 1], rowA[i], rowB[i + 1], rowB[i]);
     // 처마 끝: 물결진 기와 밑이 뚫려 안이 들여다보이지 않게 밑널 높이까지 막는다
-    if (k === 0 && lip && !range) for (let i = 0; i < rowA.length - 1; i++) {
+    if (k === 0 && (lip || LITE) && !range) for (let i = 0; i < rowA.length - 1; i++) {
       const pa = rowA[i], pb = rowA[i + 1], da = hgt[pa] + 0.06, db = hgt[pb] + 0.06;
       const qa = pos.length / 3; pos.push(pos[pa * 3] - N.x * da, pos[pa * 3 + 1] - N.y * da, pos[pa * 3 + 2] - N.z * da); uv.push(uv[pa * 2], v0); hgt.push(0);
       pos.push(pos[pb * 3] - N.x * db, pos[pb * 3 + 1] - N.y * db, pos[pb * 3 + 2] - N.z * db); uv.push(uv[pb * 2], v0); hgt.push(0);
