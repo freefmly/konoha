@@ -7,6 +7,7 @@ import { Toon } from './toon.js';
 import { VillageMap } from './map.js';
 import { setupLod } from './lod.js';
 import { build as buildPeople, PEOPLE } from './people.js';
+import { VERSION, LOG } from './version.js';
 import { Player } from './player.js';
 import { LOT, WALL, SITE, DEATH } from './layout.js';
 import { marks, settle } from './build.js';
@@ -144,6 +145,27 @@ async function init() {
   $('#windBtns').innerHTML = WIND.map((n, i) => `<button data-wind="${i}">${n}</button>`).join('');
   $('#windBtns').addEventListener('click', e => { const b = e.target.closest('[data-wind]'); if (b) setWind(+b.dataset.wind); });
   jumps.sort((a, b) => a[0].localeCompare(b[0], 'ko'));   // 바로 가기는 가나다 차례로
+  // 판 번호와 '바뀐 내용' 두루마리. 새 판이 나온 뒤 처음 들어왔을 때만 저절로 펴고(브라우저에 마지막으로 본 판을 적어 둔다), 그 뒤로는 판 단추로 연다
+  { const btn = $('#verBtn'), box = $('#verScroll'), KEY = 'konoha.ver';
+    const show = list => { $('#verLog').innerHTML = list.map(l => `<article><h3>Ver ${l.v} ${l.title}<small>${l.date.replace(/-/g, '.')}</small></h3><ul>${l.items.map(t => `<li>${t}</li>`).join('')}</ul></article>`).join(''); clearTimeout(rollT); box.classList.remove('hidden', 'unroll', 'rollup'); const sh = box.querySelector('.sheet'); sh.scrollTop = 0; box.style.setProperty('--h', sh.offsetHeight + 'px'); box.classList.add('unroll');   // 종이 높이를 재서, 그만큼 풀려 내려오게 한다
+      btn.setAttribute('aria-expanded', 'true'); };
+    let rollT = 0;
+    const hide = () => {   // 말려 올라간 다음에 치운다
+      if (box.classList.contains('hidden') || box.classList.contains('rollup')) return;
+      btn.setAttribute('aria-expanded', 'false'); box.classList.remove('unroll'); void box.offsetWidth; box.classList.add('rollup');
+      rollT = setTimeout(() => box.classList.add('hidden'), 460);
+    };
+    btn.textContent = 'Ver ' + VERSION;
+    btn.addEventListener('click', () => (box.classList.contains('hidden') || box.classList.contains('rollup') ? show(LOG) : hide()));   // 단추로 열면 모든 판을 최신부터 보여 준다
+    $('#verClose').addEventListener('click', hide);
+    let seen = null; try { seen = localStorage.getItem(KEY); } catch (e) { /* 저장소를 못 쓰는 브라우저 */ }
+    const force = Q.get('ver');                                        // 확인용: ?ver=1 펴기, ?ver=toast 좁은 화면의 한 줄 알림
+    if (seen !== VERSION || force) {
+      const i = LOG.findIndex(l => l.v === seen), fresh = i < 0 ? LOG : LOG.slice(0, i);   // 못 본 판을 모두(최신부터)
+      if (force === 'toast' || (!force && (ctx.mobile || innerWidth <= 920))) { const t = $('#verToast'); t.textContent = '새로 바뀐 내용이 있어요. 눌러서 볼 수 있어요.'; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 8000); }
+      else show(fresh.length ? fresh : LOG);
+      try { localStorage.setItem(KEY, VERSION); } catch (e) { /* 적지 못하면 다음에도 뜬다 */ }
+    } }
   // 두루마리에는 대표적인 곳만 올린다(이 차례대로). 나머지 자리는 지도의 붉은 점으로만 남는다
   const QUICK = ['정문', '호카게 관저 앞', '호카게 집무실', '호카게 바위 앞', '바위 꼭대기', '닌자 아카데미', '그네 나무', '이치라쿠 라멘', '나루토의 집', '번화가',
     '나뭇잎 병원', '나뭇잎 온천', '중급닌자 시험 경기장', '묘지', '우치하 구역 대문', '사스케의 집', '야마나카 꽃집 앞', '제3 훈련장', '죽음의 숲 중앙 탑', '엄중 교정 시설'];

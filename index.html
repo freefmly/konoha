@@ -41,6 +41,8 @@
         </header>
         <p class="lede">호카게 바위 아래 마을을 걸어서 둘러봅니다. 관저·아카데미·이치라쿠 라멘, 나루토·사쿠라·이노의 집은 안으로 들어가 층마다 올라가 볼 수 있습니다.</p>
 
+        <p class="verline"><button id="verBtn" type="button" aria-expanded="false"></button><span id="verToast" class="hidden"></span></p>
+
         <button id="enterBtn" class="enter">마을로 들어가기</button>
         <button id="skyBtn" class="skyenter">하늘에서 둘러보기</button>
 
@@ -97,6 +99,21 @@
           <span><kbd>N</kbd> 소리</span>
           <span><kbd>Esc</kbd> 이 두루마리</span>
         </footer>
+      </div>
+      <div class="rod"></div>
+    </div>
+    <!-- 바뀐 내용: 새 판이 나온 뒤 처음 들어왔을 때, 또는 판 단추를 눌렀을 때 옆에 펼쳐지는 두루마리 -->
+    <div id="verScroll" class="scroll ver hidden">
+      <div class="rod"></div>
+      <div class="sheet">
+        <header>
+          <div>
+            <p class="over">更新の記録</p>
+            <p class="vtitle">바뀐 내용</p>
+          </div>
+          <button id="verClose" type="button">닫기</button>
+        </header>
+        <div id="verLog"></div>
       </div>
       <div class="rod"></div>
     </div>

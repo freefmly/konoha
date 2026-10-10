@@ -38,6 +38,34 @@ kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--li
 .sheet h1 { margin: 0; font: 900 38px/1.1 var(--serif); letter-spacing: -.01em; }
 .seal { margin-left: auto; width: 46px; height: 46px; display: grid; place-items: center; font: 900 27px var(--serif); color: var(--paper); background: var(--red);
   border-radius: 7px; transform: rotate(-4deg); box-shadow: inset 0 0 0 2px var(--red), inset 0 0 0 3.5px rgba(239, 229, 207, .7); }
+/* 판 번호 단추(소개글 밑)와, 옆에 펼쳐지는 '바뀐 내용' 두루마리 */
+.verline { margin: -8px 0 16px; display: flex; align-items: center; gap: 10px; min-height: 26px; }
+#verBtn { padding: 4px 11px 4px 9px; border: 1px solid var(--line); border-radius: 3px; background: rgba(255, 255, 255, .4); cursor: pointer; font: 700 12px/1.4 var(--serif); letter-spacing: .04em; color: var(--ink-2); display: inline-flex; align-items: center; gap: 7px; transition: background .12s, color .12s, border-color .12s; }
+#verBtn::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--red); }
+#verBtn::after { content: "바뀐 내용 보기"; font: 500 11.5px var(--sans); letter-spacing: 0; opacity: .8; }
+#verBtn:hover, #verBtn[aria-expanded="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+#verToast { font: 500 12px/1.45 var(--sans); color: var(--red); animation: verToast 8s both; }
+@keyframes verToast { 0% { opacity: 0; translate: -6px 0; } 6%, 88% { opacity: 1; translate: 0 0; } 100% { opacity: 0; } }
+/* 메뉴를 뺀 남은 자리의 한가운데에 선다. 펼 때는 말려 있던 두루마리가 위에서 아래로 풀려 내려온다(--h: 종이 높이) */
+.scroll.ver { width: min(400px, calc(100vw - 32px)); margin: 0 auto; }
+.scroll.ver.unroll .sheet { animation: verSheet .62s cubic-bezier(.33, 0, .18, 1) both; }
+.scroll.ver.unroll .rod:last-child { animation: verRod .62s cubic-bezier(.33, 0, .18, 1) both; }
+/* 닫을 때는 거꾸로 말려 올라간다 */
+.scroll.ver.rollup .sheet { animation: verSheet .46s cubic-bezier(.33, 0, .18, 1) both reverse; }
+.scroll.ver.rollup .rod:last-child { animation: verRod .46s cubic-bezier(.33, 0, .18, 1) both reverse; }
+@keyframes verSheet { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes verRod { from { translate: 0 calc(-1 * var(--h, 0px)); scale: 1 1.5; } 85% { scale: 1 1.12; } to { translate: 0 0; scale: 1 1; } }
+.scroll.ver .sheet { padding: 22px 24px 18px; }
+.scroll.ver header { align-items: flex-start; }
+.vtitle { margin: 0; font: 900 24px/1.15 var(--serif); }
+#verClose { margin-left: auto; padding: 5px 11px; border: 1px solid var(--line); border-radius: 3px; background: rgba(255, 255, 255, .4); cursor: pointer; font-size: 12px; font-weight: 600; }
+#verClose:hover { background: var(--red); color: var(--paper); border-color: var(--red); }
+#verLog article { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line); }
+#verLog h3 { margin: 0 0 7px; font: 800 15px var(--serif); display: flex; align-items: baseline; gap: 8px; }
+#verLog h3 small { margin-left: auto; font: 400 11.5px var(--sans); color: var(--ink-2); }
+#verLog ul { margin: 0; padding-left: 17px; font: 400 12.5px/1.7 var(--sans); color: var(--ink-2); }
+/* 좁은 화면: 옆에 세울 자리가 없으니 메뉴 위에 겹쳐 편다 */
+@media (max-width: 920px) { .scroll.ver { position: absolute; left: 50%; top: 50%; translate: -50% -50%; margin: 0; z-index: 2; } }
 .lede { margin: 16px 0 18px; font: 400 14px/1.7 var(--sans); color: var(--ink-2); }
 
 .sheet .enter { width: 100%; padding: 15px 18px; border: 0; cursor: pointer; font: 800 18px var(--serif); letter-spacing: .06em; color: var(--paper); background: var(--ink);
