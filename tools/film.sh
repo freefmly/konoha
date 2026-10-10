@@ -11,7 +11,7 @@ PROF="$(mktemp -d)"
   --ignore-gpu-blocklist --enable-gpu --window-size=1080,1920 --hide-scrollbars --autoplay-policy=no-user-gesture-required \
   --disable-background-timer-throttling --disable-renderer-backgrounding --remote-debugging-port=9333 \
   "http://localhost:$PORT/?film=1&to=http://localhost:$RPORT$EXTRA" > "$DIR/chrome.log" 2>&1 & CH=$!
-for i in $(seq 1 120); do [ -f "$DIR/done.txt" ] && break; sleep 2; done
+for i in $(seq 1 540); do [ -f "$DIR/done.txt" ] && break; sleep 2; done
 kill $CH $RECV 2>/dev/null; taskkill //F //PID $CH > /dev/null 2>&1
 sleep 1; rm -rf "$PROF" 2>/dev/null
 N=$(ls "$DIR" | grep -c "\.jpg$"); echo "받은 그림 $N장"

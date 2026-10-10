@@ -177,6 +177,7 @@ body.touch .sheet h1 { font-size: 26px; }
 body.touch .leafmark { width: 38px; height: 38px; }
 body.touch .seal { width: 36px; height: 36px; font-size: 21px; }
 body.touch .lede { display: none; }
+body.touch .verline { margin: 8px 0 0; }   /* 소개글이 없으니 제목 밑으로 띄운다(안 그러면 제목과 겹친다) */
 body.touch .sheet .enter { margin-top: 12px; padding: 11px 16px; font-size: 16px; }
 body.touch .sheet section { margin-top: 12px; }
 body.touch .wxrow button { padding: 8px 4px 7px; gap: 4px; }

@@ -5,6 +5,7 @@
 //  · 작은 것: 등·간판·그릇처럼 작은 물체는 멀어져 점만 해지면 아예 그리지 않는다(그리기 명령의 수가 줄어 가장 크게 가벼워진다).
 //  · 나무: treeGeometry가 함께 지어 둔 가벼운 모습(굵은 가지와 큼직한 잎 몇 장, 성긴 잎 덩어리)으로 바꿔 끼운다.
 import * as THREE from '../vendor/three.module.js';
+import { doneGeo } from './build.js';
 
 const D1 = 150, D2 = 350;          // 이보다 멀면 한 단계, 두 단계 줄인다(m, 그 물체의 둘레에서 잰 거리)
 const S1 = 0.5, S2 = 1.2;          // 단계마다 그리지 않는 조각의 크기(m)
@@ -45,6 +46,7 @@ function* analyze(g) {
     const f = new THREE.BufferGeometry();
     for (const name in g.attributes) f.setAttribute(name, g.attributes[name]);   // 꼭짓점은 함께 쓴다
     f.setIndex(new THREE.BufferAttribute(idx, 1)); f.boundingBox = g.boundingBox; f.boundingSphere = g.boundingSphere;
+    f.index.onUploadCallback = function () { this.array = new Uint32Array(0); };   // 그릴 차례도 올려 보낸 뒤에는 사본을 버린다(메모리)
     out[li] = f;
   });
   return out;
@@ -66,7 +68,7 @@ export function setupLod(scene, camera) {
     const n = g.attributes.position.count / 3;
     if (Array.isArray(o.material)) return;
     // 조각으로 나눌 수 없는 것(묶어 찍은 것·차례가 있는 도형·잎)은 거리로 숨기기만 한다. 잎·풀·꽃은 낱장이 다 조각이라 나누면 통째로 사라진다
-    if (o.isInstancedMesh || g.index || g.groups.length || g.attributes.aKind || n < MIN || n > MAX || g.attributes.position.isInterleavedBufferAttribute || (o.material.defines && 'W_LEAF' in o.material.defines)) { add(o, [null, null]); return; }
+    if (o.isInstancedMesh || g.index || g.groups.length || g.attributes.aKind || n < MIN || n > MAX || g.attributes.position.isInterleavedBufferAttribute || (o.material.defines && 'W_LEAF' in o.material.defines)) { add(o, [null, null]); doneGeo(g); return; }
     add(o, [null, null]); pending.push(items[items.length - 1]);
   });
   pending.sort((a, b) => b.o.geometry.attributes.position.count - a.o.geometry.attributes.position.count);
@@ -84,7 +86,7 @@ export function setupLod(scene, camera) {
         job = analyze(jobMesh.g[0]);
       }
       const r = job.next();
-      if (r.done) { cache.set(jobMesh.g[0], r.value); setFar(jobMesh, r.value); job = null; }
+      if (r.done) { cache.set(jobMesh.g[0], r.value); setFar(jobMesh, r.value); doneGeo(jobMesh.g[0]); job = null; }   // 다 읽었으니 자리 사본도 버려도 된다
     }
     const p = camera.position;
     if (!dirty && last.distanceToSquared(p) < 16) return;

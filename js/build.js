@@ -291,9 +291,10 @@ export class Builder {
       if (!b.p.length) continue;
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(b.p), 3));
-      g.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(b.n), 3));
+      g.setAttribute('normal', packNormals(b.n));
       g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(b.u), 2));
       if (b.k) { const k = new Float32Array(b.p.length / 3); k.set(b.k); g.setAttribute('aKind', new THREE.BufferAttribute(k, 1)); }
+      g.computeBoundingSphere(); g.computeBoundingBox(); leanGeo(g);
       const mesh = new THREE.Mesh(g, mat);
       mesh.castShadow = shadow && !mat.userData.noShadow;
       mesh.receiveShadow = true;
@@ -304,6 +305,34 @@ export class Builder {
     if (parent) parent.add(group);
     return group;
   }
+}
+
+/* ---------- 메모리 아끼기 ----------
+   지어 놓고 다시 고치지 않는 도형은, 그래픽 카드로 올려 보낸 뒤에는 이쪽(자바스크립트)의 사본이 필요 없다. 올리는 순간 사본을 버린다.
+   그러지 않으면 같은 자료를 두 벌 들고 있게 되어, 메모리가 작은 폰에서는 브라우저가 페이지를 닫아 버린다.
+   자리(position)만은 먼 거리용 손질(lod.js)이 나중에 읽으므로, 그 손질이 끝났다고 알려 줄 때(doneGeo) 버린다. 둘레(boundingSphere·Box)는 미리 재 둔다. */
+// 면이 보는 쪽(법선)은 방향만 있으면 되므로 소수 셋(12바이트) 대신 작은 정수 셋(3바이트)으로 담는다. 그리는 쪽에서 다시 길이 1로 맞춘다
+function packNormals(n) { const a = new Int8Array(n.length); for (let i = 0; i < n.length; i++) a[i] = Math.max(-127, Math.min(127, Math.round(n[i] * 127))); return new THREE.BufferAttribute(a, 3, true); }
+const dropArr = a => { a.array = new a.array.constructor(0); };   // 빈 것으로 바꾼다(길이를 재는 코드가 있어도 터지지 않게). 개수(count)는 그대로 남는다
+export function leanGeo(g, keep = []) {
+  if (g.index && !g.index.onUploadCallback.lean) { g.index.onUploadCallback = function () { dropArr(this); }; g.index.onUploadCallback.lean = true; }
+  for (const name in g.attributes) {
+    const a = g.attributes[name]; if (keep.includes(name) || a.isInterleavedBufferAttribute || a.isInstancedBufferAttribute || a.usage !== THREE.StaticDrawUsage || a.onUploadCallback.lean) continue;
+    if (name === 'position') a.onUploadCallback = function () { this._up = true; if (this._done) dropArr(this); };
+    else a.onUploadCallback = function () { dropArr(this); };
+    a.onUploadCallback.lean = true;
+  }
+  return g;
+}
+export function doneGeo(g) { const a = g.attributes.position; if (!a || !a.onUploadCallback.lean || a._done) return; a._done = true; if (a._up) dropArr(a); }
+
+// 장면 안의 모든 고정 도형에 한꺼번에 건다(다 짓고 나서 한 번). 점 무리(Points)와 선은 장면마다 자리를 고쳐 쓰는 것이 있어 건드리지 않는다
+export function leanScene(scene) {
+  // 글자·무늬를 그려 둔 그림판(canvas)도 그래픽 카드로 올린 뒤에는 비운다. 같은 그림판을 여러 재질이 나눠 쓰면 건드리지 않는다
+  const users = new Map(), texOf = m => { const out = []; for (const k in m) { const t = m[k]; if (t && t.isTexture && t.image && typeof HTMLCanvasElement !== 'undefined' && t.image instanceof HTMLCanvasElement) out.push(t); } return out; };
+  scene.traverse(o => { for (const m of [].concat(o.material || [])) for (const t of texOf(m)) { let s = users.get(t.image); if (!s) users.set(t.image, s = new Set()); s.add(t); } });
+  for (const [cv, set] of users) if (set.size === 1) { const t = [...set][0]; if (!t.onUpdate) t.onUpdate = () => { cv.width = cv.height = 1; t.onUpdate = null; }; }
+  scene.traverse(o => { if (!o.isMesh || o.isSkinnedMesh || !o.geometry || !o.geometry.attributes.position) return; const g = o.geometry; if (!g.boundingSphere) g.computeBoundingSphere(); if (!g.boundingBox) g.computeBoundingBox(); leanGeo(g); if (g.userData.far) leanGeo(g.userData.far); });
 }
 
 /* ---------- 도형 도우미 ---------- */

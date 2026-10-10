@@ -11,7 +11,7 @@ import { VERSION, LOG } from './version.js';
 import { initStats, stat, statOnce } from './stats.js';
 import { Player } from './player.js';
 import { LOT, WALL, SITE, DEATH } from './layout.js';
-import { marks, settle } from './build.js';
+import { marks, settle, colliders, leanScene } from './build.js';
 import { buildVillage, terrainH, inPoly } from './village.js';
 
 const $ = s => document.querySelector(s);
@@ -310,6 +310,7 @@ async function init() {
   setWind(Q.get('wind') ? +Q.get('wind') : 1);
   // 화풍은 늘 만화다. 확인용으로 ?toon=1 / ?toon=0 으로 강제할 수 있다.
   dressLeaves(scene);
+  leanScene(scene);   // 고정 도형은 그래픽 카드로 올린 뒤 이쪽 사본을 버리게 해 둔다(폰의 메모리가 모자라 페이지가 닫히던 문제)
   const lod = Q.get('lod') === '0' ? null : setupLod(scene, camera);   // 먼 건물의 잔 장식과 먼 나무를 가볍게(확인용: &lod=0 이면 끈다)
   applyStyle((Q.get('toon') ?? '1') === '1');
 
@@ -477,8 +478,26 @@ async function init() {
     return out;
   };
   window.__places = places; window.__jumps = jumps;
+  // 확인용(?mem=1): 그래픽 메모리를 얼마나 쓰는지 어림한다(도형의 꼭짓점 자료, 그림, 그리는 판)
+  if (Q.get('mem')) setTimeout(() => {
+    if (window.gc) window.gc(); const seenG = new Set(), seenT = new Map(); let geo = 0, inst = 0; const big = []; { const g0 = []; scene.traverse(o => { if (o.geometry && g0.length < 4000) g0.push(o.geometry); }); const m = new Map(); for (const g of g0) { const k = Object.keys(g.attributes).map(n => n + ':' + g.attributes[n].array.constructor.name.replace('Array', '') + g.attributes[n].itemSize).join(' ') + (g.index ? ' +idx' : ''); m.set(k, (m.get(k) || 0) + 1); } console.log('MEMATTR ' + [...m.entries()].sort((p, q) => q[1] - p[1]).slice(0, 8).map(e => e[1] + 'x ' + e[0]).join(' | ')); }
+    scene.traverse(o => { const g = o.geometry; if (g && !seenG.has(g)) { seenG.add(g); let b = 0; for (const k in g.attributes) b += g.attributes[k].array.byteLength; if (g.index) b += g.index.array.byteLength; geo += b; big.push([b, o.name || o.type, o.material && (o.material.name || o.material.type)]); }
+      if (o.isInstancedMesh) inst += o.instanceMatrix.array.byteLength + (o.instanceColor ? o.instanceColor.array.byteLength : 0);
+      for (const m of [].concat(o.material || [])) for (const k in m) { const t = m[k]; if (t && t.isTexture && t.image && !seenT.has(t)) seenT.set(t, (t.image.width || 0) * (t.image.height || 0) * 4 * (t.generateMipmaps ? 1.33 : 1)); } });
+    let tex = 0; for (const v of seenT.values()) tex += v;
+    const texBig = [...seenT.entries()].sort((p, q) => q[1] - p[1]).slice(0, 8).map(([t, v]) => (t.image.width + 'x' + t.image.height + '=' + (v / 1048576).toFixed(1)));
+    const mb = v => (v / 1048576).toFixed(1) + 'MB';
+    { const by = new Map(), sg = new Set(); let idx = 0, non = 0; scene.children.forEach((c, i) => { let b = 0, n = 0, tri = 0, hid = 0; c.traverse(o => { const g = o.geometry; if (!g || sg.has(g)) return; sg.add(g); let x = 0; for (const k in g.attributes) x += g.attributes[k].array.byteLength; if (g.index) { x += g.index.array.byteLength; idx += x; } else non += x; b += x; n++; tri += (g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) / 3; if (!o.visible) hid += x; }); if (b > 4e6) by.set(i + ':' + (c.name || c.type) + '/' + c.children.length, [b, n, tri, hid]); });
+      console.log('MEMBY 색인있음 ' + mb(idx) + ' 없음 ' + mb(non) + ' | ' + [...by.entries()].sort((p, q) => q[1][0] - p[1][0]).slice(0, 30).map(([k, v]) => k + '=' + mb(v[0]) + '/' + v[1] + '개/' + Math.round(v[2] / 1000) + 'k삼각/숨김' + mb(v[3])).join(' | ')); }
+    console.log('MEMCNT 막는상자 ' + colliders.length); console.log('MEM 도형 ' + mb(geo) + ' x2(자바스크립트+그래픽) 인스턴스 ' + mb(inst) + ' 그림 ' + mb(tex) + ' (' + seenT.size + '장) 힙 ' + (performance.memory ? mb(performance.memory.usedJSHeapSize) : '?') + ' three ' + JSON.stringify(renderer.info.memory) + ' 큰그림 ' + texBig.join(',') + ' 큰도형 ' + big.sort((p, q) => q[0] - p[0]).slice(0, 8).map(b => mb(b[0]) + ':' + b[2]).join(','));
+  }, 1500);
   if (Q.get('jumps')) console.log('JUMPS ' + jumps.map(j => j[0] + '=' + [j[1], j[2], j[3]].map(n => Math.round(n)).join(',')).join(' | '));   // 확인용: 바로 가기 자리 찍어 보기
   window.__ready = true; window.__player = player; window.__scene = scene; window.__camera = camera; window.__lod = lod;   // 확인용
 }
 
-init().catch(e => { console.error(e); $('#loadText').textContent = '문제가 생겼습니다: ' + e.message; });
+// 문제가 생기면 숨기지 않고 화면에 적는다(폰에서는 콘솔을 볼 수 없다). 통계로도 한 번 보낸다
+const fail = (what, msg) => { console.error(what, msg); const L = $('#loading'); L.classList.remove('hidden'); L.style.zIndex = 60; $('#loadText').textContent = '문제가 생겼습니다 — ' + what + ': ' + msg; statOnce('app_error', { what, message: String(msg).slice(0, 90) }); };
+addEventListener('error', e => fail('오류', (e.message || '알 수 없음') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')));
+addEventListener('unhandledrejection', e => fail('오류', (e.reason && e.reason.message) || e.reason));
+$('#view').addEventListener('webglcontextlost', () => fail('그래픽', '기기의 그래픽 메모리가 모자라 화면을 그리지 못했습니다'));
+init().catch(e => fail('준비', e.message));

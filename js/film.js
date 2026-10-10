@@ -14,22 +14,13 @@ const along = (pts, u) => { if (pts.length === 1) return pts[0]; const f = clamp
    path 눈높이로 걸어가는 길(꺾은선, 일정한 걸음) — look을 주면 그 점(들)을 바라보고(걸으며 고개를 돌린다), 없으면 가는 쪽을 본다. lookEnd는 끝에 가서 바라볼 것, arrive는 길 끝에 닿는 때(0~1, 그 뒤로는 서서 둘러본다)
    fly [처음, 끝] 하늘에서 내려다보는 장면 · roofs 지붕 위를 달리며 건너뛰는 장면(걷는 사람을 실제로 움직인다) */
 const SHOTS = [
-  /* 0 하늘에서 */        { d: 5.0, w: 'clear', fov: 62, fly: [[-46, 128, 262], [28, 92, 128]], look: [[0, 0, -30], [0, 12, -84]] },
-  /* 1 큰길 걷기 */       { d: 5.0, w: 'clear', w2: [2.2, 'cloudy'], fov: 74, path: [[0.5, 1.65, 166], [0.5, 1.65, 143]], look: [[-3, 9, 60], [2, 12, -40]] },
-  /* 2 지붕 달리기 */     { d: 4.4, w: 'cloudy', fov: 80, roofs: { x: -12.5, z: 150, yaw: 0, pitch: -0.16 } },
-  /* 3 나루토의 방 */     { d: 3.6, w: 'rain', fov: 76, path: [[-50.6, 8.25, -19.7], [-54.2, 8.25, -20.8], [-56.75, 8.15, -22.0]], look: [[-57, 7.8, -22.2], [-57.73, 7.3, -22.85], [-57.73, 7.26, -22.85]] },
-  /* 4 이치라쿠 */        { d: 5.0, w: 'rain', fov: 74, path: [[1.6, 1.65, 28], [1.6, 1.65, 6]], look: [[3, 3.2, 12], [11, 2.2, 15.6], [12, 1.9, 16], [12, 2.0, 16.4]] },
-  /* 5 사쿠라의 집 */     { d: 4.6, w: 'clear', fov: 76, path: [[42.1, 1.65, 85], [42.1, 1.7, 77.2], [42.1, 2.05, 74.2], [41.6, 2.05, 71.6], [39.2, 2.05, 71.3], [37.6, 2.05, 70.3]], lookEnd: [35, 1.5, 67.5] },
-  /* 6 야마나카 꽃집 */   { d: 3.6, w: 'cloudy', fov: 74, path: [[-1.2, 1.65, 62], [-1.2, 1.65, 46]], look: [[-6, 2.6, 54], [-12, 1.9, 48.5], [-12, 1.7, 47.5]] },
-  /* 7 우치하 거리 */     { d: 5.0, w: 'cloudy', w2: [1.2, 'rain'], fov: 74, path: [[108, 1.65, -4], [131, 1.65, -4]], look: [[124, 3.6, -5], [132, 3.0, -9], [140, 2.6, -1], [150, 2.4, -4]] },
-  /* 8 사스케의 집 */     { d: 4.2, w: 'rain', fov: 76, path: [[141.5, 1.65, -4], [150.5, 1.65, -4.2], [153.6, 1.8, -4.5], [156.6, 2.1, -4.4]], lookEnd: [158.2, 2.0, -6.6] },
-  /* 9 못과 선착장 */     { d: 3.6, w: 'snow', fov: 76, path: [[158, 1.65, 12.2], [158, 2.15, 16.6], [158, 2.15, 25.5]], look: [[158, 1.4, 30], [158, 1.0, 34]] },
-  /* 10 신사→비석 */      { d: 6.6, w: 'snow', fov: 76, path: [[144.6, 1.65, -33], [148, 1.7, -32.4], [154.3, 4.65, -31.7], [158.2, 4.65, -32], [163.9, 4.65, -38.15], [163.9, 4.05, -36.8], [163.9, 2.65, -35.0], [163.9, 1.7, -33.4], [163.4, 1.65, -30.8], [161.4, 1.6, -28.4]], lookEnd: [160.8, 1.15, -25.7] },
-  /* 11 아카데미 */       { d: 3.6, w: 'clear', fov: 74, path: [[68, 1.65, -49], [68, 1.65, -64.5]], look: [[68, 6, -100], [68, 7, -104]] },
-  /* 12 교실 */           { d: 5.0, w: 'clear', fov: 78, path: [[49.3, 2.1, -108.6], [50.3, 2.1, -113.4], [50.5, 2.1, -117.2]], look: [[57, 1.9, -117], [59, 2.3, -113], [58.5, 2.2, -109.5]] },
-  /* 13 그네 */           { d: 5.0, w: 'cloudy', w2: [1.6, 'snow'], fov: 72, path: [[62.5, 1.65, -73], [56, 1.62, -70.4], [53.3, 1.58, -69.7]], look: [[50.6, 1.6, -70.8], [50.6, 1.0, -70.8]] },
-  /* 14 호카게 관저 */    { d: 3.6, w: 'snow', fov: 74, path: [[0, 1.65, -51], [0, 1.65, -67.5]], look: [[0, 8, -104], [0, 10, -104]] },
-  /* 15 바위 위에서 */    { d: 5.6, w: 'clear', fov: 72, arrive: 0.5, path: [[4, 61.65, -158], [1, 61.78, -151.45]], look: [[0, 44, -110], [0, 4, -70], [-6, 0, -20], [6, 0, 40]] },
+  /* 0 정문으로 다가가기 */ { d: 2.6, w: 'clear', fov: 74, path: [[0, 1.75, 1058], [0, 1.65, 1036]], look: [[0, 10, 1021], [0, 8, 1021]] },   // 큰 다리를 건너 정문 앞까지: 문과 담이 화면을 채운다
+  /* 1 번화가 걷기 */       { d: 4.2, w: 'clear', w2: [1.6, 'cloudy'], fov: 76, path: [[18, 1.65, 616.5], [42, 1.65, 616.5]], look: [[60, 3.2, 616.5], [90, 3.4, 616.5]] },
+  /* 2 닌자 점프 */         { d: 4.4, w: 'cloudy', fov: 80, roofs: { x: -393, z: 497, yaw: -PI / 2, pitch: -0.14, ground: [0.3, 1.15] } },   // 우치하 구역: 빈터를 달리다 힘을 모아 솟고, 지붕에서 지붕으로 건너뛰며 달린다
+  /* 3 닌자 아카데미 */     { d: 4.2, w: 'cloudy', w2: [0.8, 'rain'], fov: 74, path: [[17.5, 1.65, 120.4], [31, 1.65, 120]], look: [[55, 5, 117], [60, 7, 117]] },
+  /* 4 이치라쿠 라멘 */     { d: 4.0, w: 'rain', fov: 74, path: [[2, 1.65, 461], [2, 1.65, 474]], look: [[9, 3, 470], [16, 2.2, 475], [17, 2.0, 475.5]] },
+  /* 5 호카게 관저 */       { d: 4.4, w: 'snow', fov: 74, path: [[0, 1.65, -18], [0, 1.65, -42]], look: [[0, 9, -90], [0, 12, -90]] },
+  /* 6 바위 위에서 */       { d: 5.8, w: 'clear', fov: 70, fly: [[0, 110.2, -160], [0, 119, -147]], look: [[0, 100, -100], [0, 40, 60], [0, 0, 300]] },
 ];
 
 export async function run(app) {
@@ -49,7 +40,7 @@ export async function run(app) {
     }
     throw new Error('그림을 보내지 못함: ' + path);
   };
-  app.style(false);
+  app.style(true);   // 화풍은 만화 하나뿐이다
 
   // 한 장 그리기 전 준비: 날씨·바람·그림자·등불
   const step = dt => {
@@ -76,12 +67,15 @@ export async function run(app) {
     const gaze = new THREE.Vector3(); let gazeSet = false;
 
     // 지붕 달리기: 줄지은 집 위에 올려놓고 앞으로 달리게 한다. 지붕 끝이 다가오면 다음 지붕까지의 거리와 높이를 재서 꼭 닿을 만큼 뛴다.
-    let top = null, fx = 0, fz = 0;
+    let top = null, fx = 0, fz = 0, launched = false;
+    // 닌자 점프: 큰길을 달리다가 힘을 모아(hold 구간 동안 뛰기 단추를 누른다) 높이 솟는다. 걷는 사람을 실제로 움직인다
+    if (sh.leap) { const L = sh.leap; player.place(L.x, 0, L.z, L.yaw, L.pitch); player.locked = true; player.grounded = true; }
     if (sh.roofs) {
       const r = sh.roofs; fx = -Math.sin(r.yaw); fz = -Math.cos(r.yaw);
       top = (d, x = player.pos.x, z = player.pos.z) => player.groundAt(x + fx * d, z + fz * d, 1e4);
       let z = r.z; for (let i = 0; i < 80 && !(top(0, r.x, z) > 3.2 && top(1.5, r.x, z) > 3.2 && top(3, r.x, z) > 3.2); i++) z += fz * 0.5;
-      player.place(r.x, top(0, r.x, z), z, r.yaw, r.pitch); player.locked = true; player.grounded = true; player.vel.set(fx * RUN, 0, fz * RUN);
+      if (r.ground) z = r.z;                                                    // 땅에서 시작한다(힘을 모았다가 첫 지붕으로 솟는다)
+      player.place(r.x, r.ground ? 0 : top(0, r.x, z), z, r.yaw, r.pitch); player.locked = true; player.grounded = true; player.vel.set(fx * RUN, 0, fz * RUN);
     }
 
     for (let f = 0; f < frames; f++, n++) {
@@ -98,16 +92,27 @@ export async function run(app) {
         if (sh.lookEnd) tgt = mix3(tgt, sh.lookEnd, ease((u - 0.72) / 0.24));
         if (!gazeSet) { gaze.set(...tgt); gazeSet = true; } else gaze.lerp(new THREE.Vector3(...tgt), 0.14);   // 고개는 부드럽게 따라 돈다
         camera.position.set(p[0], p[1] + bob, p[2]); camera.lookAt(gaze);
+      } else if (sh.leap) {
+        const L = sh.leap;
+        for (let k = 0; k < 2; k++) {
+          const tt = t + k / FPS / 2;
+          player.keys = { KeyW: true, ShiftLeft: true, Space: tt >= L.hold[0] && tt < L.hold[1] }; player.yaw = L.yaw;
+          const want = L.pitch - clamp(-player.vel.y * 0.014, -0.14, 0.2) - (player.grounded ? 0 : 0.08);   // 솟을 때는 조금 올려다보고, 떨어질 때는 마을을 내려다본다
+          player.pitch += (want - player.pitch) * 0.06;
+          player.update(1 / FPS / 2);
+        }
       } else if (sh.roofs) {
         for (let k = 0; k < 2; k++) {   // 한 장을 두 번에 나눠 계산
-          player.keys = { KeyW: true, ShiftLeft: true }; player.yaw = sh.roofs.yaw;
-          if (player.grounded && Math.abs(top(0.9) - player.pos.y) > 0.55) {
+          const G = sh.roofs.ground, tt = t + k / FPS / 2, charging = G && tt >= G[0] && tt < G[1], launch = G && !launched && tt >= G[1];
+          player.keys = { KeyW: true, ShiftLeft: true, Space: !!charging }; player.yaw = sh.roofs.yaw;
+          if (launch) { launched = true; player.hold = 0; }                         // 모은 힘은 여기서 재어 준 만큼만 쓴다(걷는 사람의 제 뛰기는 막는다)
+          if (player.grounded && !(G && tt < G[1]) && (launch || Math.abs(top(0.9) - player.pos.y) > 0.55)) {
             const cur = player.pos.y, sp = Math.max(5, Math.hypot(player.vel.x, player.vel.z));
             // 내려설 자리: 앞쪽으로 재어 가다 처음 만나는 집 위(바로 앞이 더 높은 집이면 그 벽 위)
-            let d2 = 0; for (let d = 0.6; d < 34; d += 0.3) { const h = top(d); if (h > 3 && top(d + 0.9) > 3 && (d > 1.5 || h > cur + 0.55)) { d2 = d; break; } }
+            let d2 = 0; for (let d = 0.6; d < 24; d += 0.3) { const h = top(d); if (h > 3 && top(d + 0.9) > 3 && (d > 1.5 || h > cur + 0.55)) { d2 = d; break; } }
             if (d2) {
               const T = (d2 + 0.7) / sp, T1 = d2 / sp, h = Math.max(top(d2), top(d2 + 0.7));
-              player.vel.y = Math.max(3.2, (h + 0.3 - cur) / T + 0.5 * GRAV * T, (top(d2) + 0.35 - cur) / T1 + 0.5 * GRAV * T1);
+              player.vel.y = Math.min(19, Math.max(3.2, (h + 0.3 - cur) / T + 0.5 * GRAV * T, (top(d2) + 0.35 - cur) / T1 + 0.5 * GRAV * T1));   // 너무 멀리 있는 지붕을 노리다 하늘 높이 솟지 않게 묶는다
             } else player.vel.y = 6.4;
             player.grounded = false;
           }
@@ -126,6 +131,7 @@ export async function run(app) {
       }
       if (n % 30 === 0) document.title = `촬영 ${n}/${total}`;
     }
+    if (sh.leap) { player.keys = {}; player.locked = false; }
     if (sh.roofs) { console.log('ROOFS 끝', player.pos.x.toFixed(1), player.pos.y.toFixed(1), player.pos.z.toFixed(1)); player.keys = {}; player.locked = false; }
   }
   await post('/done', String(sent));
