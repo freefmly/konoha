@@ -202,7 +202,7 @@ export function coneRoof(B, m, cx, cz, r, yEave, rise, opts = {}) {
     if (d > r) return -Infinity;
     if (d < rTop) return cap && rTop > 0.05 ? yEave + rise + 0.1 : -Infinity;
     return yEave + TILE_TOP + rise * (r - d) / (r - rTop);
-  });
+  }, true);
   if (soffit) { const g = new THREE.RingGeometry(Math.max(0.01, r * 0.5), r, seg); g.rotateX(Math.PI / 2); B.geo(wood, g, mat4(cx, yEave - 0.02, cz)); }
   // 처마 끝 테
   const rim = []; for (let i = 0; i <= seg; i++) { const a = i / seg * Math.PI * 2; rim.push(V3(cx + Math.cos(a) * r, yEave - 0.03, cz + Math.sin(a) * r)); }

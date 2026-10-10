@@ -8,7 +8,7 @@ import { VillageMap } from './map.js';
 import { setupLod } from './lod.js';
 import { build as buildPeople, PEOPLE } from './people.js';
 import { Player } from './player.js';
-import { LOT, WALL, SITE } from './layout.js';
+import { LOT, WALL, SITE, DEATH } from './layout.js';
 import { marks, settle } from './build.js';
 import { buildVillage, terrainH, inPoly } from './village.js';
 
@@ -23,7 +23,7 @@ document.body.classList.toggle('touch', TOUCH);
 // 새 배치로 옮기는 중: 지금은 제자리가 그대로인 호카게 관저만 세운다. 나머지(academy·naruto·homes·ichiraku·uchiha)는 새 자리로 옮긴 뒤 다시 넣는다.
 const BUILDINGS = [
   // [이름(SITE의 이름), 알림, 짓는 파일(이름과 다를 때)]
-  ['hokage', '호카게 관저를 올리는 중…'], ['academy', '닌자 아카데미를 짓는 중…'], ['swing', '아카데미 마당에 그네를 다는 중…'],
+  ['hokage', '호카게 관저를 올리는 중…'], ['root', '땅속 깊은 곳을 파는 중…'], ['academy', '닌자 아카데미를 짓는 중…'], ['swing', '아카데미 마당에 그네를 다는 중…'],
   ['naruto', '나루토의 집을 짓는 중…'], ['sakura', '사쿠라의 집을 짓는 중…', 'homes'], ['ino', '야마나카 꽃집을 여는 중…', 'homes'],
   ['ichiraku', '이치라쿠 라멘의 국물을 끓이는 중…'], ['choji', '쵸지네 밥상을 차리는 중…', 'homes'], ['inoichi', '야마나카 본가의 꽃병에 물을 가는 중…', 'homes'], ['hyuga', '휴우가 종가의 다다미를 까는 중…', 'homes'], ['sarutobi', '사루토비 본가의 서가를 채우는 중…', 'homes'], ['inuzuka', '이누즈카 본가의 밥그릇을 채우는 중…', 'homes'], ['aburame', '아부라메 본가의 사육 상자를 살피는 중…', 'homes'], ['nara', '시카마루네 장기판을 펴는 중…', 'homes'], ['sasuke', '사스케의 집을 짓는 중…', 'uchiha'], ['shrine', '남가 신사를 세우는 중…', 'uchiha'],
 ];
@@ -159,7 +159,9 @@ async function init() {
     ui.hud.classList.toggle('sky', on); $('#skyBar').classList.toggle('hidden', !on); $('#btnSky').classList.toggle('on', on);
   };
   player.onLock = locked => {
-    ui.menu.classList.toggle('hidden', locked || mapOpen); ui.hud.classList.toggle('hidden', !locked && !mapOpen);   // 지도를 편 것이면 두루마리는 띄우지 않고, 미니맵도 그대로 둔다
+    // 지도를 편 것이면 두루마리는 띄우지 않는다. 걷다가 Esc로 두루마리를 띄웠을 때도 미니맵은 그대로 보인다(HUD에서 미니맵만 남긴다)
+    const menuUp = !locked && !mapOpen;
+    ui.menu.classList.toggle('hidden', !menuUp); ui.hud.classList.toggle('hidden', menuUp && !started); ui.hud.classList.toggle('menu', menuUp && started);
     player.roam = mapOpen && !locked; if (!locked) freedAt = performance.now(); else waitLock = false;   // 지도를 편 채 마우스가 풀렸으면 자판만으로 걷는다
     $('#enterBtn').textContent = started ? '계속 걷기' : '마을로 들어가기';
     if (sound.ctx) locked || mapOpen ? sound.ctx.resume() : sound.ctx.suspend();
@@ -167,6 +169,7 @@ async function init() {
   /* ---------- 지도: 걷는 동안의 미니맵, M으로 여닫는 전체 지도 ---------- */
   const vmap = new VillageMap({ places, jumps, mini: $('#mini'), view: $('#mapView'), canvas: $('#mapCanvas'), panel: $('#mapPanel'), here: $('#mapHere') });
   // 그 자리의 이름(가장 먼저 걸리는 이름표). 하늘에서는 방처럼 높이가 정해진 자리는 치지 않는다
+  let hereName = '', nameTick = 0, heldAt = null;   // heldAt = 이름 붙은 곳에 마지막으로 서 있던 자리
   const placeAt = (x, y, z) => places.find(q => x >= q.b[0] && x <= q.b[1] && z >= q.b[2] && z <= q.b[3] && (!q.y || (y >= q.y[0] - 0.3 && y < q.y[1])) && (!q.poly || inPoly(x, z, q.poly))) || null;   // poly가 있으면 그 다각형 안일 때만
   // 전체 지도는 편 채로도 걷는다. 마우스를 놓지 않으므로 누르고 있던 자판이 그대로 살아 달리던 걸음이 끊기지 않고, 마우스로 방향도 바꾼다.
   // Esc로 마우스를 풀면 지도를 짚어 볼 수 있다(그동안은 자판으로 걷고 좌우 화살표로 몸을 돌린다). 지도를 누르면 마우스를 다시 잡는다.
@@ -329,6 +332,8 @@ async function init() {
       tick: (t, dt) => { for (const f of ticks) f(t, dt); }, draw: () => (toonOn ? toon.render(scene, camera) : renderer.render(scene, camera)) });
     return;
   }
+  let gloom = 0, gloomCss = '';
+  const gloomEl = $('#gloom'), GLOOM_FOG = new THREE.Color(0x24364e);
   function frame() {
     requestAnimationFrame(frame);
     if (innerWidth !== viewW || innerHeight !== viewH) fit();
@@ -356,6 +361,11 @@ async function init() {
     weather.update(wdt, camera);
     if (player.sky && started) scene.fog.density *= 0.3;   // 하늘에서는 안개를 걷어 마을 끝까지 보이게
     if (toonOn) scene.fog.density *= 0.5;                  // 만화 화풍은 먼 데까지 또렷하다(바위가 뿌옇게 바래지 않게)
+    // 죽음의 숲: 철망 안으로 들어갈수록 어두워지고 푸른 빛이 덮인다(안개도 짙고 검푸르게, 볕은 약하게). 하늘에서 볼 때는 덮지 않는다
+    { const at = camera.position, dg = !player.sky ? Math.max(0, Math.min(1, (DEATH.rf + 6 - Math.hypot(at.x - DEATH.c[0], at.z - DEATH.c[1])) / 30)) : 0;
+      if (gloomCss === '' || Q.get('shot')) gloom = dg; else gloom += (dg - gloom) * (1 - Math.exp(-dt * 1.6));   // 처음 뜰 때와 확인용 화면에서는 곧바로
+      if (gloom > 0.004) { scene.fog.color.lerp(GLOOM_FOG, gloom * 0.9); scene.fog.density += (0.03 - scene.fog.density) * gloom; weather.sun.intensity *= 1 - 0.55 * gloom; renderer.toneMappingExposure *= 1 - 0.18 * gloom; }
+      const gs = (gloom * 0.86).toFixed(3); if (gs !== gloomCss) gloomEl.style.setProperty('--g', gloomCss = gs); }
     for (const f of ticks) f(weather.t, wdt);
     if (Q.get('freeze')) weather.leaves.visible = false;
     const p = camera.position;
@@ -371,8 +381,21 @@ async function init() {
     // 미니맵: 걷는 동안은 둘레 120m, 하늘에서는 높이만큼 넓게
     if (started && !ui.hud.classList.contains('hidden')) {
       const at = player.sky ? player.skyPos : player.pos;
-      vmap.drawMini(at.x, at.z, player.yaw, Math.min(760, MINI[miniI] * (player.sky ? Math.max(1.25, Math.min(6, player.skyHeight() / 110)) : 1)));
-      if (mapOpen) { const pl = placeAt(at.x, player.sky ? -99 : player.pos.y, at.z); vmap.mark(at.x, at.z, player.yaw, pl ? pl.n : '마을 밖 숲', player.locked && !player.touchMode); }
+      // 땅속(뿌리 본거지)에 들어가 있으면 지도도 그 층의 지하 도면으로 바뀐다
+      const deep = !player.sky && player.pos.y < -1.5 ? vmap.levelAt(at.x, player.pos.y, at.z) : -1;
+      if (deep !== vmap.level) { vmap.setLevel(deep); $('#mapView h2').textContent = deep < 0 ? '나뭇잎 마을 지도' : '뿌리 본거지 · ' + vmap.levelName(); }
+      vmap.drawMini(at.x, at.z, player.yaw, deep >= 0 ? Math.min(60, MINI[miniI] * 0.4) : Math.min(760, MINI[miniI] * (player.sky ? Math.max(1.25, Math.min(6, player.skyHeight() / 110)) : 1)));
+      // 미니맵 위 팻말과 전체 지도의 현재위치: 지금 선 자리의 이름(자리 찾기는 여섯 장에 한 번)
+      if (!(nameTick++ % 6) || mapOpen) {
+        const y = player.sky ? -99 : player.pos.y, pl = placeAt(at.x, y, at.z), broad = !pl || pl.n === '나뭇잎 마을';
+        let n = pl ? pl.n : '마을 밖 숲';
+        // 이름 붙은 곳을 막 벗어난 틈(문턱, 담과 울타리 사이)에서는 앞의 이름을 그대로 둔다 — 7m 넘게 벗어나야 '나뭇잎 마을'로 바뀐다
+        if (!broad) heldAt = player.sky ? null : [at.x, y, at.z];
+        else if (heldAt && !player.sky && Math.hypot(at.x - heldAt[0], at.z - heldAt[2]) < 7 && Math.abs(y - heldAt[1]) < 3.5) n = hereName;
+        else heldAt = null;
+        if (n !== hereName) $('#miniName b').textContent = hereName = n;
+      }
+      if (mapOpen) vmap.mark(at.x, at.z, player.yaw, hereName, player.locked && !player.touchMode);
     }
     if (lod) lod.tick();
     if (toonOn) toon.render(scene, camera); else renderer.render(scene, camera);
@@ -396,6 +419,28 @@ async function init() {
     renderer.info.autoReset = true;
     return out;
   };
+  // 확인용: 겹쳐서 깜빡이는 면 찾기. 자리마다 가까운 면(near)만 조금 바꿔 두 장을 그려, 달라진 8점 묶음의 수와 그 한가운데(화면 비율)를 돌려준다.
+  // views = [[x, 발 높이 y, z, yaw, pitch], …]
+  let zrt = null;
+  window.__zscan = (views, W = 640, H = 360) => {
+    zrt = zrt || new THREE.WebGLRenderTarget(W, H);
+    const a = new Uint8Array(W * H * 4), b = new Uint8Array(W * H * 4), out = [], asp = camera.aspect, near = camera.near;
+    weather.leaves.visible = false; camera.aspect = W / H;
+    const shot = (n, buf) => { camera.near = n; camera.updateProjectionMatrix(); renderer.setRenderTarget(zrt); renderer.render(scene, camera); renderer.readRenderTargetPixels(zrt, 0, 0, W, H, buf); renderer.setRenderTarget(null); };
+    for (const [x, y, z, yaw, pitch] of views) {
+      player.pos.set(x, y, z); player.yaw = yaw; player.pitch = pitch; player.sync();
+      if (x !== zrt.x || z !== zrt.z || y !== zrt.y) { zrt.x = x; zrt.y = y; zrt.z = z; for (let i = 0; i < 60; i++) for (const f of ticks) f(weather.t, 0.016); }   // 자리가 바뀌었을 때만 둘레를 그 자리에 맞춘다
+      if (lod) { for (let i = 0; i < 200000 && lod.stats().pending; i++) lod.tick(); lod.tick(); }
+      shot(0.18, a); shot(0.1931, b);
+      const BW = W >> 3, BH = H >> 3, cnt = new Uint8Array(BW * BH);
+      for (let py = 0; py < BH * 8; py++) for (let px = 0; px < BW * 8; px++) { const i = (py * W + px) * 4; if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])) > 30) cnt[(py >> 3) * BW + (px >> 3)]++; }
+      let n = 0, sx = 0, sy = 0; for (let i = 0; i < cnt.length; i++) if (cnt[i] >= 6) { n++; sx += i % BW; sy += Math.floor(i / BW); }
+      out.push(n ? [n, +(sx / n / BW).toFixed(2), +(1 - sy / n / BH).toFixed(2)] : 0);
+    }
+    camera.aspect = asp; camera.near = near; camera.updateProjectionMatrix();
+    return out;
+  };
+  window.__places = places; window.__jumps = jumps;
   window.__ready = true; window.__player = player; window.__scene = scene; window.__camera = camera; window.__lod = lod;   // 확인용
 }
 

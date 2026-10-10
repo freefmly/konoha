@@ -2,7 +2,7 @@
 // 하늘에서 보기(sky): 몸은 그 자리에 두고 눈만 하늘로 올라가 마을을 내려다보며 날아다닌다. 끝내면 내려다보던 자리에 내려선다.
 import * as THREE from '../vendor/three.module.js';
 import { nearAll, roofAt } from './build.js';
-import { WALL, NARA_FOREST, inNaraForest } from './layout.js';
+import { WALL, NARA_FOREST, inNaraForest, inDeathForest } from './layout.js';
 
 const RAD = 0.34, HEIGHT = 1.75, EYE = 1.62, STEP = 0.5, WALK = 4.6, RUN = 9.5, JUMP = 6.4, GRAV = 20;
 // 모아 뛰기: HOLD초 넘게 누르고 있으면 힘이 모이기 시작해 CHARGE초 만에 가득 찬다. 가득 모으면 LEAP_H(m)까지 솟는다.
@@ -20,7 +20,6 @@ export class Player {
     this.jumpHeld = false; this.hold = 0; this.charge = 0; this.dip = 0;   // 뛰기 단추를 누르고 있는가, 누른 시간, 모인 힘(0~1), 착지 때 무릎 굽힘
     this.sky = false; this.skyPos = new THREE.Vector3(); this.skyVel = new THREE.Vector3();   // 하늘에서 보기: 켜졌는가, 눈의 자리, 나는 속도
     this.roam = false;   // 지도를 펴 든 채 걷는 중(마우스는 풀려 있다): 자판으로 걷고, 좌우 화살표로 몸을 돌린다
-    addEventListener('wheel', e => { if (this.sky && this.locked) this.skyVel.y += Math.sign(e.deltaY) * Math.max(14, this.skyHeight() * 0.9); }, { passive: true });   // 휠: 높이(내리면 올라가고 올리면 내려간다)
     addEventListener('keydown', e => { this.keys[e.code] = true; if ((this.locked || this.roam) && ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault(); });
     addEventListener('keyup', e => { this.keys[e.code] = false; });
     addEventListener('blur', () => { this.keys = {}; });
@@ -89,20 +88,21 @@ export class Player {
   skyHeight() { return this.skyPos.y - Math.max(0, this.terrain(this.skyPos.x, this.skyPos.z)); }
   // 손가락용: 높이를 차례로 바꾼다
   skyStep() { const h = this.skyHeight(), i = SKY_STEPS.findIndex(s => s > h + 5); this.skyVel.y = 0; this.skyPos.y += SKY_STEPS[i < 0 ? 0 : i] - h; }
-  // 하늘에서: WASD로 보는 쪽 기준 앞뒤좌우, 휠로 높이, Shift 빠르게. 높이 날수록 빨리 난다.
+  // 하늘에서: W·S는 보는 쪽으로 곧장(내려다보며 W를 누르면 내려가고, 올려다보며 누르면 올라간다), A·D는 옆으로, Space(E)는 위로, Q는 아래로, Shift 빠르게
   skyUpdate(dt) {
     const k = this.keys, p = this.skyPos, v = this.skyVel;
     let fx = 0, fz = 0, fy = 0;
+    if (this.locked || this.roam) fy = (k.Space || k.KeyE ? 0.7 : 0) - (k.KeyQ ? 0.7 : 0);
     if (this.roam) this.yaw += ((k.ArrowLeft ? 1 : 0) - (k.ArrowRight ? 1 : 0)) * dt * 1.9;
     if (this.locked || this.roam) {
       if (k.KeyW || k.ArrowUp) fz -= 1; if (k.KeyS || k.ArrowDown) fz += 1;
       if (k.KeyA || (k.ArrowLeft && !this.roam)) fx -= 1; if (k.KeyD || (k.ArrowRight && !this.roam)) fx += 1;
       fx += this.touch.x; fz += this.touch.z;
     }
-    const h = this.skyHeight(), fast = k.ShiftLeft || k.ShiftRight || this.touch.run, sp = Math.max(18, h * 0.75) * (fast ? 2.6 : 1);
-    const len = Math.max(1, Math.hypot(fx, fz)), s = Math.sin(this.yaw), c = Math.cos(this.yaw), a = 1 - Math.exp(-dt * 7);
-    v.x += ((fx * c + fz * s) / len * sp - v.x) * a; v.z += ((-fx * s + fz * c) / len * sp - v.z) * a;
-    v.y += (fy * Math.max(14, h * 0.7) * (fast ? 2 : 1) - v.y) * (1 - Math.exp(-dt * (fy ? 7 : 4)));
+    const fast = k.ShiftLeft || k.ShiftRight || this.touch.run, sp = fast ? 95 : 32;
+    const s = Math.sin(this.yaw), c = Math.cos(this.yaw), cp = this.touchMode ? 1 : Math.cos(this.pitch), a = 1 - Math.exp(-dt * 14);   // 손가락으로 볼 때는 높이를 단추로 바꾸므로 앞뒤로만 난다
+    v.x += ((fx * c + fz * s * cp) * sp - v.x) * a; v.z += ((-fx * s + fz * c * cp) * sp - v.z) * a;
+    v.y += (((this.touchMode ? 0 : -Math.sin(this.pitch) * fz) + fy) * sp - v.y) * a;
     p.x += v.x * dt; p.y += v.y * dt; p.z += v.z * dt;
     const lim = WALL.r + SKY_OUT, ox = p.x - WALL.cx, oz = p.z - WALL.cz, d = Math.hypot(ox, oz);
     if (d > lim) { p.x = WALL.cx + ox * lim / d; p.z = WALL.cz + oz * lim / d; }
@@ -189,7 +189,11 @@ export class Player {
     }
     // 담 밖으로는 숲 가장자리까지만 나갈 수 있다
     const lim = WALL.r + 77, ox = p.x - WALL.cx, oz = p.z - WALL.cz, d = Math.hypot(ox, oz);
-    if (d > lim && !inNaraForest(p.x, p.z, -8)) {
+    const inDeath = inDeathForest(p.x, p.z, 6);   // 죽음의 숲: 철망 밖 6m까지(철망을 뛰어넘어도 멀리 못 간다)
+    if (inDeath) this.deathAt = [p.x, p.z];
+    else if (d > lim && this.deathAt && Math.hypot(p.x - this.deathAt[0], p.z - this.deathAt[1]) < 4) { p.x = this.deathAt[0]; p.z = this.deathAt[1]; }
+    else if (d > lim && !inNaraForest(p.x, p.z, -8)) {
+      this.deathAt = null;
       // 나라 숲 쪽이면 숲 가장자리로, 아니면 담 쪽으로 — 둘 가운데 가까운 데로 되돌린다
       const F = NARA_FOREST, a = Math.max(F.a0 + 0.012, Math.min(F.a1 - 0.012, Math.atan2(oz, ox)));
       const rr = Math.min(d, F.r1 - 8, (F.xMax - 8 - WALL.cx) / Math.cos(a)), fx = WALL.cx + Math.cos(a) * rr, fz = WALL.cz + Math.sin(a) * rr;

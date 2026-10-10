@@ -9,6 +9,8 @@ import { uchihaKit } from './b_uchiha.js';
 import { PLAN } from './plan-data.js';
 import { LOTS, OPEN, BARE, zoneGroups } from './zones.js';
 import { inPoly } from './village.js';
+import { campus } from './campus.js';
+import { deathForest } from './deathforest.js';
 
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
 const zone = n => PLAN.zones.find(z => z.n === n);
@@ -2445,6 +2447,10 @@ export async function build(scene, ctx) {
   arena(scene, out);
   await ctx.say('온천 물을 데우는 중…');
   onsen(scene, out);
+  await ctx.say('아카데미 훈련장의 말뚝을 박는 중…');
+  campus(scene, out);
+  await ctx.say('죽음의 숲에 철망을 두르는 중…');
+  deathForest(scene, out);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }

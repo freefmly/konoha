@@ -105,7 +105,20 @@ export function nearAll(x, z, r, out) {
    얇은 한 장짜리 바닥이라 밑에서는 그냥 지나가고(처마 밑을 걷거나 뛰어올라 통과), 위에서 내려올 때만 받쳐 준다. */
 const roofs = [];   // [x0, z0, x1, z1, (x, z) → 높이(면 밖이면 -Infinity)]
 let roofGrid = null;
-export function addRoof(x0, z0, x1, z1, fn) { roofs.push([x0, z0, x1, z1, fn]); roofGrid = null; }
+// round: 둥근 지붕인가(지도에 건물 바닥꼴을 그릴 때 동그라미로 그린다)
+export function addRoof(x0, z0, x1, z1, fn, round = false) { roofs.push([x0, z0, x1, z1, fn, round]); roofGrid = null; }
+// 지도에 그릴 건물 바닥꼴. 지붕면의 테두리에서 얻는다(길가 집은 자리에 적어 둔 바닥꼴 fp). { p: 네 모서리 } 또는 { c: [x, z, 반지름] }, house = 길가 집
+export function footprints() {
+  const out = [];
+  const add = (r, P, house) => {
+    const w = r[2] - r[0], d = r[3] - r[1]; if (w < 2 || d < 2 || w > 90 || d > 90) return;
+    if (r[5]) { const c = P((r[0] + r[2]) / 2, (r[1] + r[3]) / 2); out.push({ c: [c[0], c[1], Math.min(w, d) / 2], house }); }
+    else out.push({ p: [P(r[0], r[1]), P(r[2], r[1]), P(r[2], r[3]), P(r[0], r[3])], house });
+  };
+  for (const r of roofs) add(r, (x, z) => [x, z], false);
+  for (const s of sites) { if (s.fp) add(s.fp, s.toWorld, true); else for (const r of s.rs) add(r, s.toWorld, false); }
+  return out;
+}
 // (x, z)에서 limit 높이 이하인 지붕면 가운데 가장 높은 것. 없으면 -Infinity.
 export function roofAt(x, z, limit) {
   if (!roofGrid) {
@@ -312,7 +325,8 @@ export function wall(B, mat, axis, f0, f1, u0, u1, y0, y1, openings = [], collid
     let y = y0;
     const ys = o.ys.slice().sort((p, q) => p[0] - q[0]), whole = collide && solidWindows && ys.length && ys[0][0] > y0 + 0.5;
     if (whole) { hard = false; if (axis === 'x') addCollider(o.u0, y0, f0, o.u1, y1, f1); else addCollider(f0, y0, o.u0, f1, y1, o.u1); }
-    for (const [a, b] of ys) { put(o.u0, o.u1, y, a); y = b; }
+    // 문 밑에 남는 낮은 벽은 3cm 낮춘다 — 그 윗면이 방바닥 윗면과 한 높이면 문턱에서 두 면이 겹쳐 깜빡인다
+    for (const [a, b] of ys) { put(o.u0, o.u1, y, y === y0 && a - y0 < 0.6 ? a - 0.03 : a); y = b; }
     put(o.u0, o.u1, y, y1);
     hard = collide;
     u = o.u1;

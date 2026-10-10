@@ -34,7 +34,7 @@ export const ZONES = [
   // ── 관저 앞 첫 고리(r 56~122)
   { n: 6, name: '사루토비 구역', fill: '#b9692a', at: pol(-54, 89), fan: [-66, -42, 56, 122], note: '새로(겉모습)' },
   { n: 4, name: '상급닌자 대기소', fill: '#3d8f6a', at: pol(-8.5, 69), pts: sector(-12, -5, 56, 82), note: '새로(겉모습) · 아카데미 터 안 큰길 모퉁이' },
-  { n: 3, name: '아카데미 터', fill: '#f4e3a1', at: pol(-38, 72), pts: sector(-42, -2.5, 56, 122), note: '교사 이사 + 운동장·훈련관·별관 · 큰길에 맞닿음' },
+  { n: 3, name: '아카데미 터', fill: '#f4e3a1', at: pol(-38, 72), pts: sector(-42, -2.5, 56, 122), note: '교사(둥근 탑)·앞마당·그네 나무·제1 훈련장·운동장·실내 훈련장·창설 기념비 · 큰길에 맞닿음' },
   { n: 28, name: '정보부', fill: '#6b5a8c', at: pol(11.5, 71), pts: sector(5, 18, 56, 87), note: '새로(겉모습)' },
   { n: 29, name: '전서구 탑', fill: '#c9a227', at: pol(13, 106), circle: [...pol(13, 106), 6], note: '새로(겉모습)' },
   { n: 30, name: '묘지', fill: '#555555', at: pol(73, 86), pts: sector(63, 88, 56, 122), note: '새로' },
@@ -81,7 +81,7 @@ export const PIER = [pol(29, 292), pol(29, 305)];                               
 export const NE_STREAM = [[452, 60], [450, 100], [456, 150], [470, 186], [471, 214], [460, 234]];
 // 훈련장(과녁 표시)
 export const TRAIN = [
-  { id: '1', at: pol(-29.5, 41), name: '제1 훈련장 — 아카데미 옆, 기초 단련' },
+  { id: '1', at: [183.8, 245.2], name: '제1 훈련장 — 아카데미 터 안, 기초 단련' },   // 아카데미 앞마당 옆(js/campus.js가 짓는다)
   { id: '2', at: [ISLE.x, ISLE.y], name: '제2 훈련장 — 섬 있는 못(물 위 수련)' },
   { id: '3', at: [330, 76], name: '제3 훈련장 — 통나무 셋·냇물·위령비' },
   { id: '4', at: [372, 318], name: '제4 훈련장 — 정문 쪽 공원' },
@@ -102,12 +102,15 @@ export const GREEN = [
   sector(18, 45, 30, 52), sector(45, 63, 30, 52), sector(63, 88, 30, 52),
   
 ];
+export const RING_N = 8;   // GREEN의 마지막 여덟 조각(관저 앞 나무 고리)은 이제 숲이 아니라 집 블록이다. 목록에는 그대로 둔다 — 일반 블록을 자를 때와 나무를 심는 차례가 바뀌면 온 마을이 다시 섞인다
 export const ROADSIDE = { x0: 131, x1: 199, off: 4.5, w: 4, step: 6.2 };   // 큰길 양쪽 가로수 줄: 나무 고리 밖(x0)부터 첫 둥근 길(x1)까지, 길 가장자리에서 폭 w
 export const ROCK = [[57, 189], [57, 345], [50, 378], [30, 402], [-4, 393], [-16, 267], [-4, 141], [30, 132], [50, 156]];
 export const PLAZA = [[496, 246], [522, 249], [522, 266], [496, 266]];   // 정문 안 마당
 export const PLAZA_OLD = [[446, 226], [522, 236], [522, 266], [446, 266]];   // 처음 잡았던 넓은 마당. 일반 블록은 이 자리를 비운 채로 잘라 둔다(블록 차례가 바뀌면 온 마을의 집이 다시 섞인다)
 // 줄인 마당 자리에 덧붙인 블록: 큰길가 가게 줄 둘(사이 골목은 못으로 간다), 마당 옆 한 칸
 export const EXTRA_BLOCKS = [[[447.5, 251.1], [466, 251.1], [466, 264.5], [447.5, 264.5]], [[470, 251.1], [493.5, 251.1], [493.5, 264.5], [470, 264.5]], [[497, 228], [507, 228], [508, 243], [497, 243]]];
+// 관저를 두른 집 블록 여덟(나무 고리였던 자리). 바큇살 길과 큰길 자리만큼 안으로 들여 자른다
+EXTRA_BLOCKS.push(sector(-88, -66, 31, 51.5), sector(-66, -42, 31, 51.5), sector(-42, -17, 31, 51.5), sector(-17, -6, 31, 51.5), sector(6, 18, 31, 51.5), sector(18, 45, 31, 51.5), sector(45, 63, 31, 51.5), sector(63, 88, 31, 51.5));   // 블록끼리 맞닿는다: 사이의 바큇살 길은 풀밭으로 덮고 큰길만 남긴다
 export const PONDS = [[463, 322, 11, 9], [398, 344, 10, 7], [460, 238, 7, 6]];   // 작은 못: 나카 강이 끝나는 못, 공원 못, 냇물이 끝나는 못 [x, y, rx, ry]
 export const PARK_POND = { x: 350.6, y: 176, rx: 9.6, ry: 12, isle: 4.4 };            // 센주 공원의 못과 한가운데 섬(큰 나무가 선다)
 export const BROOK = [[330, 22], [334, 60], [322, 96]];                          // 제3 훈련장의 냇물
@@ -224,7 +227,7 @@ s += `<ellipse cx="50" cy="462" rx="30" ry="19" fill="#9ccbe6"/><polygon points=
 s += `<g clip-path="url(#wall)"><circle cx="${C.x}" cy="${C.y}" r="${C.r}" fill="${DETAIL ? ROAD : BLOCK}"/>`;
 if (DETAIL) { const TAN = ['#c49a55', '#bf9550', '#c9a05b']; for (const b of [...townBlocks(), ...EXTRA_BLOCKS]) s += `<polygon points="${P(b)}" fill="${TAN[Math.floor(rnd() * 3)]}"/>`; }
 else s += `<polygon points="${P(sector(-89, 89, 13, 56))}" fill="${ROAD}"/>`;
-for (const g of GREEN) s += `<polygon points="${P(g)}" fill="url(#trees)"/>`;
+for (const g of GREEN.slice(0, -RING_N)) s += `<polygon points="${P(g)}" fill="url(#trees)"/>`;
 s += `<polygon points="${P([[340, 20], [470, 20], [462, 62], [420, 68], [346, 66]])}" fill="#0f3d17" opacity="0.75"/>${line([[344, 67], [420, 69], [462, 63]], 1.4, '#222', 'stroke-dasharray="3 2"')}`;
 // 구역
 for (const z of ZONES) {

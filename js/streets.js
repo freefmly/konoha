@@ -9,7 +9,7 @@ import { mat, dressLeaves } from './materials.js';
 import { makeKit, boxHouse, towerHouse, WALLS, ROOFS, SHOPS } from './town.js';
 import { treeGeometry, bushGeometry, tuftGeometry, blob } from './flora.js';
 import { PLAN } from './plan-data.js';
-import { WALL, CLIFF, STAIR, SITE, NARA_FOREST, inNaraForest, naraTrailDist } from './layout.js';
+import { WALL, CLIFF, STAIR, SITE, NARA_FOREST, inNaraForest, naraTrailDist, DEATH, inDeathForest, deathTrailDist, deathRiverDist } from './layout.js';
 import { terrainH, inPoly } from './village.js';
 import { zoneGroups, LOTS, OPEN, BARE } from './zones.js';
 import { fillCells, pathDist, PATHS } from './fields.js';
@@ -18,6 +18,8 @@ const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const HC = 80, TC = 40, SC = 160;             // 집 칸, 나무·풀 칸, 먼 나무를 묶는 큰 칸의 한 변(m)
 
 /* ---------- 땅의 쓰임새: 2m 칸으로 미리 그려 둔다 ---------- */
+const LAWN = 10;   // 관저 담 둘레의 풀밭(메운 풀밭 MEADOW와 따로 둔다 — 풀밭에 나무를 심는 차례가 바뀌지 않게)
+const HOK = SITE.hokage, lawnAt = (x, z) => { const d = Math.hypot(x - HOK.x, z - HOK.z); return d > 42.5 && z > CLIFF.z + 1 && (d < 58 || (z < HOK.z - 30 && Math.abs(x) < 62)) && !(Math.abs(x) < 8 && z > HOK.z); };
 const DIRT = 0, TOWN = 1, GREEN = 2, ZONE = 3, OUT = 4, HILL = 5, MEADOW = 6, FIELD = 7, HOLD = 8, HOUSE = 9;   // MEADOW·FIELD = 메운 빈 터(풀밭, 논밭 터), HOLD = 줄이기 전의 정문 마당 자리(잔디)
 const LU = 2, LX0 = WALL.cx - WALL.r - 4, LZ0 = WALL.cz - WALL.r - 4, LN = Math.ceil((WALL.r * 2 + 8) / LU);
 const land = new Uint8Array(LN * LN);
@@ -39,7 +41,7 @@ function paintLand() {
       }
   };
   for (const b of PLAN.town) fill(b, TOWN);
-  for (const p of PLAN.greens) fill(p, GREEN);
+  for (const p of [...PLAN.greens, ...PLAN.greensGone]) fill(p, GREEN);
   for (const z of PLAN.zones) { if (z.blocks) { fill(z.poly, DIRT); for (const b of z.blocks) fill(b, ZONE); } else fill(z.poly, ZONE); }
   const R = PLAN.roads, rs = PLAN.roadside;
   fill(R.plazaOld, HOLD);                                                          // 처음의 넓은 정문 마당: 먼저 선 집들이 그대로 있도록 집을 세우지 않는 자리로 둔다
@@ -54,6 +56,7 @@ function paintLand() {
   // 메운 빈 터와 못 둘레 산책길
   fillCells((x, z, kind) => { const i = Math.floor((z - LZ0) / LU) * LN + Math.floor((x - LX0) / LU); if (land[i] === DIRT || land[i] === HOLD) land[i] = kind === 1 ? MEADOW : FIELD; });
   for (const p of PATHS) for (let i = 0; i < p.pts.length - 1; i++) road(p.pts[i], p.pts[i + 1], p.w + 0.6);
+  for (let iz = 0; iz < LN; iz++) for (let ix = 0; ix < LN; ix++) if (land[iz * LN + ix] === DIRT && lawnAt(LX0 + (ix + 0.5) * LU, LZ0 + (iz + 0.5) * LU)) land[iz * LN + ix] = LAWN;
 }
 // 그 자리가 길(맨흙)인가 — 마을 사람이 걸을 자리를 고를 때 쓴다(people.js)
 export const isRoad = (x, z) => land !== null && landAt(x, z) === DIRT;
@@ -290,7 +293,22 @@ export async function build(scene, ctx) {
   const houses = planHouses(R, MB, groups);
   // 줄인 정문 마당 자리에 덧붙인 블록은 따로 굴린 수로 집을 세운다(먼저 선 집과 나무가 달라지지 않게)
   const extra = { polys: PLAN.townExtra, land: TOWN };
-  for (const b of extra.polys) fill(b, TOWN, [HOUSE]);
+  // 관저를 두른 나무 고리였던 자리는 집 블록이 된다: 숲이던 칸만 집터로 바꾼다(길과 큰길 가로수 띠는 그대로). 숲이던 칸은 적어 둔다(아래에서 나무 심는 차례를 지키는 데 쓴다)
+  const wasGreen = new Uint8Array(LN * LN), NR = PLAN.greensGone.length, rs0 = PLAN.roadside;
+  for (const p of PLAN.greensGone) { const b = [Math.min(...p.map(q => q[0])), Math.min(...p.map(q => q[1])), Math.max(...p.map(q => q[0])), Math.max(...p.map(q => q[1]))];
+    for (let iz = Math.max(0, Math.floor((b[1] - LZ0) / LU)); iz <= Math.min(LN - 1, Math.floor((b[3] - LZ0) / LU)); iz++) for (let ix = Math.max(0, Math.floor((b[0] - LX0) / LU)); ix <= Math.min(LN - 1, Math.floor((b[2] - LX0) / LU)); ix++) {
+      const x = LX0 + (ix + 0.5) * LU, z = LZ0 + (iz + 0.5) * LU, i = iz * LN + ix;
+      if (land[i] !== GREEN || !inPoly(x, z, p)) continue;
+      wasGreen[i] = 1; if (!(Math.abs(Math.abs(x) - rs0.off - rs0.w / 2) < rs0.w / 2 && z > rs0.z0 && z < rs0.z1)) land[i] = TOWN;
+    } }
+  const wasGreenAt = (x, z) => { const ix = Math.floor((x - LX0) / LU), iz = Math.floor((z - LZ0) / LU); return ix >= 0 && iz >= 0 && ix < LN && iz < LN && wasGreen[iz * LN + ix] === 1; };
+  extra.polys.slice(0, extra.polys.length - NR).forEach(b => fill(b, TOWN, [HOUSE]));
+  // 그 블록들 사이를 지나던 바큇살 길도 집터(풀밭)로 덮는다. 관저로 드는 큰길만 남긴다
+  for (const p of extra.polys.slice(-NR)) { const b = [Math.min(...p.map(q => q[0])), Math.min(...p.map(q => q[1])), Math.max(...p.map(q => q[0])), Math.max(...p.map(q => q[1]))];
+    for (let iz = Math.max(0, Math.floor((b[1] - LZ0) / LU)); iz <= Math.min(LN - 1, Math.floor((b[3] - LZ0) / LU)); iz++) for (let ix = Math.max(0, Math.floor((b[0] - LX0) / LU)); ix <= Math.min(LN - 1, Math.floor((b[2] - LX0) / LU)); ix++) {
+      const x = LX0 + (ix + 0.5) * LU, z = LZ0 + (iz + 0.5) * LU, i = iz * LN + ix;
+      if (land[i] === DIRT && Math.abs(x) > PLAN.roads.main.w / 2 + 0.5 && inPoly(x, z, p)) land[i] = TOWN;
+    } }
   houses.push(...planHouses(rng(20261009), MB, [extra]));
 
   /* ----- 집: 칸마다 가벼운 모습을 먼저 세운다 ----- */
@@ -305,6 +323,7 @@ export async function build(scene, ctx) {
     const from = marks();
     if (h.round) addCollider(-h.r * 0.75, 0, -h.r * 0.75, h.r * 0.75, h.H, h.r * 0.75); else addCollider(-h.w / 2, 0, -h.d / 2, h.w / 2, h.H, h.d / 2);
     h.site = makeSite(from, { x: h.x, z: h.z, ry: h.ry, pad: 2.5 });
+    h.site.fp = h.round ? [-h.r, -h.r, h.r, h.r, null, true] : [-h.w / 2, -h.d / 2, h.w / 2, h.d / 2, null, false];   // 지도에 그릴 바닥꼴
     h.spec = { x0: -h.w / 2, z0: -h.d / 2, x1: h.w / 2, z1: h.d / 2, front: 's', floors: h.floors, wall: h.wall, roof: h.roof, roofHex: h.roofHex, roofKind: h.roofKind, shop: h.shop, near: false, rise: h.rise };
     h.mat = mat4(h.x, 0, h.z, 0, h.ry, 0);
   }
@@ -322,6 +341,7 @@ export async function build(scene, ctx) {
     for (let a = -n; a <= n; a++) for (let b = -n; b <= n; b++) { const l = near4.get((gx + a) * 8192 + gz + b); if (l) for (const t of l) if (Math.hypot(t.x - x, t.z - z) < gap) return false; }
     return true;
   };
+  let ghost = false;
   const plant = (x, z, s, gap, big = false) => {
     if (Math.abs(Math.hypot(x - WALL.cx, z - WALL.cz) - WALL.r) < 4.5 || !clear(x, z, gap)) return;
     if (naraTrailDist(x, z) < 3.2) return;                                     // 나라 숲의 오솔길과 사슴 터
@@ -330,6 +350,8 @@ export async function build(scene, ctx) {
     if (y < -0.05) return;                                                     // 물
     const t = { x, y, z, s, ry: R() * Math.PI * 2, k: Math.floor(R() * 6), big };
     const key = Math.floor(x / 4) * 8192 + Math.floor(z / 4); let l = near4.get(key); if (!l) near4.set(key, l = []); l.push(t);
+    if (ghost) return;                                                         // 집 블록이 된 옛 숲 자리: 자리만 잡아 두고 심지는 않는다
+    if (inDeathForest(x, z, 3.5) || deathTrailDist(x, z) < 3.4) return;        // 죽음의 숲과 그 오솔길: 자리만 잡아 두고 심지는 않는다(숲 안에는 아래에서 큰 나무를 따로 심는다)
     if (pathDist(x, z) < 1.6) return;                                          // 못 둘레 산책길 위: 자리만 잡아 두고 심지는 않는다(다른 나무의 자리가 바뀌지 않게)
     trees.push(t);
     const r = 0.5 * s; addCollider(x - r, y - 1, z - r, x + r, y + 6, z + r);
@@ -346,6 +368,7 @@ export async function build(scene, ctx) {
   const bb = poly => { let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity; for (const p of poly) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); } return [x0, z0, x1, z1]; };
   const front = (x, z) => z < CLIFF.z + 14 && z >= CLIFF.z - 9 && Math.abs(x) < CLIFF.half + CLIFF.fall + 8;   // 절벽 앞면과 꼭대기 가장자리
   for (const poly of PLAN.greens) { const b = bb(poly); sow(b[0], b[1], b[2], b[3], STEP, (x, z) => inPoly(x, z, poly) && !front(x, z) && [GREEN, OUT, HILL].includes(landAt(x, z))); }
+  ghost = true; for (const poly of PLAN.greensGone) { const b = bb(poly); sow(b[0], b[1], b[2], b[3], STEP, (x, z) => inPoly(x, z, poly) && !front(x, z) && (wasGreenAt(x, z) || [GREEN, OUT, HILL].includes(landAt(x, z)))); } ghost = false;
   for (const zn of PLAN.zones) if (zn.park) { const b = bb(zn.poly); sow(b[0], b[1], b[2], b[3], STEP * 1.9, (x, z) => inPoly(x, z, zn.poly) && landAt(x, z) === ZONE, 0.9, 0.5); }
   // 담 밖을 두른 숲
   sow(WALL.cx - WALL.r - 115, WALL.cz - WALL.r - 115, WALL.cx + WALL.r + 115, WALL.cz + WALL.r + 115, STEP * 1.12, (x, z) => {
@@ -362,6 +385,22 @@ export async function build(scene, ctx) {
   // 덧붙인 블록의 안마당과, 메운 풀밭에 드문드문 선 나무
   if (!MB) for (const poly of extra.polys) { const b = bb(poly); for (let i = 0; i < 18; i++) { const x = b[0] + R() * (b[2] - b[0]), z = b[1] + R() * (b[3] - b[1]); if (inPoly(x, z, poly) && [-3.5, 3.5].every(o => landAt(x + o, z) === TOWN && landAt(x, z + o) === TOWN)) plant(x, z, 0.75 + R() * 0.4, 9, true); } }
   sow(WALL.cx - WALL.r, CLIFF.z, WALL.cx + WALL.r, WALL.gateZ, STEP * 2.3, (x, z) => landAt(x, z) === MEADOW && R() < 0.8, 0.8, 0.5);
+
+  // 관저 둘레(따로 굴린 수로 심는다): 담 뒤와 절벽 사이의 작은 숲, 담 둘레 풀밭에 듬성듬성 선 나무
+  { const R2 = rng(20261011), put = (x, z, s, gap) => { if (landAt(x, z) !== LAWN || !clear(x, z, gap)) return; const y = terrainH(x, z), t = { x, y, z, s, ry: R2() * Math.PI * 2, k: Math.floor(R2() * 6), big: false };
+      const key = Math.floor(x / 4) * 8192 + Math.floor(z / 4); let l = near4.get(key); if (!l) near4.set(key, l = []); l.push(t); trees.push(t); const r = 0.5 * s; addCollider(x - r, y - 1, z - r, x + r, y + 6, z + r); };
+    for (let z = CLIFF.z + 5; z < HOK.z - 30; z += 7.5) for (let x = -60; x < 60; x += 7.5) put(x + R2() * 6, z + R2() * 6, 0.85 + R2() * 0.5, 5.5);
+    for (let i = 0; i < 16; i++) { const a = (i + R2() * 0.7) / 16 * Math.PI * 2, d = 47.5 + R2() * 8; if (R2() < 0.3) continue; put(HOK.x + Math.sin(a) * d, HOK.z + Math.cos(a) * d, 0.7 + R2() * 0.35, 9); } }
+
+  // 죽음의 숲(따로 굴린 수로 심는다): 보통 나무의 세 곱절이 넘는 큰 나무를 철망 안에 빽빽이. 오솔길·탑 터·냇물은 비운다
+  { const R3 = rng(20261044), [cx, cz] = DEATH.c, ST = MB ? 30 : 21;
+    for (let z = cz - DEATH.rf; z < cz + DEATH.rf; z += ST) for (let x = cx - DEATH.rf; x < cx + DEATH.rf; x += ST) {
+      const px = x + R3() * ST * 0.8, pz = z + R3() * ST * 0.8, s = 2.5 + R3() * 1.5, ry = R3() * Math.PI * 2, k = Math.floor(R3() * 6);
+      if (!inDeathForest(px, pz, -5) || deathTrailDist(px, pz) < 5 + s || deathRiverDist(px, pz) < DEATH.river.w / 2 + 3 + s || Math.hypot(px - cx, pz - cz) < DEATH.tower + 6) continue;
+      if (Math.hypot(px - DEATH.snake[0], pz - DEATH.snake[1]) < 13 || Math.hypot(px - DEATH.centipede[0], pz - DEATH.centipede[1]) < 9) continue;
+      const y = terrainH(px, pz); if (y < -0.05) continue;
+      trees.push({ x: px, y, z: pz, s, ry, k, big: false }); const r = 0.42 * s; addCollider(px - r, y - 1, pz - r, px + r, y + 20, pz + r);
+    } }
 
   /* ----- 나무·덤불·풀: 칸으로 묶는다 ----- */
   const tcells = new Map();

@@ -17,6 +17,8 @@
 </head>
 <body>
   <canvas id="view"></canvas>
+  <!-- 죽음의 숲에 들면 화면에 덮이는 어둡고 푸른 빛 -->
+  <div id="gloom"></div>
 
   <!-- 짓는 동안 -->
   <div id="loading">
@@ -116,12 +118,13 @@
     </div>
     <!-- 미니맵: 보는 쪽이 위. 붉은 N이 북쪽 -->
     <canvas id="mini" aria-label="미니맵"></canvas>
+    <div id="miniName" aria-live="polite"><b></b></div>
     <div id="miniZoom"><button id="miniIn" aria-label="미니맵 확대">+</button><button id="miniOut" aria-label="미니맵 축소">−</button></div>
     <div class="aim"></div>
     <!-- 하늘에서 보는 동안: 높이와 조작 -->
     <div id="skyBar" class="hidden">
       <b>하늘에서 보기</b><em id="skyAlt"></em>
-      <span class="pc-only"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 날기 <kbd>휠</kbd> 내리면 높이, 올리면 낮게 <kbd>Shift</kbd> 빠르게 <kbd>V</kbd> 보던 자리에 내려서기</span>
+      <span class="pc-only"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 날기 <kbd>Space</kbd> 위로 <kbd>Q</kbd> 아래로 <kbd>Shift</kbd> 빠르게 <kbd>V</kbd> 보던 자리에 내려서기</span>
     </div>
     <!-- 모아 뛰기: 힘이 모이는 만큼 차오르는 띠 -->
     <div id="charge"><i></i></div>

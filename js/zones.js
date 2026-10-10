@@ -1347,8 +1347,13 @@ function farmland(scene, out) {
   { const p = plots.find(q => q.t === 0 && q.w > 12 && q.z > 640 && q.z < 720) || plots.find(q => q.t === 0); if (p) out.jumps.push(['서쪽 논밭', p.x + Math.cos(p.a) * 13, 0, p.z + Math.sin(p.a) * 13, yawTo(-Math.cos(p.a), -Math.sin(p.a)), 91.1]); }
 
   /* ----- 정문 쪽 두 못: 둘레 산책길의 걸상과 석등 ----- */
-  const seat = (c, rx, rz, deg) => { const a = deg * Math.PI / 180, x = c[0] + Math.cos(a) * rx, z = c[1] + Math.sin(a) * rz; OPEN.push([x, z, 2.6]); put(scene, { x, z, ry: Math.atan2(c[0] - x, c[1] - z) }, Bq => bench(Bq, M.beam, M.beamLight)); };
-  const lamp = (c, rx, rz, deg) => { const a = deg * Math.PI / 180, x = c[0] + Math.cos(a) * rx, z = c[1] + Math.sin(a) * rz, Bq = new Builder(); OPEN.push([x, z, 2.2]); stoneLantern(Bq, x, z); Bq.finish(scene); };
+  // 못은 반듯한 동그라미가 아니라서, 정해 둔 자리가 물에 걸리면 물가에서 1.5m 넘게 떨어질 때까지 바깥으로 물린다
+  // 그 방향이 냇물이 드나드는 쪽이면 바깥으로 물려도 계속 물이므로, 둘레를 따라 옆으로 조금씩 비켜 가며 찾는다
+  const ashore = (c, rx, rz, a0) => { const dry = (x, z) => { if (terrainH(x, z) < -0.02) return false; for (let q = 0; q < 8; q++) if (terrainH(x + Math.cos(q * 0.785) * 1.8, z + Math.sin(q * 0.785) * 1.8) < -0.02) return false; return true; };
+    for (let n = 0; n < 15; n++) { const a = a0 + (n % 2 ? 1 : -1) * Math.ceil(n / 2) * 0.1; for (let k = 1; k < 1.35; k += 0.02) { const x = c[0] + Math.cos(a) * rx * k, z = c[1] + Math.sin(a) * rz * k; if (dry(x, z)) return [x, z]; } }
+    return [c[0] + Math.cos(a0) * rx, c[1] + Math.sin(a0) * rz]; };
+  const seat = (c, rx, rz, deg) => { const a = deg * Math.PI / 180, [x, z] = ashore(c, rx, rz, a); OPEN.push([x, z, 2.6]); put(scene, { x, z, ry: Math.atan2(c[0] - x, c[1] - z) }, Bq => bench(Bq, M.beam, M.beamLight)); };
+  const lamp = (c, rx, rz, deg) => { const a = deg * Math.PI / 180, [x, z] = ashore(c, rx, rz, a), Bq = new Builder(); OPEN.push([x, z, 2.2]); stoneLantern(Bq, x, z); Bq.finish(scene); };
   for (const d of [185, 250, 110, 20]) seat(POND_E, 26.2, 29.2, d);
   for (const d of [215, 150, 320]) lamp(POND_E, 25.6, 28.6, d);
   for (const d of [-65, 20, 95]) seat(POND_W, 33.2, 38.2, d);

@@ -3,6 +3,8 @@
 // 구역·길·물길의 자리는 배치도(plan/plan.mjs)에서 뽑은 plan-data.js 가 원본이다.
 import { PLAN } from './plan-data.js';
 
+// 뿌리 본거지(땅속): 걷는 판정에서 땅을 깊이 파내는 범위 [x0, x1, z0, z1]와, 땅 그림에 뚫는 계단 입구(3m 칸에 맞춘다)
+export const ROOT = { x0: -200, x1: -110, z0: -147, z1: -101, hole: [-141, -129, -138, -120] };
 export const CLIFF = { z: -150, k: 1.8, top: 108, half: 234, fall: 100 };   // 절벽 앞면 z, 바위 배율(처음 빚은 크기의 몇 배), 꼭대기 높이, 평평한 반폭, 양옆 비탈 폭
 export const STAIR = { x0: 146, x1: 170 };   // 바위 꼭대기로 오르는 계단이 붙는 자리(x 범위)
 export const WALL = { cx: PLAN.wall.cx, cz: PLAN.wall.cz, r: PLAN.wall.r, gateZ: PLAN.wall.cz + PLAN.wall.r };   // 마을을 두른 담과 남쪽 정문
@@ -10,6 +12,7 @@ export const WALL = { cx: PLAN.wall.cx, cz: PLAN.wall.cz, r: PLAN.wall.r, gateZ:
 // 새 배치로 옮긴 건물의 자리. 건물은 옛 집터 좌표 그대로 짓고, 그 가운데(ox, oz)를 새 자리(x, z)에 놓아 ry만큼 돌린다. zone은 배치도의 구역 번호.
 // w, d는 집터의 크기(건물 좌표의 x, z 방향) — 그 자리에는 풀·나무를 심지 않는다.
 export const SITE = {
+  hokage: { x: 0, z: -90, ry: 0, ox: 0, oz: -104 },                                           // 호카게 관저 — 지은 자리(0,-104)에서 앞(남쪽)으로 14m. 뒤 담과 절벽 사이에 작은 숲이 들어선다
   academy: { zone: 3, x: 60, z: 120, ry: -Math.PI / 2, ox: 68, oz: -94, w: 56, d: 60 },      // 닌자 아카데미 — 아카데미 터의 큰길 쪽. 운동장과 정문이 큰길(서쪽)을 본다
   swing: { x: 60, z: 120, ry: -Math.PI / 2, ox: 68, oz: -94 },                               // 아카데미 마당의 그네 나무(아카데미와 같은 좌표)
   naruto: { zone: 11, x: 35.5, z: 298, ry: -1.527, ox: -51, oz: -18.5, w: 26, d: 27 },      // 나루토의 집 — 큰길 동쪽 블록, 큰길(서쪽)을 보고 블록 결을 따라 살짝 비스듬히
@@ -78,3 +81,22 @@ export const naraTrailDist = (x, z) => {
   for (let i = 0; i < F.trail.length - 1; i++) { const a = F.trail[i], b = F.trail[i + 1], vx = b[0] - a[0], vz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * vx + (z - a[1]) * vz) / (vx * vx + vz * vz))); d = Math.min(d, Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t)); }
   return d;
 };
+
+// 죽음의 숲(제44 훈련장, 담 밖 동남쪽): 철망을 두른 둥근 숲. 담의 작은 문에서 오솔길이 철망의 12번 문을 지나 한가운데의 탑까지 이어지고, 탑 동쪽으로 냇물이 흐른다.
+// a = 담의 문이 난 방향(담 한가운데에서 잰 각도), c = 숲의 한가운데, rf = 철망의 반지름, tower = 탑 터의 반지름
+export const DEATH = (() => {
+  const a = 0.42, u = [Math.cos(a), Math.sin(a)], t = [-u[1], u[0]], rf = 160, c = [WALL.cx + u[0] * (WALL.r + 185), WALL.cz + u[1] * (WALL.r + 185)];
+  const L = (du, dt) => [c[0] + u[0] * du + t[0] * dt, c[1] + u[1] * du + t[1] * dt];   // 숲 한가운데에서 담 반대쪽으로 du, 옆으로 dt
+  return {
+    a, u, t, c, rf, tower: 27, gate: [WALL.cx + u[0] * WALL.r, WALL.cz + u[1] * WALL.r],
+    trail: [L(-205, 0), L(-185, 0), L(-160, 0), L(-124, 16), L(-84, 24), L(-50, 9), L(-25, 0)],               // 담 안쪽 → 담의 문 → 철망의 문 → 탑
+    side: [L(8, -25), L(30, -44), L(52, -52)],                                                                  // 탑에서 냇가로
+    river: { pts: [L(196, -62), L(150, -40), L(104, -58), L(62, -64), L(18, -82), L(-40, -150), L(-56, -178)], w: 7 },
+    snake: L(66, -42), centipede: L(-96, 46),
+  };
+})();
+export const inDeathForest = (x, z, pad = 0) => Math.hypot(x - DEATH.c[0], z - DEATH.c[1]) < DEATH.rf + pad;
+const segD = (x, z, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], vx = b[0] - a[0], vz = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * vx + (z - a[1]) * vz) / (vx * vx + vz * vz))); d = Math.min(d, Math.hypot(x - a[0] - vx * t, z - a[1] - vz * t)); } return d; };
+// 오솔길에서 얼마나 떨어져 있나(m), 냇물 한가운데에서 얼마나 떨어져 있나(m)
+export const deathTrailDist = (x, z) => (Math.abs(x - DEATH.c[0]) > 260 || Math.abs(z - DEATH.c[1]) > 260 ? 1e9 : Math.min(segD(x, z, DEATH.trail), segD(x, z, DEATH.side)));
+export const deathRiverDist = (x, z) => (Math.abs(x - DEATH.c[0]) > 260 || Math.abs(z - DEATH.c[1]) > 260 ? 1e9 : segD(x, z, DEATH.river.pts));

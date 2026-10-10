@@ -8,6 +8,8 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #0f1410; color: var(--ink); font-family: var(--sans); }
 #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+/* 죽음의 숲: 화면 전체에 곱해 덮는 어둡고 푸른 빛과 가장자리의 어둠. 짙기(--g)는 main.js가 정한다 */
+#gloom { position: fixed; inset: 0; pointer-events: none; opacity: var(--g, 0); mix-blend-mode: multiply; background: radial-gradient(ellipse at 50% 55%, #5f7fb4 0%, #3c588e 55%, #17264a 100%); }
 .hidden { display: none !important; }
 kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: rgba(255, 255, 255, .45); color: var(--ink); }
 
@@ -83,15 +85,22 @@ kbd { font: 600 11px/1 var(--sans); padding: 3px 6px; border: 1px solid var(--li
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
 @keyframes unroll { from { clip-path: inset(0 100% 0 0); opacity: .4; } to { clip-path: inset(0 0 0 0); opacity: 1; } }
 /* 미니맵: 오른쪽 위의 둥근 지도와, 그 왼쪽의 확대·축소 단추 */
-#mini { position: absolute; right: 22px; top: 22px; width: 176px; height: 176px; border-radius: 50%; border: 3px solid var(--paper); box-shadow: 0 0 0 2px rgba(29, 26, 22, .7), 0 8px 20px rgba(0, 0, 0, .35); background: #a9cf82; }
+#mini { position: absolute; right: 22px; top: 54px; width: 176px; height: 176px; border-radius: 50%; border: 3px solid var(--paper); box-shadow: 0 0 0 2px rgba(29, 26, 22, .7), 0 8px 20px rgba(0, 0, 0, .35); background: #a9cf82; }
 /* 축척 단추: 미니맵의 오른쪽 아래 테두리에 걸쳐 놓는다 */
-#miniZoom { position: absolute; right: 22px; top: 22px; width: 176px; height: 176px; pointer-events: none; }
+/* 미니맵 위의 팻말: 지금 선 자리의 이름(미니맵 윗전에 걸친다) */
+#miniName { position: absolute; right: 22px; top: 16px; width: 176px; display: flex; justify-content: center; pointer-events: none; }
+#miniName b { min-width: 74px; max-width: 200px; flex: none; box-sizing: border-box; padding: 5px 10px 5px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 900 11.5px/1.25 var(--serif); letter-spacing: .02em; color: var(--ink); background: linear-gradient(#f3ead6, #e4d6b8); border: 2px solid var(--wood); border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .5), 0 3px 8px rgba(0, 0, 0, .4); }
+#miniName b:empty { display: none; }
+#miniZoom { position: absolute; right: 22px; top: 54px; width: 176px; height: 176px; pointer-events: none; }
 #miniIn { right: -2px; top: 116px; }
 #miniOut { right: 19px; top: 143px; }
 #miniZoom button { position: absolute; pointer-events: auto; width: 24px; height: 24px; padding: 0; font: 800 15px/1 var(--sans); color: var(--paper); background: rgba(29, 26, 22, .92); border: 1px solid rgba(239, 229, 207, .45); border-radius: 50%; cursor: pointer; }
 #miniZoom button:hover { background: var(--red); }
 /* 전체 지도를 편 동안: 미니맵과 단추만 지도 위로 올리고 나머지 표시는 감춘다 */
 #hud.map { z-index: 23; }
+/* 두루마리(메뉴)를 띄운 동안: 미니맵과 축척 단추만 남기고 두루마리 위에 올린다 */
+#hud.menu { z-index: 21; }
+#hud.menu > *:not(#mini):not(#miniZoom):not(#miniName) { display: none; }
 #hud.map .aim, #hud.map #skyBar, #hud.map #charge, #hud.map #touch { display: none; }
 .aim { display: none; }   /* 화면 한가운데의 흰 점은 쓰지 않는다 */
 
@@ -187,11 +196,13 @@ body.touch #btnSky.on { background: var(--red); color: var(--paper); }
 #mapView footer { padding: 10px 16px 12px 18px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.9; color: var(--ink-2); }
 #mapView kbd { display: inline-block; padding: 1px 6px; border: 1px solid rgba(29, 26, 22, .4); border-radius: 3px; font: 600 11px inherit; }
 /* 폰: 미니맵은 단추 줄을 피해 왼쪽 위에 작게, 전체 지도는 설명 종이를 지도 옆에 좁게 */
-body.touch #miniZoom { right: auto; left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 12px); width: 112px; height: 112px; }
+body.touch #miniZoom { right: auto; left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 41px); width: 112px; height: 112px; }
+body.touch #miniName { right: auto; left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 10px); width: 112px; }
+body.touch #miniName b { min-width: 56px; max-width: 150px; padding: 3px 6px 3px; font-size: 10px; }
 body.touch #miniZoom button { width: 22px; height: 22px; font-size: 14px; }
 body.touch #miniIn { right: -5px; top: 70px; }
 body.touch #miniOut { right: 13px; top: 91px; }
-body.touch #mini { right: auto; left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 12px); width: 112px; height: 112px; border-width: 2px; }
+body.touch #mini { right: auto; left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 41px); width: 112px; height: 112px; border-width: 2px; }
 body.touch #mapView { gap: 10px; padding: 8px; width: var(--W, 100%); height: var(--H, 100%); inset: auto; left: 0; top: 0; }
 body.touch #mapCanvas { width: min(calc(var(--H, 100vh) - 16px), calc(var(--W, 100vw) - 230px)); }
 body.touch #mapView .side { width: 200px; max-height: calc(var(--H, 100vh) - 16px); gap: 6px; }

@@ -894,8 +894,8 @@ function fence() {
   };
   const GW = 3.1, zs = P(0)[1];                                                                                                  // 문간의 반폭, 남쪽 변의 z
   run(P(-1), [-GW, zs]); run([GW, zs], P(0));                                                                                      // 남쪽 변(가운데는 문)
-  run(P(0), P(1)); run(P(1), P(2)); run(P(-2), P(-1)); run(P(-3), P(-2));                                                          // 남동·동, 남서·서
-  for (const k of [-3, -2, -1, 0, 1, 2]) { const p = P(k); BF.box(WALLT, p[0] - 0.45, 0, p[1] - 0.45, p[0] + 0.45, H + 0.5, p[1] + 0.45, false); BF.box(TILE, p[0] - 0.6, H + 0.5, p[1] - 0.6, p[0] + 0.6, H + 0.72, p[1] + 0.6, false); }
+  for (let k = 0; k < 7; k++) run(P(k), P(k + 1));                                                                              // 나머지 일곱 변: 여덟모를 빈틈없이 두른다(드나드는 곳은 남쪽 문간뿐)                                                          // 남동·동, 남서·서
+  for (const k of [-1, 0, 1, 2, 3, 4, 5, 6]) { const p = P(k); BF.box(WALLT, p[0] - 0.45, 0, p[1] - 0.45, p[0] + 0.45, H + 0.5, p[1] + 0.45, false); BF.box(TILE, p[0] - 0.6, H + 0.5, p[1] - 0.6, p[0] + 0.6, H + 0.72, p[1] + 0.6, false); }
   // 문간: 굵은 기둥 넷에 주황 맞배지붕
   for (const sgn of [-1, 1]) for (const dz of [-1.3, 1.3]) { const x = sgn * GW, z = zs + dz; BF.box(M.beam, x - 0.24, 0, z - 0.24, x + 0.24, 3.6, z + 0.24, false); BF.box(M.stone, x - 0.34, 0, z - 0.34, x + 0.34, 0.3, z + 0.34, false); fin(() => addCollider(x - 0.3, 0, z - 0.3, x + 0.3, 3.6, z + 0.3)); }
   for (const dz of [-1.3, 1.3]) BF.box(M.beam, -GW - 0.4, 3.3, zs + dz - 0.16, GW + 0.4, 3.62, zs + dz + 0.16, false);

@@ -1251,7 +1251,7 @@ function buildInoichi(B, R, out) {
       bx(M.beam, a0, a1, H - 0.28, H, f - 0.05, f + 0.05, false);
       for (let i = 0; i < n; i++) {
         if (i === open) continue;
-        const a = a0 + i * w + 0.06, b = a0 + (i + 1) * w - 0.06;
+        const a = a0 + i * w + 0.03, b = a0 + (i + 1) * w - 0.03;   // 유리와 살의 끝은 기둥 속으로 3cm 물린다(끝면이 기둥 옆면과 겹쳐 깜빡이지 않게)
         bx(M.beam, a, b, FL, FL + 0.1, f - 0.04, f + 0.04, false); bx(M.beam, a, b, FL + 0.95, FL + 0.99, f - 0.02, f + 0.02, false);
         bx(M.glass, a, b, FL + 0.1, H - 0.28, f - 0.012, f + 0.012, true);
       }
@@ -1268,11 +1268,11 @@ function buildInoichi(B, R, out) {
   {
     const cx = 9, cz = 6;
     B.box(P.soil, CX0 + 0.06, 0, CZ0 + 0.06, CX1 - 0.06, 0.05, CZ1 - 0.06, false);
-    B.put(M.pave, G.tableTop, cx, 0.03, cz, 0, [1.35, 1, 1.35]);
+    B.put(M.pave, G.tableTop, cx, 0.045, cz, 0, [1.35, 1, 1.35]);   // 흙 윗면(0.05)보다 도드라지게
     B.geo(M.stone, lathe([[0, 0], [0.34, 0], [0.48, 0.3], [0.52, 0.5], [0.44, 0.5], [0.38, 0.3], [0, 0.26]], 18), mat4(cx, 0.06, cz)); B.put(P.water, G.disc, cx, 0.5, cz, 0, 0.42);
     putF(B, F.lily, cx + 0.12, 0.42, cz - 0.08, 1, 0.5, 0.5); putF(B, F.cosP, cx - 0.14, 0.42, cz + 0.1, 3, 0.45, 0.6);   // 물에 띄운 꽃
     addCollider(cx - 0.45, 0, cz - 0.45, cx + 0.45, 0.6, cz + 0.45);
-    for (const z of [7.75, 7.05, 4.95, 4.25]) B.put(M.pave, G.stone, cx + (Math.round(z * 4) % 2 ? 0.1 : -0.1), 0.04, z, z * 1.3, [1, 1, 0.9]);
+    for (const z of [7.75, 7.05, 4.95, 4.25]) B.put(M.pave, G.stone, cx + (Math.round(z * 4) % 2 ? 0.1 : -0.1), 0.06, z, z * 1.3, [1, 1, 0.9]);
     const rows = [[F.sun], [F.lily, F.roseW], [F.roseR, F.roseP], [F.tulR, F.tulY, F.tulO], [F.cosP, F.cosW, F.cosM], [F.cosM, F.tulY, F.cosP]];
     for (let z = CZ0 + 0.4; z < CZ1 - 0.3; z += 0.42) for (let x = CX0 + 0.4; x < CX1 - 0.3; x += 0.42) {
       if (Math.abs(x - cx) < 0.65 || Math.hypot(x - cx, z - cz) < 1.5) continue;
@@ -1627,8 +1627,8 @@ function buildSarutobi(B, R, out) {
   B.box(M.pave, 9.4, 0, 10.9, 12.6, K, 12.3); B.box(M.beam, 9.4, K, 10.87, 12.6, F1 + 0.025, 10.93, false); B.box(M.beam, 9.37, K, 10.9, 9.43, F1 + 0.025, 12.3, false); B.box(M.beam, 12.57, K, 10.9, 12.63, F1 + 0.025, 12.3, false);
   B.box(M.pave, 10.0, 0, 12.28, 12.0, K + 0.015, 13.7);
   const H1 = [5.7, 3.7, 10.5, 4.7], H2 = [5.5, 4.9, 10.3, 5.9];                                         // 계단 구멍(2층 바닥, 3층 바닥)
-  slab(M.floor, Bq[0], Bq[1], Bq[2], Bq[3], C1, F2, H1); ringPlate(M.beamLight, [2.7, 1.7, 13.3, 12.3], Bq, C1 - 0.1, C1);
-  slab(M.floor, Cq[0], Cq[1], Cq[2], Cq[3], C2, F3, H2); ringPlate(M.beamLight, [3.7, 2.7, 12.3, 11.3], Cq, C2 - 0.1, C2);
+  slab(M.floor, Bq[0], Bq[1], Bq[2], Bq[3], C1, F2, H1); ringPlate(M.beamLight, [2.7, 1.7, 13.3, 12.3], [Bq[0] + 0.26, Bq[1] + 0.26, Bq[2] - 0.26, Bq[3] - 0.26], C1 - 0.1, C1);   // 위층 벽 밑면까지 덮는다(벽 밑면과 바닥 밑면이 한 높이로 겹쳐 깜빡이지 않게)
+  slab(M.floor, Cq[0], Cq[1], Cq[2], Cq[3], C2, F3, H2); ringPlate(M.beamLight, [3.7, 2.7, 12.3, 11.3], [Cq[0] + 0.26, Cq[1] + 0.26, Cq[2] - 0.26, Cq[3] - 0.26], C2 - 0.1, C2);
   B.box(M.beamLight, 4.7, C3 - 0.1, 3.7, 11.3, C3, 10.3, false);
   for (const x of [6.4, 8, 9.6]) B.box(M.beam, x - 0.09, C3 - 0.3, 6.0, x + 0.09, C3 - 0.1, 10.3, false);   // 서재 천장의 들보
 
@@ -1993,9 +1993,9 @@ function buildAburame(B, R, out) {
 
   /* ---------- 바닥과 천장(고리 꼴), 방을 나누는 빗금 벽 넷 ---------- */
   roundFloor(B, M.floor, CX, CZ, RO - 0.5, 0, FL, [], RI + 0.55);
-  roundWall(B, M.beam, CX, CZ, RO - 0.75, RO - T, 0, FL); roundWall(B, M.beam, CX, CZ, RI + T, RI + 0.65, 0, FL);
+  roundWall(B, M.beam, CX, CZ, RO - 0.75, RO - T, 0, FL + 0.012); roundWall(B, M.beam, CX, CZ, RI + T, RI + 0.65, 0, FL + 0.012);   // 테두리 고리는 바닥보다 살짝 높게(겹친 윗면이 깜빡이지 않게)
   roundFloor(B, M.beam, CX, CZ, RO - 0.5, H, H + 0.08, [], RI + 0.55, false);
-  roundWall(B, M.beam, CX, CZ, RO - 0.75, RO - T, H, H + 0.08, [], { collide: false }); roundWall(B, M.beam, CX, CZ, RI + T, RI + 0.65, H, H + 0.08, [], { collide: false });
+  roundWall(B, M.beam, CX, CZ, RO - 0.75, RO - T, H - 0.012, H + 0.08, [], { collide: false }); roundWall(B, M.beam, CX, CZ, RI + T, RI + 0.65, H - 0.012, H + 0.08, [], { collide: false });
   const diag = a => {
     const seg = (ra, rb, y0, y1) => { const [x0, z0] = A(ra, a), [x1, z1] = A(rb, a); beamBetween(B, wi, V3(x0, (y0 + y1) / 2, z0), V3(x1, (y0 + y1) / 2, z1), 0.2, y1 - y0); };
     seg(RI + 0.15, 5.6, FL, H); seg(6.9, RO - 0.15, FL, H); seg(5.6, 6.9, 2.4, H);

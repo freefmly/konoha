@@ -26,7 +26,8 @@ const data = {
   town: P.townBlocks().map(TP),                                     // 일반 살림집 블록
   townExtra: P.EXTRA_BLOCKS.map(TP),                                // 나중에 덧붙인 블록(집을 따로 세운다 — 먼저 있던 집들이 바뀌지 않게)
   zones,                                                            // 이름 붙은 구역(블록으로 나뉜 구역은 blocks)
-  greens: P.GREEN.map(TP),                                          // 숲·녹지
+  greens: P.GREEN.slice(0, -P.RING_N).map(TP),                      // 숲·녹지
+  greensGone: P.GREEN.slice(-P.RING_N).map(TP),                     // 숲이었다가 집 블록이 된 자리(나무 심는 차례를 지키려고 남겨 둔다)
   roads: {
     main: { a: T([P.MAINROAD.x0, P.FAN.y]), b: T([P.MAINROAD.x1, P.FAN.y]), w: P.MAINROAD.w * U },
     spokes,

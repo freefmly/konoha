@@ -1,9 +1,12 @@
-// 닌자 아카데미(忍者学校) — 옆으로 긴 2층 교사에 가운데 3층 망루. 남쪽은 운동장(과녁 통나무·철봉·말뚝)과 정문.
-// 1층: 현관 홀(신발장)·복도·계단식 교실·교무실 / 2층: 홀·복도·실습실·두루마리 서고 / 3층: 망루와 발코니.
+// 닌자 아카데미(忍者学校) — 옆으로 긴 2층 교사에 가운데 3층 망루, 그 앞에 층층이 눈썹지붕을 두른 둥근 탑(현관). 남쪽은 앞마당(과녁 통나무·철봉·말뚝)과 정문.
+// 1층: 둥근 현관·현관 홀(신발장)·복도·계단식 교실·교무실 / 2층: 탑의 담화실·홀·복도·실습실·두루마리 서고 / 3층: 탑의 전망 방·망루.
+// 둥근 탑과 붉은 기와 처마, 정면의 큰 표지(나뭇잎 표·アカデミー·忍)는 원작 애니메이션의 아카데미 그림을 보고 지었다. 탑 안의 방은 지어낸 것이다.
 import * as THREE from '../vendor/three.module.js';
 import { Builder, wall, stairs, tube, mergeGeos, mat4, rng, addCollider } from './build.js';
 import { mat, M, textMat } from './materials.js';
-import { gableRoof, hipRoof, tilePanel, beamBetween, windowUnit, doorUnit, railing, signBoard } from './arch.js';
+import { gableRoof, hipRoof, coneRoof, tilePanel, beamBetween, windowUnit, doorUnit, railing, signBoard, roundWall, roundWindow, roundFloor } from './arch.js';
+import { addRoof } from './build.js';
+import { leafMark } from './campus.js';
 
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const PI = Math.PI;
@@ -20,7 +23,7 @@ export function build(scene, ctx) {
   const B = new Builder(), R = rng(4107);
   const WALL = M.white, BEAM = M.beam, LIGHT = M.beamLight;
   const RED = mat('plain', 0xb3392b), WHT = mat('plain', 0xf0ece0), NAVY = mat('plain', 0x2d3f5e), GRN = mat('plain', 0x2f4a3c);
-  const ROOF = mat('tile', 0xa8432c), ROOF2 = mat('tile', 0x3f6b4a);
+  const ROOF = mat('tile', 0xa8432c), ROOF2 = mat('tile', 0xb9663a), REDP = mat('plaster', 0xa5473c), REDW = mat('wood', 0xa33a2c);
   const PAPER = mat('paper', 0xefe6cf), STRAW = mat('wood', 0xd2b064), LOG = mat('wood', 0x7a5a3c), LEAF = mat('leaf', 0x3f7a3a);
   const BULB = mat('glow', 0xffe2a8, { power: 1.4 });
   const glows = [];
@@ -106,7 +109,7 @@ export function build(scene, ctx) {
   const gShade = new THREE.LatheGeometry([[0.04, 0.16], [0.1, 0.12], [0.3, 0], [0.31, -0.02]].map(p => new THREE.Vector2(p[0], p[1])), 16);
   const pendant = (x, yCeil, z, drop = 0.6) => {
     B.geo(M.iron, tube([V3(x, yCeil, z), V3(x, yCeil - drop, z)], 0.008, 5, false));
-    B.geo(mat('plain', 0x3f6b4a, { side: 'double' }), gShade, mat4(x, yCeil - drop - 0.16, z));
+    B.geo(mat('plain', 0xb9663a, { side: 'double' }), gShade, mat4(x, yCeil - drop - 0.16, z));
     B.geo(BULB, new THREE.SphereGeometry(0.07, 10, 8), mat4(x, yCeil - drop - 0.12, z));
     glows.push([x, yCeil - drop - 0.12, z, 0.9]);
     return [x, yCeil - drop - 0.3, z];
@@ -144,15 +147,17 @@ export function build(scene, ctx) {
   wall(B, WALL, 'z', X0, X0 + T, Z0 + T, Z1 - T, WY0, EAVE, endOps(false)); fit('z', X0, X0 + T, endOps(false), -1);
   wall(B, WALL, 'z', X1 - T, X1, Z0 + T, Z1 - T, WY0, EAVE, endOps(true)); fit('z', X1 - T, X1, endOps(true), 1);
   // 탑: 남쪽(현관·2층 창·3층 발코니 문), 북쪽, 옆 벽(아래는 날개와의 칸막이, 복도가 뚫려 있다)
-  const tS = [{ u0: 63, u1: 65.2, ys: [Y1, Y2] }, { u0: 66, u1: 70, ys: [[WY0, 3.0], Y3] }, { u0: 70.8, u1: 73, ys: [Y1, Y2] }];
-  wall(B, WALL, 'x', Z1 - T, Z1, CX0, CX1, WY0, TOP, tS.map((o, i) => (i === 1 ? o : { ...o, ys: [...o.ys, [F3, 9.7]] })));
-  fit('x', Z1 - T, Z1, [tS[0], tS[2]], 1, { nx: 2 }); windowUnit(B, 'x', Z1 - T, Z1, 66, 70, Y3[0], Y3[1], { out: 1, nx: 4, ny: 2 });
+  const NK = [[F2, F2 + 2.5], [F3, F3 + 2.2]];                 // 2·3층에서 둥근 탑으로 건너가는 문
+  const tS = [{ u0: 63, u1: 65.2, ys: [Y1, Y2, Y3] }, { u0: 66, u1: 70, ys: [[WY0, 3.0], ...NK] }, { u0: 70.8, u1: 73, ys: [Y1, Y2, Y3] }];
+  const sink = ops => ops.map(o => ({ ...o, ys: o.ys.map(([a, b]) => (a === F1 || a === F2 || a === F3 ? [a - 0.03, b] : [a, b])) }));   // 문 구멍은 바닥 윗면보다 3cm 아래에서 시작한다(문 밑에 남는 벽의 윗면이 바닥과 한 높이로 겹치면 깜빡인다)
+  wall(B, WALL, 'x', Z1 - T, Z1, CX0, CX1, WY0, TOP, sink(tS));
+  fit('x', Z1 - T, Z1, [tS[0], tS[2]], 1, { nx: 2 });
   doorUnit(B, 'x', Z1 - T, Z1, 66, 70, F1, 3.0, { leaf: null, t: 0.14 });
-  for (const u of [63, 70.8]) doorUnit(B, 'x', Z1 - T, Z1, u, u + 2.2, F3, 9.7, { leaf: null });
+  for (const [a, b] of NK) doorUnit(B, 'x', Z1 - T, Z1, 66, 70, a, b, { leaf: null });
   const tN = [{ u0: 63, u1: 65.6, ys: [Y1, Y2, Y3] }, { u0: 67.5, u1: 71, ys: [Y3] }];
   wall(B, WALL, 'x', Z0, Z0 + T, CX0, CX1, WY0, TOP, tN); fit('x', Z0, Z0 + T, tN, -1);
   const corr = [{ u0: -106.5, u1: -104.4, ys: [[F1, 2.9], [F2, 6.5]] }];
-  wall(B, WALL, 'z', CX0, CX0 + T, Z0 + T, Z1 - T, WY0, TOP, corr); wall(B, WALL, 'z', CX1 - T, CX1, Z0 + T, Z1 - T, WY0, TOP, corr);
+  wall(B, WALL, 'z', CX0, CX0 + T, Z0 + T, Z1 - T, WY0, TOP, sink(corr)); wall(B, WALL, 'z', CX1 - T, CX1, Z0 + T, Z1 - T, WY0, TOP, sink(corr));
   for (const x of [CX0, CX1 - T]) for (const [y0, y1] of corr[0].ys) doorUnit(B, 'z', x, x + T, -106.5, -104.4, y0, y1, { leaf: null });
   for (const x of [CX0, CX1 - 0.2]) for (const [z, d] of [[Z1, 0.05], [Z0 - 0.05, 0.05]]) B.box(BEAM, x, WY0, z, x + 0.2, TOP, z + d, false);
   // 층 사이 띠(바깥)
@@ -170,7 +175,7 @@ export function build(scene, ctx) {
   const cW = [{ u0: 48.4, u1: 49.8, ys: [[F1, 2.5], [F2, 6.1]] }, { u0: 51, u1: 54, ys: [[2.1, 3.1], [4.9, 6.3]] }, { u0: 55, u1: 58, ys: [[2.1, 3.1], [4.9, 6.3]] }, { u0: 59, u1: 60.4, ys: [[F2, 6.1]] }];
   const cE = [{ u0: 75.6, u1: 77, ys: [[F1, 2.5], [F2, 6.1]] }, { u0: 78.5, u1: 81.5, ys: [[1.3, 2.7], [4.9, 6.3]] }, { u0: 82.5, u1: 85.5, ys: [[1.3, 2.7], [4.9, 6.3]] }, { u0: 86, u1: 87.4, ys: [[F1, 2.5]] }];
   for (const [ops, xa, xb, names] of [[cW, X0 + T, CX0, ['教室', '実習室']], [cE, CX1, X1 - T, ['職員室', '書庫']]]) {
-    wall(B, WALL, 'x', CZ, CZ + 0.2, xa, xb, F1, EAVE, ops);
+    wall(B, WALL, 'x', CZ, CZ + 0.2, xa, xb, F1, EAVE, sink(ops));
     for (const o of ops) for (const [a, b] of o.ys) {
       if (a === F1 || a === F2) {
         doorUnit(B, 'x', CZ, CZ + 0.2, o.u0, o.u1, a, b, { leaf: 'slide', inward: -1, paper: true });
@@ -190,25 +195,106 @@ export function build(scene, ctx) {
   gableRoof(B, ROOF, X0, Z0, CX0 - 0.35, Z1, EAVE, 3.0, { ridge: 'x', over: 0.8, gable: WALL, detail: 3 });
   gableRoof(B, ROOF, CX1 + 0.35, Z0, X1, Z1, EAVE, 3.0, { ridge: 'x', over: 0.8, gable: WALL, detail: 3 });
   hipRoof(B, ROOF2, CX0, Z0, CX1, Z1, TOP, 2.6, { over: 0.9, detail: 3 });
-  // 정면 둥근 판의 "忍"
-  signBoard(B, '忍', 68, 5.85, Z1 + 0.06, 0, 2.5, 2.5, { round: true, both: false, bg: '#efe3c2', color: '#1a1410', frame: RED, depth: 0.12, pad: 0.16 });
-  // 현관 차양(기와)과 기둥, 돌 디딤
-  B.box(M.stone, 64.4, 0, Z1, 71.6, 0.15, -101.0);
-  {
-    const o = V3(64.6, 3.25, -101.3), Vv = V3(0, 0.75, -2.7), len = Vv.length(); Vv.normalize();
-    tilePanel(B, ROOF2, o, V3(1, 0, 0), Vv, 6.8, len, null, 3);
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute([64.6, 3.2, -101.3, 71.4, 3.2, -101.3, 71.4, 3.95, -104, 64.6, 3.95, -104], 3));
-    g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 6.8, 0, 6.8, len, 0, len], 2)); g.setIndex([0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2]); g.computeVertexNormals();
-    B.geo(BEAM, g);
-    for (let x = 64.7; x < 71.4; x += 0.6) beamBetween(B, BEAM, V3(x, 3.87, -104), V3(x, 3.13, -101.34), 0.07, 0.11);
-    B.box(BEAM, 64.6, 3.0, -101.72, 71.4, 3.16, -101.56, false);
-    for (const x of [65, 71]) { B.box(BEAM, x - 0.11, 0.15, -101.75, x + 0.11, 3.0, -101.53); B.box(M.stone, x - 0.2, 0.15, -101.84, x + 0.2, 0.3, -101.44, false); plant(x + (x < 68 ? -0.9 : 0.9), 0, -103.4); }
+  /* ================= 둥근 탑(현관): 위로 갈수록 좁아지는 네 단, 단마다 눈썹지붕 ================= */
+  const TX = 68, TZ = -97, NX0 = 66, NX1 = 70, NT = 0.25;       // 탑의 중심, 교사와 탑을 잇는 이음칸(안쪽 너비 4m)
+  // 고리 꼴 기와 지붕. a0~a1 범위만 깐다(뒤쪽 이음칸 자리는 비운다)
+  const ringRoof = (m, r, yEave, rise, rTop, seg = 40) => {
+    const G = Math.asin((NX1 - NX0 + NT * 2 + 0.1) / 2 / rTop), a0 = -PI / 2 + G, a1 = PI * 1.5 - G, n = Math.round(seg * (a1 - a0) / (PI * 2)), da = (a1 - a0) / n, rim = [];
+    for (let i = 0; i < n; i++) {
+      const p = a0 + i * da, q = p + da, am = (p + q) / 2;
+      const p0 = V3(TX + Math.cos(p) * r, yEave, TZ + Math.sin(p) * r), p1 = V3(TX + Math.cos(q) * r, yEave, TZ + Math.sin(q) * r);
+      const U = new THREE.Vector3().subVectors(p0, p1), w = U.length(); U.normalize();
+      const hw = w / 2, ch = Math.cos(da / 2), inR = r * ch, inTop = rTop * ch, plen = Math.hypot(inR - inTop, rise), wTop = rTop * Math.sin(da / 2);
+      tilePanel(B, m, p1, U, V3(-Math.cos(am) * (inR - inTop), rise, -Math.sin(am) * (inR - inTop)).normalize(), w, plen, v => { const h = hw + (wTop - hw) * v / plen; return [hw - h, hw + h]; }, 3);
+    }
+    for (let i = 0; i <= n; i++) { const p = a0 + i * da; rim.push(V3(TX + Math.cos(p) * r, yEave - 0.03, TZ + Math.sin(p) * r)); }
+    B.geo(BEAM, tube(rim, 0.07, 6, true));
+    B.geo(mat('wood', 0x5a3b28, { side: 'double' }), new THREE.RingGeometry(rTop - 0.3, r, n, 1, a0, a1 - a0).rotateX(PI / 2), mat4(TX, yEave - 0.02, TZ));
+    addRoof(TX - r, TZ - r, TX + r, TZ + r, (x, z) => { const d = Math.hypot(x - TX, z - TZ); if (d > r || d < rTop) return -Infinity; let a = Math.atan2(z - TZ, x - TX); if (a < a0) a += PI * 2; return a > a1 ? -Infinity : yEave + 0.12 + rise * (r - d) / (r - rTop); }, true);
+  };
+  const TIER = [                                                // [바깥 반지름, 벽 두께, 밑, 위, 재질]
+    [6.0, 0.3, WY0, F2, WALL], [5.0, 0.28, F2, F3, REDP], [4.1, 0.25, F3, 10.6, WALL], [3.1, 0.22, 10.6, 12.4, REDP]];
+  const backDoor = (r, ys) => { const g = Math.asin((NX1 - NX0) / 2 / (r - 0.15)); return { a0: -PI / 2 - g, a1: -PI / 2 + g, ys }; };
+  const win = (k, wd, ys) => ({ a0: PI / 2 + k * PI / 3 - wd / 2, a1: PI / 2 + k * PI / 3 + wd / 2, ys });
+  const fd = Math.asin(1.6 / 6.0);
+  const OPS = [
+    [backDoor(6.0, [[WY0, 3.0]]), { a0: PI / 2 - fd, a1: PI / 2 + fd, ys: [[WY0, 3.0]] }, ...[-2, -1.25, 1.25, 2].map(k => win(k, 0.3, [[1.3, 2.7]]))],
+    [backDoor(5.0, [NK[0]]), ...[-2, -1, 1, 2].map(k => win(k, 0.38, [[F2 + 1.0, F2 + 2.5]]))],
+    [backDoor(4.1, [NK[1]]), ...[-2, -1, 0, 1, 2].map(k => win(k, 0.52, [[F3 + 0.95, F3 + 2.25]]))], []];
+  TIER.forEach(([r, t, y0, y1, m], i) => {
+    roundWall(B, m, TX, TZ, r - t, r, y0, y1, OPS[i], { matIn: WALL });
+    for (const o of OPS[i]) if (o.ys[0][0] > y0 + 0.5) roundWindow(B, TX, TZ, r - t, r, o.a0, o.a1, o.ys[0][0], o.ys[0][1], { nx: 2, ny: 2 });
+    roundWall(B, BEAM, TX, TZ, r, r + 0.05, y1 - 0.24, y1, [], { collide: false, a0: -PI / 2 + 0.6, a1: PI * 1.5 - 0.6 });   // 단 위의 띠
+  });
+  B.geo(M.stone, new THREE.CylinderGeometry(6.3, 6.3, WY0, 48), mat4(TX, WY0 / 2, TZ));
+  // 바닥: 네모 띠로 깐 원판은 가장자리가 톱니 꼴이라, 벽 안쪽 면보다 작게 깔고 둥근 고리로 가장자리를 메운다
+  for (const [rin, y0, y1] of [[5.7, WY0, F1], [5.7, F2 - 0.2, F2], [4.72, F3 - 0.2, F3], [3.85, 10.42, 10.6]]) { roundFloor(B, M.floor, TX, TZ, rin - 0.3, y0, y1); roundWall(B, M.floor, TX, TZ, rin - 0.85, rin + 0.03, y0 - 0.004, y1 + 0.004, []); }
+  // 눈썹지붕 셋과 꼭대기의 원뿔 지붕, 찰주
+  ringRoof(ROOF2, 7.1, 3.5, 1.05, 5.25); ringRoof(ROOF2, 5.95, F3 - 0.4, 0.9, 4.3); ringRoof(ROOF2, 5.0, 10.25, 0.9, 3.3);
+  coneRoof(B, ROOF, TX, TZ, 3.95, 12.3, 2.7, { seg: 28, detail: 3 });
+  B.geo(BEAM, new THREE.CylinderGeometry(0.03, 0.06, 1.3, 8), mat4(TX, 16.2, TZ)); B.geo(BEAM, new THREE.SphereGeometry(0.11, 10, 8), mat4(TX, 16.2, TZ));
+  // 이음칸: 층마다 교사에서 탑으로 건너가는 짧은 복도
+  [[6.0, WY0, F2 - 0.2, null], [5.0, F2, F3 - 0.2, F2], [4.1, F3, 10.6, F3]].forEach(([r, y0, y1, fl]) => {
+    const zE = TZ - Math.sqrt((r - 0.15) ** 2 - ((NX1 - NX0) / 2 + NT) ** 2);
+    B.box(WALL, NX0 - NT, y0, Z1, NX0, y1, zE); B.box(WALL, NX1, y0, Z1, NX1 + NT, y1, zE);
+    if (fl) B.box(M.floor, NX0 - NT, fl - 0.2, Z1 - 0.12, NX1 + NT, fl - 0.012, zE); else B.box(M.floor, NX0, WY0, Z1 - 0.06, NX1, F1 - 0.012, zE);   // 둥근 바닥과 겹치는 자리는 살짝 낮춘다(겹친 면이 깜빡이지 않게)
+  });
+  B.box(BEAM, NX0 - NT - 0.1, 10.6, Z1, NX1 + NT + 0.1, 10.76, TZ - 2.9);
+  // 현관문: 붉은 문틀과 안으로 열어 둔 붉은 문짝, 돌 디딤
+  B.box(M.stone, 65.9, 0, -91.25, 70.1, 0.15, -90.1);
+  B.box(REDW, 66.25, 3.0, -91.22, 69.75, 3.32, -90.92, false);
+  for (const sx of [-1, 1]) { const x = TX + sx * 1.6; B.box(REDW, x - 0.12, WY0, -91.3, x + 0.12, 3.0, -91.0, false); B.box(REDW, Math.min(x, x + sx * 0.07), F1, -92.95, Math.max(x, x + sx * 0.07), 2.95, -91.5); B.geo(M.iron, new THREE.TorusGeometry(0.09, 0.014, 6, 14).rotateY(PI / 2), mat4(x - sx * 0.02, 1.5, -92.7)); }
+  // 문 옆의 붉은 곁채 둘(작은 창과 기와 차양)
+  for (const sx of [-1, 1]) {
+    const xa = TX + sx * 4.4 - 1.3, xb = xa + 2.6, za = -94.2, zb = -91.4;
+    B.box(REDP, xa, 0, za, xb, 2.6, zb); B.box(M.stone, xa - 0.06, 0, za, xb + 0.06, 0.3, zb + 0.06, false);
+    for (const dx of [0.35, 1.5]) { B.box(WHT, xa + dx, 1.25, zb, xa + dx + 0.75, 1.95, zb + 0.03, false); B.box(NAVY, xa + dx + 0.07, 1.32, zb + 0.03, xa + dx + 0.68, 1.88, zb + 0.04, false); }
+    const o = V3(xa - 0.2, 2.6, zb + 0.45), Vv = V3(0, 0.75, -1.6), len = Vv.length(); Vv.normalize();
+    tilePanel(B, ROOF2, o, V3(1, 0, 0), Vv, 3.0, len, null, 3);
+    B.box(BEAM, xa - 0.2, 2.5, zb + 0.3, xb + 0.2, 2.6, zb + 0.45, false); B.box(BEAM, xa - 0.2, 2.5, za, xa - 0.1, 3.3, zb + 0.4, false); B.box(BEAM, xb + 0.1, 2.5, za, xb + 0.2, 3.3, zb + 0.4, false);
   }
-  // 3층 발코니
-  B.box(M.floor, CX0, F3 - 0.2, Z1, CX1, F3, -102.5);
-  railing(B, BEAM, [[CX0 + 0.1, Z1 + 0.02], [CX0 + 0.1, -102.6], [CX1 - 0.1, -102.6], [CX1 - 0.1, Z1 + 0.02]], F3, 1.05);
-  for (const x of [62.3, 65.7, 70.3, 73.7]) { beamBetween(B, BEAM, V3(x, 6.5, Z1), V3(x, F3 - 0.25, -102.65), 0.1, 0.12); B.box(BEAM, x - 0.06, F3 - 0.32, Z1, x + 0.06, F3 - 0.2, -102.5, false); }
+  // 정면의 큰 표지: 나뭇잎 표, "アカデミー" 띠, 붉은 동그라미 안의 忍 — 첫 눈썹지붕에 기대 세웠다
+  {
+    const sign = textMat(' ', { w: 512, h: 1024, draw: (g, w, h) => {
+      const ink = '#3a2a22', disc = (x, y, rx, ry, fill, lw = 12) => { g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, 7); g.fillStyle = fill; g.fill(); if (lw) { g.lineWidth = lw; g.strokeStyle = ink; g.stroke(); } };
+      disc(w / 2, 190, 150, 172, '#f3efe4'); disc(w / 2, 740, 236, 236, '#f3efe4'); disc(w / 2, 740, 196, 196, '#c8392e', 8);
+      leafMark(g, w / 2 - 4, 196, 250, '#2b2622');
+      g.fillStyle = '#f3efe4'; g.strokeStyle = ink; g.lineWidth = 12; g.beginPath(); g.roundRect(18, 372, w - 36, 132, 22); g.fill(); g.stroke();
+      g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#c8392e'; g.font = '900 86px "Yu Gothic", "Meiryo", "MS Gothic", "Malgun Gothic", sans-serif'; g.fillText('アカデミー', w / 2, 442, w - 70);
+      g.fillStyle = '#1a1512'; g.font = '900 300px "Yu Mincho", "YuMincho", "MS Mincho", "Batang", serif'; g.fillText('忍', w / 2, 752);
+    } });
+    const tilt = 0.2, L = 4.7, yb = 3.4, zb = TZ + 7.22;
+    B.geo(sign, new THREE.PlaneGeometry(L / 2, L), mat4(TX, yb + Math.cos(tilt) * L / 2, zb - Math.sin(tilt) * L / 2, -tilt, 0, 0));
+    for (const dx of [-0.6, 0.6]) { beamBetween(B, BEAM, V3(TX + dx, yb + 3.0, zb - 0.66), V3(TX + dx, yb + 2.7, TZ + 4.98), 0.08, 0.08); beamBetween(B, BEAM, V3(TX + dx, yb + 0.5, zb - 0.14), V3(TX + dx, yb + 0.72, TZ + 6.3), 0.08, 0.08); }
+  }
+  // 탑 안 — 1층 둥근 현관: 바닥의 나뭇잎 표, 화분
+  B.geo(textMat(' ', { w: 256, h: 256, bg: '#c9a877', color: '#c9a877', draw: (g, w) => { g.strokeStyle = '#7a3a2a'; g.lineWidth = 8; g.beginPath(); g.arc(w / 2, w / 2, w * 0.46, 0, 7); g.stroke(); leafMark(g, w / 2, w / 2, w * 0.7, '#7a3a2a'); } }), new THREE.CircleGeometry(1.7, 40).rotateX(-PI / 2), mat4(TX, F1 + 0.012, TZ));
+  for (const sx of [-1, 1]) { plant(TX + sx * 4.6, F1, TZ - 1.6); plant(TX + sx * 2.7, F1, TZ + 4.4); }
+  pendant(TX, F2 - 0.2, TZ, 0.5);
+  // 2층 담화실: 둥근 낮은 상과 방석
+  B.geo(LIGHT, cyl(1.0, 1.0, 0.06, 28), mat4(TX, F2 + 0.36, TZ + 0.6)); B.geo(BEAM, cyl(0.5, 0.6, 0.33, 16), mat4(TX, F2 + 0.165, TZ + 0.6)); addCollider(TX - 1, F2, TZ - 0.4, TX + 1, F2 + 0.39, TZ + 1.6);
+  for (let i = 0; i < 5; i++) { const a = i / 5 * PI * 2 + 0.3; B.geo(i % 2 ? RED : NAVY, gCushion, mat4(TX + Math.cos(a) * 1.6, F2 + 0.05, TZ + 0.6 + Math.sin(a) * 1.6, 0, a, 0)); }
+  scroll(TX - 0.2, F2 + 0.435, TZ + 0.5, 0.4); papers(TX + 0.35, F2 + 0.39, TZ + 0.8, 4, 0.5);
+  signBoard(B, '談話室', TX, F2 + 2.75, Z1 + 0.04, 0, 0.9, 0.28, { both: false, depth: 0.03 });
+  pendant(TX, F3 - 0.2, TZ + 0.6, 0.6);
+  // 3층 전망 방: 세 다리 위의 놋쇠 망원경(정문 쪽을 본다)
+  { const BR = mat('metal', 0x8a6a3a), y = F3;
+    for (let i = 0; i < 3; i++) { const a = i / 3 * PI * 2 + 0.5; beamBetween(B, BEAM, V3(TX + Math.cos(a) * 0.5, y, TZ + 1.6 + Math.sin(a) * 0.5), V3(TX, y + 1.25, TZ + 1.6), 0.05, 0.05); }
+    B.geo(BR, cyl(0.07, 0.05, 1.1, 12).rotateX(PI / 2 - 0.12), mat4(TX, y + 1.33, TZ + 1.75)); B.geo(BR, cyl(0.085, 0.085, 0.08, 12).rotateX(PI / 2 - 0.12), mat4(TX, y + 1.4, TZ + 2.3));
+    addCollider(TX - 0.4, y, TZ + 1.2, TX + 0.4, y + 1.5, TZ + 2.3);
+    signBoard(B, '展望室', TX, F3 + 2.5, Z1 + 0.04, 0, 0.9, 0.28, { both: false, depth: 0.03 });
+    pendant(TX, 10.42, TZ, 0.4);
+  }
+  // 교사 날개의 층 사이 기와 처마(남·북)와 그 밑의 널
+  for (const [xa, xb] of [[X0 - 0.3, CX0 - 0.15], [CX1 + 0.15, X1 + 0.3]]) for (const sgn of [1, -1]) {
+    const zw = sgn > 0 ? Z1 : Z0, ze = zw + sgn * 1.15, yw = F2 + 0.1, ye = F2 - 0.42, w = xb - xa, len = Math.hypot(1.15, yw - ye);
+    tilePanel(B, ROOF, V3(sgn > 0 ? xa : xb, ye, ze), V3(sgn, 0, 0), V3(0, yw - ye, -sgn * 1.15).normalize(), w, len, null, 3);
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute([xa, ye - 0.04, ze, xb, ye - 0.04, ze, xb, yw - 0.04, zw, xa, yw - 0.04, zw], 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, w, 0, w, len, 0, len], 2)); g.setIndex([0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2]); g.computeVertexNormals();
+    B.geo(BEAM, g); B.box(BEAM, xa, ye - 0.1, Math.min(ze, ze - sgn * 0.1), xb, ye - 0.02, Math.max(ze, ze - sgn * 0.1), false);
+    for (let x = xa + 0.4; x < xb; x += 1.5) beamBetween(B, BEAM, V3(x, F2 - 0.75, zw), V3(x, ye - 0.06, ze - sgn * 0.12), 0.07, 0.09);
+  }
 
   /* ================= 계단(1→2층 속이 찬 계단, 2→3층 디딤판 계단이 그 위에 겹친다) ================= */
   stairs(B, M.floorDark, 'x', ST.x1, -1, F1, F2, ST.z0, ST.z1, 0.3);
@@ -465,10 +551,10 @@ export function build(scene, ctx) {
   }
 
   /* ================= 운동장 ================= */
-  for (let z = -101.0; z < SOUTH - 0.5; z += 1.5) B.box(M.pave, 66.3, 0, z, 69.7, 0.05, Math.min(z + 1.44, SOUTH + 0.4), false);   // 판석 길
+  for (let z = -90.0; z < SOUTH - 0.5; z += 1.5) B.box(M.pave, 66.3, 0, z, 69.7, 0.05, Math.min(z + 1.44, SOUTH + 0.4), false);   // 판석 길
   for (let i = 0; i < 9; i++) B.box(M.pave, 71.5 + i * 2.0, 0, -93.2 + (i % 2) * 0.25, 72.6 + i * 2.0, 0.045, -92.2 + (i % 2) * 0.25, false);  // 과녁장으로 가는 디딤돌
   // 담: 돌 밑단 + 회벽 + 기와 지붕
-  const CAP = mat('tile', 0x3f6b4a), TV = 0.405;
+  const CAP = ROOF2, TV = 0.405;
   const yardWall = (axis, c, a0, a1) => {
     const bx = (m, d, y0, y1, col) => (axis === 'x' ? B.box(m, a0, y0, c - d, a1, y1, c + d, col) : B.box(m, c - d, y0, a0, c + d, y1, a1, col));
     bx(M.stone, 0.2, 0, 0.5, true); bx(WALL, 0.14, 0.5, 1.84, true); bx(BEAM, 0.3, 1.84, 1.9, false);
@@ -483,8 +569,15 @@ export function build(scene, ctx) {
       beamBetween(B, CAP, V3(c, 2.15, a0), V3(c, 2.15, a1), 0.14, 0.1);
     }
   };
-  yardWall('x', SOUTH, 40.2, 65.72); yardWall('x', SOUTH, 70.28, 95.8); yardWall('x', -123.4, 40.2, 95.8);
-  yardWall('z', 40.4, -123.2, SOUTH - 0.2); yardWall('z', 95.6, -123.2, SOUTH - 0.2);
+  // 뒤는 뒤뜰로 트였고, 서쪽 담에는 운동장으로, 동쪽 담에는 제1 훈련장으로 가는 문이 났다
+  yardWall('x', SOUTH, 40.2, 65.72); yardWall('x', SOUTH, 70.28, 95.8);
+  yardWall('z', 40.4, -122, -101.3); yardWall('z', 40.4, -96.7, SOUTH - 0.2); yardWall('z', 95.6, -122, -79.3); yardWall('z', 95.6, -74.7, SOUTH - 0.2);
+  for (const [x, za, zb, txt] of [[40.4, -101.3, -96.7, '運動場'], [95.6, -79.3, -74.7, '第一演習場']]) {
+    for (const z of [za, zb]) { B.box(BEAM, x - 0.2, 0, z - 0.2, x + 0.2, 2.9, z + 0.2); B.box(M.stone, x - 0.27, 0, z - 0.27, x + 0.27, 0.22, z + 0.27, false); }
+    B.box(BEAM, x - 0.1, 2.5, za - 0.4, x + 0.1, 2.72, zb + 0.4, false);
+    gableRoof(B, ROOF2, x - 0.4, za - 0.2, x + 0.4, zb + 0.2, 2.9, 0.42, { ridge: 'z', over: 0.42, overGable: 0.35, detail: 3 });
+    signBoard(B, txt, x, 2.2, (za + zb) / 2, x < 68 ? PI / 2 : -PI / 2, 1.9, 0.4, { both: true, depth: 0.05, bg: '#e9dcc0' });
+  }
   // 정문: 두 기둥 + 가로대 + 작은 기와지붕, 문패
   for (const x of [65.7, 69.85]) { B.box(BEAM, x, 0, SOUTH - 0.23, x + 0.45, 3.3, SOUTH + 0.23); B.box(M.stone, x - 0.08, 0, SOUTH - 0.31, x + 0.53, 0.25, SOUTH + 0.31, false); }
   B.box(BEAM, 65.3, 2.85, SOUTH - 0.12, 70.7, 3.1, SOUTH + 0.12, false);
@@ -492,7 +585,7 @@ export function build(scene, ctx) {
   signBoard(B, '忍者学校', 70.075, 1.75, SOUTH + 0.265, 0, 0.3, 1.3, { vertical: true, both: false, depth: 0.05, bg: '#e9dcc0' });
   // 수리검 과녁장: 동쪽 담 앞에 통나무 기둥 다섯, 던지는 선, 날붙이 상자
   for (let i = 0; i < 5; i++) targetPost(92.6, 0, -97 + i * 3.6, -PI / 2, 2.2 + (i % 2) * 0.25);
-  B.box(WHT, 84.9, 0, -98, 85.05, 0.03, -81.6, false);
+  B.box(WHT, 84.9, 0, -98, 85.05, 0.045, -81.6, false);
   { const x = 83.6, z = -89.6;
     B.box(LIGHT, x - 0.35, 0, z - 0.25, x + 0.35, 0.04, z + 0.25, false); for (const [a, b, c, d] of [[-0.35, -0.25, -0.32, 0.25], [0.32, -0.25, 0.35, 0.25], [-0.35, -0.25, 0.35, -0.22], [-0.35, 0.22, 0.35, 0.25]]) B.box(LIGHT, x + a, 0, z + b, x + c, 0.3, z + d, false);
     addCollider(x - 0.35, 0, z - 0.25, x + 0.35, 0.3, z + 0.25);
@@ -523,7 +616,8 @@ export function build(scene, ctx) {
   const YD = [-1, 30];
   return {
     places: [
-      { n: '닌자 아카데미 운동장', t: '수리검 과녁 통나무와 철봉, 훈련 말뚝이 늘어선 흙 마당. 정문 문패에는 忍者学校라 적혀 있다.', b: [40, 96, -101.3, -64], y: YD },
+      { n: '아카데미 둥근 탑', t: '층층이 기와 눈썹지붕을 두른 아카데미의 얼굴. 정면에 나뭇잎 표와 忍 글자를 내걸었다. 1층은 현관, 2층은 담화실, 3층은 전망 방.', b: [TX - 6, TX + 6, Z1 + 0.05, TZ + 6], y: [0, 11] },
+      { n: '닌자 아카데미 앞마당', t: '수리검 과녁 통나무와 철봉, 훈련 말뚝이 늘어선 흙 마당. 정문 문패에는 忍者学校라 적혀 있다.', b: [40, 96, -104, -64], y: YD },
       { n: '아카데미 현관 홀', t: '신발장에 닌자 샌들이 가지런하다. 북쪽 계단으로 윗층에 오른다.', b: [CX0, CX1, Z0, Z1], y: [0, F2 - 0.2] },
       { n: '1층 복도', t: '운동장 쪽으로 창이 나란히 난 복도.', b: [X0, X1, CZ + 0.2, Z1], y: [0, F2 - 0.2] },
       { n: '교실', t: '뒤로 갈수록 높아지는 계단식 긴 책상. 나루토가 졸던 그 자리.', b: [X0, CX0, Z0, CZ], y: [0, F2 - 0.2] },
@@ -532,14 +626,14 @@ export function build(scene, ctx) {
       { n: '2층 복도', t: '창 너머로 운동장이 내려다보인다.', b: [X0, X1, CZ + 0.2, Z1], y: [F2 - 0.2, 11] },
       { n: '실습실', t: '다다미 위에 볏짚 허수아비, 벽 쪽에는 과녁 기둥과 목검.', b: [X0, CX0, Z0, CZ], y: [F2 - 0.2, 11] },
       { n: '두루마리 서고', t: '술법 두루마리가 칸칸이 쌓인 서가. 구석에는 봉인의 서.', b: [CX1, X1, Z0, CZ], y: [F2 - 0.2, 11] },
-      { n: '망루', t: '수업 종이 매달린 꼭대기 방. 발코니에서 마을이 보인다.', b: [CX0, CX1, Z0, -102.5], y: [F3 - 0.2, 14] },
+      { n: '망루', t: '수업 종이 매달린 꼭대기 방. 남쪽 문으로 둥근 탑의 전망 방에 건너간다.', b: [CX0, CX1, Z0, Z1], y: [F3 - 0.2, 14] },
     ],
     jumps: [
       ['닌자 아카데미', 68, 0, -60.5, 0, 20],
       ['아카데미 교실', 50.6, F1 + 0.15, -111, -PI / 2, 21],
       ['아카데미 두루마리 서고', 76.3, F2, -108.4, -PI / 2 + 0.5, 22],
     ],
-    lights: lights.map(p => [p[0], p[1], p[2], 15, 17]),
+    lights: [...lights.map(p => [p[0], p[1], p[2], 15, 17]), [TX, 2.8, TZ, 13, 13], [TX, F2 + 2.5, TZ + 0.6, 13, 12], [TX, F3 + 2.2, TZ, 11, 11]],
     glows,
     skip: [],
   };
