@@ -11,7 +11,7 @@ import { VERSION, LOG } from './version.js';
 import { initStats, stat, statOnce } from './stats.js';
 import { Player } from './player.js';
 import { LOT, WALL, SITE, DEATH } from './layout.js';
-import { marks, settle, colliders, leanScene } from './build.js';
+import { marks, settle, colliders, leanScene, LITE, LIGHT_KEY, lightSaved } from './build.js';
 import { buildVillage, terrainH, inPoly } from './village.js';
 
 const $ = s => document.querySelector(s);
@@ -23,6 +23,9 @@ initStats(LOCAL);
 // 터치 기기(스마트폰)인가. 확인용으로 ?touch=1 / ?touch=0 로 강제할 수 있다.
 const TOUCH = Q.get('touch') ? Q.get('touch') === '1' : matchMedia('(pointer: coarse)').matches;
 document.body.classList.toggle('touch', TOUCH);
+// 가벼운 화질로 바뀐 PC: 메뉴에 알리고, 원래 화질로 되돌리는 단추를 둔다
+if (!TOUCH && lightSaved()) { document.querySelector('#lightNote').classList.remove('hidden'); document.querySelector('#lightOff').addEventListener('click', () => { try { localStorage.removeItem(LIGHT_KEY); sessionStorage.removeItem('konoha.lost'); } catch (e) {} location.reload(); }); }
+const T0 = performance.now();   // 연 때(그래픽이 열자마자 끊겼는지 볼 때 쓴다)
 
 // 따로 짓는 건물들. 하나가 고장 나도 나머지는 뜨게 하나씩 불러온다.
 // 새 배치로 옮기는 중: 지금은 제자리가 그대로인 호카게 관저만 세운다. 나머지(academy·naruto·homes·ichiraku·uchiha)는 새 자리로 옮긴 뒤 다시 넣는다.
@@ -38,7 +41,8 @@ async function init() {
   const canvas = $('#view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // 폰은 화면 점이 아주 촘촘해서 다 그리면 PC보다 점이 많아진다 → 낮춰 그리고, 느려지면 더 낮춘다
-  let pixelRatio = Math.min(devicePixelRatio, 1.5);   // 폰도 PC와 같은 촘촘함으로 시작한다(낮게 그리면 먹선이 흐리고 거칠어진다)
+  let pixelRatio = Math.min(devicePixelRatio, LITE && !TOUCH ? 1 : 1.5);   // 폰도 PC와 같은 촘촘함으로 시작한다(낮게 그리면 먹선이 흐리고 거칠어진다). 가벼운 화질의 PC는 1배까지만
+  const PR_MIN = TOUCH ? 1.1 : 0.7;   // 느릴 때 낮추는 한도
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
@@ -52,10 +56,10 @@ async function init() {
 
   await say('회벽을 바르고 기와를 굽는 중…');
   createMaterials();
-  const cover = new Cover(renderer, WALL.cx, WALL.cz, WALL.r * 2 + 120, TOUCH ? 2048 : 4096);   // 지붕 지도는 마을 전체를 덮는다
+  const cover = new Cover(renderer, WALL.cx, WALL.cz, WALL.r * 2 + 120, LITE ? 2048 : 4096);   // 지붕 지도는 마을 전체를 덮는다
   const weather = new Weather(scene, renderer, camera, cover);
   // 폰: 그림자 지도를 작게 하고, 그림자를 드리우는 범위도 걷는 사람 둘레 60m로 좁힌다(그릴 것이 크게 줄고, 가까운 그림자는 PC만큼 또렷하다)
-  if (TOUCH) { weather.sun.shadow.mapSize.set(2048, 2048); weather.shadowSpan = 120; const sc = weather.sun.shadow.camera; sc.left = sc.bottom = -60; sc.right = sc.top = 60; sc.updateProjectionMatrix(); }
+  if (LITE) { weather.sun.shadow.mapSize.set(2048, 2048); weather.shadowSpan = 120; const sc = weather.sun.shadow.camera; sc.left = sc.bottom = -60; sc.right = sc.top = 60; sc.updateProjectionMatrix(); }
 
   const places = [], jumps = [], lights = [], glows = [], skip = [...weather.skip], ticks = [];
   const take = r => {
@@ -67,7 +71,7 @@ async function init() {
   const memSeen = new Set(), memLog = []; window.__memMark = name => { if (!Q.get('mem')) return; let b = 0, tri = 0; scene.traverse(o => { const g = o.geometry; if (!g || memSeen.has(g)) return; memSeen.add(g); for (const k in g.attributes) b += g.attributes[k].array.byteLength; if (g.index) b += g.index.array.byteLength; tri += (g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) / 3; }); memLog.push(name + '=' + (b / 1048576).toFixed(0) + 'MB/' + Math.round(tri / 1000) + 'k'); };
   const only = Q.get('only');   // 확인용: ?only=hokage 처럼 주면 그 건물만 짓는다(마을 채움 건물·숲은 생략)
   const sq = (Q.get('shot') || '').split(',').map(Number);
-  const ctx = { LOT, renderer, say, camera, weather, shotAt: sq.length >= 3 && !Q.get('sky') ? { x: sq[0], y: 0, z: sq[2] } : null, lite: !!only && only !== 'none', part: Q.get('part'), mobile: TOUCH, tint: Q.get('tint') !== '0' };   // only=none: 필수 건물 없이 마을만
+  const ctx = { LOT, renderer, say, camera, weather, shotAt: sq.length >= 3 && !Q.get('sky') ? { x: sq[0], y: 0, z: sq[2] } : null, lite: !!only && only !== 'none', part: Q.get('part'), mobile: LITE, tint: Q.get('tint') !== '0' };   // only=none: 필수 건물 없이 마을만
   for (const [name, msg, file = name] of BUILDINGS) {
     if (only && only !== name) continue;
     await say(msg);
@@ -155,7 +159,7 @@ async function init() {
     const force = Q.get('ver');                                        // 확인용: ?ver=1 펴기, ?ver=toast 좁은 화면의 한 줄 알림
     if (seen !== VERSION || force) {
       const i = LOG.findIndex(l => l.v === seen), fresh = i < 0 ? LOG : LOG.slice(0, i);   // 못 본 판을 모두(최신부터)
-      if (force === 'toast' || (!force && (ctx.mobile || innerWidth <= 920))) { const t = $('#verToast'); t.textContent = '새로 바뀐 내용이 있어요. 눌러서 볼 수 있어요.'; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 8000); }
+      if (force === 'toast' || (!force && (TOUCH || innerWidth <= 920))) { const t = $('#verToast'); t.textContent = '새로 바뀐 내용이 있어요. 눌러서 볼 수 있어요.'; t.classList.remove('hidden'); setTimeout(() => t.classList.add('hidden'), 8000); }
       else show(fresh.length ? fresh : LOG);
       try { localStorage.setItem(KEY, VERSION); } catch (e) { /* 적지 못하면 다음에도 뜬다 */ }
     } }
@@ -387,10 +391,11 @@ async function init() {
     }
     if (weather.shadowDirty) { renderer.shadowMap.needsUpdate = true; weather.shadowDirty = false; }
     const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
-    // 폰이 많이 버거워하면(초당 28장 밑) 그리는 해상도를 한 단계씩 낮춘다. 먹선이 뭉개지지 않게 1.1배 밑으로는 내리지 않는다. 다시 올리지는 않는다.
-    if (TOUCH && started && player.locked) {
-      fpsN++; fpsT += raw;
-      if (fpsT > 4) { if (fpsN / fpsT < 28 && pixelRatio > 1.1) { pixelRatio = Math.max(1.1, pixelRatio * 0.88); renderer.setPixelRatio(pixelRatio); fit(); } fpsN = fpsT = 0; }
+    // 많이 버거워하면(초당 28장 밑) 그리는 해상도를 한 단계씩 낮춘다. 먹선이 뭉개지지 않게 폰은 1.1배, PC는 0.7배 밑으로는 내리지 않는다. 다시 올리지는 않는다.
+    // 4초 내내 느릴 때만 낮추므로 넉넉한 PC는 그대로다. 창을 가렸다 돌아와 한 장이 길게 걸린 구간은 세지 않는다
+    if (started && player.locked) {
+      if (raw > 0.5) fpsN = fpsT = 0; else { fpsN++; fpsT += raw; }
+      if (fpsT > 4) { if (fpsN / fpsT < 28 && pixelRatio > PR_MIN) { pixelRatio = Math.max(PR_MIN, pixelRatio * 0.88); renderer.setPixelRatio(pixelRatio); fit(); statOnce('quality_down', { device: TOUCH ? 'phone' : 'pc' }); } fpsN = fpsT = 0; }
     } else fpsN = fpsT = 0;
     if (started) { if (!Q.get('fly')) player.update(dt); }
     else { // 들어가기 전: 마을 위 높은 데서 호카게 바위 쪽을 천천히 훑는 화면(마을이 넓게 내려다보인다)
@@ -404,7 +409,7 @@ async function init() {
     if (player.sky || !started) scene.fog.density *= 0.3;   // 하늘에서는 안개를 걷어 마을 끝까지 보이게
     if (toonOn) scene.fog.density *= 0.5;                  // 만화 화풍은 먼 데까지 또렷하다(바위가 뿌옇게 바래지 않게)
     // 폰: 걷는 동안은 800m까지만 그리고, 그 끝이 뚝 끊겨 보이지 않게 먼 데를 안개로 덮는다(가까운 것은 그대로 또렷하다). 첫 화면의 전경은 그대로 둔다
-    if (TOUCH) { const far = started && !player.sky ? 800 : player.sky ? 4200 : 1600; if (camera.far !== far) { camera.far = far; camera.updateProjectionMatrix(); } if (far === 800) scene.fog.density = Math.max(scene.fog.density, 0.0021); }
+    if (LITE) { const far = started && !player.sky ? 800 : player.sky ? 4200 : 1600; if (camera.far !== far) { camera.far = far; camera.updateProjectionMatrix(); } if (far === 800) scene.fog.density = Math.max(scene.fog.density, 0.0021); }
     // 죽음의 숲: 철망 안으로 들어갈수록 어두워지고 푸른 빛이 덮인다(안개도 짙고 검푸르게, 볕은 약하게). 하늘에서 볼 때는 덮지 않는다
     { const at = camera.position, dg = !player.sky ? Math.max(0, Math.min(1, (DEATH.rf + 6 - Math.hypot(at.x - DEATH.c[0], at.z - DEATH.c[1])) / 30)) : 0;
       if (gloomCss === '' || Q.get('shot')) gloom = dg; else gloom += (dg - gloom) * (1 - Math.exp(-dt * 1.6));   // 처음 뜰 때와 확인용 화면에서는 곧바로
@@ -512,10 +517,23 @@ async function init() {
 }
 
 // 문제가 생기면 숨기지 않고 화면에 적는다(폰에서는 콘솔을 볼 수 없다). 통계로도 한 번 보낸다
+// 그래픽 카드 이름(통계에 함께 남겨, 어떤 기기에서 문제가 나는지 본다)
+let GPU = '?'; try { const g = document.createElement('canvas').getContext('webgl'), x = g && g.getExtension('WEBGL_debug_renderer_info'); if (x) GPU = String(g.getParameter(x.UNMASKED_RENDERER_WEBGL)).replace(/^ANGLE \(|Direct3D.*$/g, '').slice(0, 60); } catch (e) {}
 const note = (what, msg) => { console.error(what, msg); statOnce('app_error', { what, message: String(msg).slice(0, 90), device: TOUCH ? 'phone' : 'pc' }); };   // 통계로만 한 번 알린다
 const fail = (what, msg) => { note(what, msg); const L = $('#loading'); L.classList.remove('hidden'); L.style.zIndex = 60; $('#loadText').textContent = '문제가 생겼습니다 — ' + what + ': ' + msg; };   // 더 나아갈 수 없을 때만 화면을 덮는다
 // 돌아가는 중에 난 오류는 화면을 덮지 않는다: 소리·마우스 잡기를 브라우저가 거절한 것처럼 대수롭지 않은 것이 많아, 덮으면 멀쩡한 마을을 가리게 된다
 addEventListener('error', e => note('오류', (e.message || '알 수 없음') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')));
 addEventListener('unhandledrejection', e => note('거절', (e.reason && e.reason.message) || e.reason));
-$('#view').addEventListener('webglcontextlost', () => fail('그래픽', '기기의 그래픽 메모리가 모자라 화면을 그리지 못했습니다'));
+// 그래픽이 끊겼을 때(그래픽 메모리가 모자라거나 그래픽 카드가 잠깐 멈췄을 때): 올려 둔 도형·그림의 사본은 이미 버렸으므로 그 자리에서 되살릴 수 없다 → 다시 연다.
+// 연 지 2분 안에 끊겼으면 이 컴퓨터에는 버거운 것이니 가벼운 화질 표시를 남기고 다시 연다. 가벼운 화질에서도 곧바로 끊기면 그때 알린다
+$('#view').addEventListener('webglcontextlost', e => {
+  e.preventDefault();
+  const early = performance.now() - T0 < 120000, light = LITE;
+  let again = 0; try { again = +sessionStorage.getItem('konoha.lost') || 0; sessionStorage.setItem('konoha.lost', again + 1); } catch (err) { again = 9; }
+  if ((light && early) || again >= 3) return fail('그래픽', '기기의 그래픽 메모리가 모자라 화면을 그리지 못했습니다');
+  note('그래픽', (early ? '끊김 — 가벼운 화질로 다시 엶' : '끊김 — 다시 엶') + ' / ' + GPU);
+  if (early && !TOUCH) try { localStorage.setItem(LIGHT_KEY, '1'); } catch (err) {}
+  $('#loading').classList.remove('hidden'); $('#loading').style.zIndex = 60; $('#loadText').textContent = early ? '화질을 낮춰 다시 여는 중…' : '다시 여는 중…';
+  setTimeout(() => location.reload(), 900);   // 통계가 나갈 틈을 준다
+});
 init().catch(e => fail('준비', e.message));
