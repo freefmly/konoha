@@ -239,13 +239,17 @@ body.touch #btnSky.on { background: var(--red); color: var(--paper); }
 #mapView footer { padding: 10px 16px 12px 18px; border-top: 1px solid var(--line); font-size: 12px; line-height: 1.9; color: var(--ink-2); }
 #mapView kbd { display: inline-block; padding: 1px 6px; border: 1px solid rgba(29, 26, 22, .4); border-radius: 3px; font: 600 11px inherit; }
 /* 폰: 미니맵은 단추 줄을 피해 왼쪽 위에 작게, 전체 지도는 설명 종이를 지도 옆에 좁게 */
-body.touch #miniZoom { right: auto; left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 41px); width: 112px; height: 112px; }
-body.touch #miniName { right: auto; left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 10px); width: 112px; }
+/* 폰: 미니맵은 오른쪽 위. 누르면 전체 지도가 펴진다. 날씨·바람·지도 단추는 두지 않고(메뉴에서 바꾼다) 메뉴 단추만 미니맵 왼쪽에 둔다 */
+body.touch #btnWeather, body.touch #btnWind, body.touch #btnMap { display: none; }
+body.touch .tbar { right: calc(env(safe-area-inset-right) + 134px); }
+body.touch #hud.map #mini, body.touch #hud.map #miniZoom, body.touch #hud.map #miniName { display: none; }   /* 전체 지도를 편 동안에는 미니맵을 치운다(옆 설명 칸과 붙어 답답하다) */
+body.touch #miniZoom { left: auto; right: calc(env(safe-area-inset-right) + 12px); top: calc(env(safe-area-inset-top) + 41px); width: 112px; height: 112px; }
+body.touch #miniName { left: auto; right: calc(env(safe-area-inset-right) + 12px); top: calc(env(safe-area-inset-top) + 10px); width: 112px; }
 body.touch #miniName b { min-width: 56px; max-width: 150px; padding: 3px 6px 3px; font-size: 10px; }
 body.touch #miniZoom button { width: 22px; height: 22px; font-size: 14px; }
 body.touch #miniIn { right: -5px; top: 70px; }
 body.touch #miniOut { right: 13px; top: 91px; }
-body.touch #mini { right: auto; left: calc(env(safe-area-inset-left) + 12px); top: calc(env(safe-area-inset-top) + 41px); width: 112px; height: 112px; border-width: 2px; }
+body.touch #mini { pointer-events: auto; left: auto; right: calc(env(safe-area-inset-right) + 12px); top: calc(env(safe-area-inset-top) + 41px); width: 112px; height: 112px; border-width: 2px; }
 body.touch #mapView { gap: 10px; padding: 8px; width: var(--W, 100%); height: var(--H, 100%); inset: auto; left: 0; top: 0; }
 body.touch #mapCanvas { width: min(calc(var(--H, 100vh) - 16px), calc(var(--W, 100vw) - 230px)); }
 body.touch #mapView .side { width: 200px; max-height: calc(var(--H, 100vh) - 16px); gap: 6px; }

@@ -399,7 +399,7 @@ export class Weather {
     // 그림자는 걷는 사람 둘레에만 드리운다(그림자 한 칸 단위로 맞춰 떨림을 없앤다)
     // 해가 보는 평면에서 그림자 지도 한 칸(약 4.6cm) 단위로 맞춘다 — 세계 좌표로 맞추면 움직일 때 그림자 가장자리가 일렁인다
     // 그림자 지도는 약 1m(22칸)를 움직였을 때만 다시 그린다 — 건물은 움직이지 않으니 매번 그릴 필요가 없고, 폰 발열이 크게 준다
-    const texel = 220 / 4096 * 22;
+    const texel = (this.shadowSpan || 220) / this.sun.shadow.mapSize.x * 22;   // shadowSpan: 그림자 상자의 한 변(m). 폰은 좁게 잡는다(main.js)
     const sa = Math.round(cam.position.dot(this.sunRight) / texel) * texel, sb = Math.round(cam.position.dot(this.sunUp) / texel) * texel;
     if (sa !== this.shadowA || sb !== this.shadowB) { this.shadowA = sa; this.shadowB = sb; this.shadowDirty = true; }
     this.sun.target.position.set(0, 0, 0).addScaledVector(this.sunRight, sa).addScaledVector(this.sunUp, sb);

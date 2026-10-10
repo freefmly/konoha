@@ -54,7 +54,8 @@ async function init() {
   createMaterials();
   const cover = new Cover(renderer, WALL.cx, WALL.cz, WALL.r * 2 + 120, TOUCH ? 2048 : 4096);   // 지붕 지도는 마을 전체를 덮는다
   const weather = new Weather(scene, renderer, camera, cover);
-  if (TOUCH) weather.sun.shadow.mapSize.set(2048, 2048);   // 폰은 그림자 지도를 작게
+  // 폰: 그림자 지도를 작게 하고, 그림자를 드리우는 범위도 걷는 사람 둘레 60m로 좁힌다(그릴 것이 크게 줄고, 가까운 그림자는 PC만큼 또렷하다)
+  if (TOUCH) { weather.sun.shadow.mapSize.set(2048, 2048); weather.shadowSpan = 120; const sc = weather.sun.shadow.camera; sc.left = sc.bottom = -60; sc.right = sc.top = 60; sc.updateProjectionMatrix(); }
 
   const places = [], jumps = [], lights = [], glows = [], skip = [...weather.skip], ticks = [];
   const take = r => {
@@ -303,6 +304,7 @@ async function init() {
     tap('#btnWind', () => setWind((windLevel + 1) % 3));
     tap('#btnSky', () => player.setSky(!player.sky));
     tap('#btnMap', () => { endMove(); lookId = null; openMap(); });
+    tap('#mini', () => { endMove(); lookId = null; openMap(); });   // 미니맵을 누르면 전체 지도가 펴진다
     tap('#btnMenu', () => { endMove(); lookId = null; player.unlock(); });
     // 화면이 끌려 움직이거나 두 손가락으로 커지지 않게
     for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, e => e.preventDefault());
@@ -401,6 +403,8 @@ async function init() {
     weather.update(wdt, camera);
     if (player.sky || !started) scene.fog.density *= 0.3;   // 하늘에서는 안개를 걷어 마을 끝까지 보이게
     if (toonOn) scene.fog.density *= 0.5;                  // 만화 화풍은 먼 데까지 또렷하다(바위가 뿌옇게 바래지 않게)
+    // 폰: 걷는 동안은 800m까지만 그리고, 그 끝이 뚝 끊겨 보이지 않게 먼 데를 안개로 덮는다(가까운 것은 그대로 또렷하다). 첫 화면의 전경은 그대로 둔다
+    if (TOUCH) { const far = started && !player.sky ? 800 : player.sky ? 4200 : 1600; if (camera.far !== far) { camera.far = far; camera.updateProjectionMatrix(); } if (far === 800) scene.fog.density = Math.max(scene.fog.density, 0.0021); }
     // 죽음의 숲: 철망 안으로 들어갈수록 어두워지고 푸른 빛이 덮인다(안개도 짙고 검푸르게, 볕은 약하게). 하늘에서 볼 때는 덮지 않는다
     { const at = camera.position, dg = !player.sky ? Math.max(0, Math.min(1, (DEATH.rf + 6 - Math.hypot(at.x - DEATH.c[0], at.z - DEATH.c[1])) / 30)) : 0;
       if (gloomCss === '' || Q.get('shot')) gloom = dg; else gloom += (dg - gloom) * (1 - Math.exp(-dt * 1.6));   // 처음 뜰 때와 확인용 화면에서는 곧바로
