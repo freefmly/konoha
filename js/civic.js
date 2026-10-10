@@ -1179,7 +1179,7 @@ function library(scene, out) {
     face(B, WALLM, 'z', X0, X0 + T, Z0 + T, Z1 - T, 0, TOP, -1, [[1.6, 3.4, 'w'], [5.2, 7.0, 'w']], UPS, TRIM, M.iron, false);
     face(B, WALLM, 'z', X1 - T, X1, Z0 + T, Z1 - T, 0, TOP, 1, [[5.2, 7.0, 'w']], UPS, TRIM, M.iron, false);
     for (const [x, z] of [[X0, Z0], [X0, Z1], [X1, Z0], [X1, Z1]]) B.box(TRIM, x - 0.14, 0, z - 0.14, x + 0.14, TOP, z + 0.14, false);
-    for (const y of [0.5, 3.4, TOP - 0.1]) { B.box(TRIM, X0 - 0.05, y - 0.08, Z0 - 0.05, X1 + 0.05, y + 0.08, Z0, false); B.box(TRIM, X0 - 0.05, y - 0.08, Z1, X1 + 0.05, y + 0.08, Z1 + 0.05, false); B.box(TRIM, X0 - 0.05, y - 0.08, Z0, X0, y + 0.08, Z1, false); B.box(TRIM, X1, y - 0.08, Z0, X1 + 0.05, y + 0.08, Z1, false); }
+    for (const y of [0.5, 3.4, TOP - 0.1]) { B.box(TRIM, X0 - 0.05, y - 0.08, Z0 - 0.05, X1 + 0.05, y + 0.08, Z0, false); for (const [a, b] of (y < 1 ? [[X0 - 0.05, -1.3], [1.3, X1 + 0.05]] : [[X0 - 0.05, X1 + 0.05]])) B.box(TRIM, a, y - 0.08, Z1, b, y + 0.08, Z1 + 0.05, false);   /* 무릎 높이 띠는 문 자리에서 끊는다 */ B.box(TRIM, X0 - 0.05, y - 0.08, Z0, X0, y + 0.08, Z1, false); B.box(TRIM, X1, y - 0.08, Z0, X1 + 0.05, y + 0.08, Z1, false); }
     hipRoof(B, TILE, X0, Z0, X1, Z1, TOP, 3.2, { over: 1.0 });
     // 현관: 맞배 지붕 문간과 현판
     B.box(M.stone, -2.8, 0, Z1, 2.8, 0.1, Z1 + 3.0, false);
