@@ -2,7 +2,7 @@
 // 바탕 그림은 배치도의 자리표(PLAN)로 한 번만 그려 두고, 미니맵은 그 그림을 걷는 사람 둘레만 잘라 보는 쪽이 위로 가게 돌려 붙인다.
 // 전체 지도를 편 채 걷는 동안에는 지금 선 자리의 이름과 설명을 옆 종이에 띄우고, 마우스를 풀면(Esc) 마우스를 올린(손가락으로 짚은) 자리의 것을 띄운다.
 import { PLAN } from './plan-data.js';
-import { WALL, CLIFF, NARA_FOREST, SITE, DEATH } from './layout.js';
+import { WALL, CLIFF, NARA_FOREST, SITE, DEATH, OUTER } from './layout.js';
 const HOK = SITE.hokage;
 import { fillCells, farmPlots, PATHS } from './fields.js';
 import { ROOT_PLAN as RP } from './b_root.js';
@@ -74,6 +74,10 @@ function drawBase(jumps, foot) {
   for (const b of PLAN.bridges) line(b, 7, '#8a6038');
   for (const p of PATHS) line(p.pts, p.w, ROAD);
   line(F.trail, 3.4, ROAD);
+  // 담 밖의 큰 강과 다리, 교정 시설
+  line(OUTER.river.pts, OUTER.river.w, '#6fb3d9'); line([[0, 1070], [0, 1106]], 9, '#8a6038');
+  line(OUTER.jail.trail, 3.2, ROAD);
+  fill(OUTER.jail.lake, '#6fb3d9'); fill(OUTER.jail.land, '#9a9a94'); { const J = OUTER.jail, u = [Math.cos(J.a), Math.sin(J.a)]; line([[J.c[0] - u[0] * 17, J.c[1] - u[1] * 17], [J.c[0] - u[0] * 50, J.c[1] - u[1] * 50]], 3, '#8a6038'); }
   // 죽음의 숲: 냇물, 오솔길, 철망
   line(DEATH.river.pts, DEATH.river.w, '#6fb3d9'); line(DEATH.trail, 3.2, ROAD); line(DEATH.side, 3.2, ROAD);
   g.strokeStyle = '#4a4f55'; g.lineWidth = 1.6; g.setLineDash([5, 3]); g.beginPath(); g.arc(px(DEATH.c[0]), pz(DEATH.c[1]), DEATH.rf * K, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
@@ -129,7 +133,7 @@ export class VillageMap {
     this.level = -1; this.under = [];                             // 지금 보는 땅속 층(-1 = 땅 위), 층마다 그려 둔 도면
     // 큰 구역의 이름만 지도에 적는다(작은 곳은 짚어 보면 나온다)
     this.labels = PLAN.zones.filter(z => { const xs = z.poly.map(p => p[0]), zs = z.poly.map(p => p[1]); return (Math.max(...xs) - Math.min(...xs)) * (Math.max(...zs) - Math.min(...zs)) > 9000; }).map(z => [z.name.replace(/\(.*\)/, ''), ...centroid(z.poly)])
-      .concat([['호카게 바위', 0, CLIFF.z - 60], ['호카게 관저', HOK.x, HOK.z + 26], ['정문', 0, WALL.gateZ + 26], ['나라 숲', NARA_FOREST.glade[0], NARA_FOREST.glade[1] - 40], ['죽음의 숲', DEATH.c[0], DEATH.c[1] + 70]]);
+      .concat([['호카게 바위', 0, CLIFF.z - 60], ['호카게 관저', HOK.x, HOK.z + 26], ['정문', 0, WALL.gateZ + 26], ['나라 숲', NARA_FOREST.glade[0], NARA_FOREST.glade[1] - 40], ['죽음의 숲', DEATH.c[0], DEATH.c[1] + 70], ['교정 시설', OUTER.jail.c[0], OUTER.jail.c[1] + 58]]);
     const at = e => { const r = canvas.getBoundingClientRect(), L = this.layer(); return [L.cx + ((e.clientX - r.left) / r.width - 0.5) * L.half * 2, L.cz + ((e.clientY - r.top) / r.height - 0.5) * L.half * 2]; };
     canvas.addEventListener('pointermove', e => { if (!this.follow) this.show(...at(e)); });
     canvas.addEventListener('pointerdown', e => { if (!this.follow) this.show(...at(e)); });

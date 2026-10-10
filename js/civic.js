@@ -12,6 +12,7 @@ import { inPoly } from './village.js';
 import { campus } from './campus.js';
 import { deathForest } from './deathforest.js';
 import { grounds } from './grounds.js';
+import { outer } from './outer.js';
 
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
 const zone = n => PLAN.zones.find(z => z.n === n);
@@ -2454,6 +2455,8 @@ export async function build(scene, ctx) {
   deathForest(scene, out);
   await ctx.say('훈련장의 통나무를 세우는 중…');
   grounds(scene, out);
+  await ctx.say('담 밖의 교정 시설을 짓는 중…');
+  outer(scene, out, ctx.camera);
   if (out.ticks.length) out.tick = (t, dt) => { for (const f of out.ticks) f(t, dt); };
   return out;
 }

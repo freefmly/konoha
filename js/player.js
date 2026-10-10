@@ -2,7 +2,7 @@
 // 하늘에서 보기(sky): 몸은 그 자리에 두고 눈만 하늘로 올라가 마을을 내려다보며 날아다닌다. 끝내면 내려다보던 자리에 내려선다.
 import * as THREE from '../vendor/three.module.js';
 import { nearAll, roofAt } from './build.js';
-import { WALL, NARA_FOREST, inNaraForest, inDeathForest } from './layout.js';
+import { WALL, NARA_FOREST, inNaraForest, inDeathForest, outerFree } from './layout.js';
 
 const RAD = 0.34, HEIGHT = 1.75, EYE = 1.62, STEP = 0.5, WALK = 4.6, RUN = 9.5, JUMP = 6.4, GRAV = 20;
 // 모아 뛰기: HOLD초 넘게 누르고 있으면 힘이 모이기 시작해 CHARGE초 만에 가득 찬다. 가득 모으면 LEAP_H(m)까지 솟는다.
@@ -189,7 +189,8 @@ export class Player {
     }
     // 담 밖으로는 숲 가장자리까지만 나갈 수 있다
     const lim = WALL.r + 77, ox = p.x - WALL.cx, oz = p.z - WALL.cz, d = Math.hypot(ox, oz);
-    const inDeath = inDeathForest(p.x, p.z, 6);   // 죽음의 숲: 철망 밖 6m까지(철망을 뛰어넘어도 멀리 못 간다)
+    const inDeath = inDeathForest(p.x, p.z, 6) || (d > lim && outerFree(p.x, p.z));   // 교정 시설·정문 밖 다리도 같은 식으로 풀어 준다
+    void 0;   // 죽음의 숲: 철망 밖 6m까지(철망을 뛰어넘어도 멀리 못 간다)
     if (inDeath) this.deathAt = [p.x, p.z];
     else if (d > lim && this.deathAt && Math.hypot(p.x - this.deathAt[0], p.z - this.deathAt[1]) < 4) { p.x = this.deathAt[0]; p.z = this.deathAt[1]; }
     else if (d > lim && !inNaraForest(p.x, p.z, -8)) {

@@ -9,7 +9,7 @@ import { mat, dressLeaves } from './materials.js';
 import { makeKit, boxHouse, towerHouse, WALLS, ROOFS, SHOPS } from './town.js';
 import { treeGeometry, bushGeometry, tuftGeometry, blob } from './flora.js';
 import { PLAN } from './plan-data.js';
-import { WALL, CLIFF, STAIR, SITE, NARA_FOREST, inNaraForest, naraTrailDist, DEATH, inDeathForest, deathTrailDist, deathRiverDist } from './layout.js';
+import { WALL, CLIFF, STAIR, SITE, NARA_FOREST, inNaraForest, naraTrailDist, DEATH, inDeathForest, deathTrailDist, deathRiverDist, OUTER, jailK, outTrailDist } from './layout.js';
 import { terrainH, inPoly } from './village.js';
 import { zoneGroups, LOTS, OPEN, BARE } from './zones.js';
 import { fillCells, pathDist, PATHS } from './fields.js';
@@ -351,7 +351,7 @@ export async function build(scene, ctx) {
     const t = { x, y, z, s, ry: R() * Math.PI * 2, k: Math.floor(R() * 6), big };
     const key = Math.floor(x / 4) * 8192 + Math.floor(z / 4); let l = near4.get(key); if (!l) near4.set(key, l = []); l.push(t);
     if (ghost) return;                                                         // 집 블록이 된 옛 숲 자리: 자리만 잡아 두고 심지는 않는다
-    if (inDeathForest(x, z, 3.5) || deathTrailDist(x, z) < 3.4) return;        // 죽음의 숲과 그 오솔길: 자리만 잡아 두고 심지는 않는다(숲 안에는 아래에서 큰 나무를 따로 심는다)
+    if (inDeathForest(x, z, 3.5) || deathTrailDist(x, z) < 3.4 || outTrailDist(x, z) < 3.4 || jailK(x, z) < 1.15) return;        // 죽음의 숲과 그 오솔길: 자리만 잡아 두고 심지는 않는다(숲 안에는 아래에서 큰 나무를 따로 심는다)
     if (pathDist(x, z) < 1.6) return;                                          // 못 둘레 산책길 위: 자리만 잡아 두고 심지는 않는다(다른 나무의 자리가 바뀌지 않게)
     trees.push(t);
     const r = 0.5 * s; addCollider(x - r, y - 1, z - r, x + r, y + 6, z + r);
@@ -391,6 +391,16 @@ export async function build(scene, ctx) {
       const key = Math.floor(x / 4) * 8192 + Math.floor(z / 4); let l = near4.get(key); if (!l) near4.set(key, l = []); l.push(t); trees.push(t); const r = 0.5 * s; addCollider(x - r, y - 1, z - r, x + r, y + 6, z + r); };
     for (let z = CLIFF.z + 5; z < HOK.z - 30; z += 7.5) for (let x = -60; x < 60; x += 7.5) put(x + R2() * 6, z + R2() * 6, 0.85 + R2() * 0.5, 5.5);
     for (let i = 0; i < 16; i++) { const a = (i + R2() * 0.7) / 16 * Math.PI * 2, d = 47.5 + R2() * 8; if (R2() < 0.3) continue; put(HOK.x + Math.sin(a) * d, HOK.z + Math.cos(a) * d, 0.7 + R2() * 0.35, 9); } }
+
+  // 교정 시설 호수를 두른 숲(따로 굴린 수로 심는다). 오솔길·빈터·물은 비운다
+  { const R4 = rng(20261050), J = OUTER.jail, ST = MB ? 16 : 11;
+    const put = (x, z, s) => { const y = terrainH(x, z); if (y < -0.05 || outTrailDist(x, z) < 3.6) return; trees.push({ x, y, z, s, ry: R4() * Math.PI * 2, k: Math.floor(R4() * 6), big: false }); const r = 0.5 * s; addCollider(x - r, y - 1, z - r, x + r, y + 6, z + r); };
+    for (let z = J.c[1] - 130; z < J.c[1] + 130; z += ST) for (let x = J.c[0] - 130; x < J.c[0] + 130; x += ST) {
+      const px = x + R4() * ST * 0.8, pz = z + R4() * ST * 0.8, s = 0.9 + R4() * 0.8, k = jailK(px, pz);
+      if (k < 1.2 || k > 2.5 || Math.hypot(px - WALL.cx, pz - WALL.cz) < WALL.r + 86 || R4() < 0.25) continue;
+      if (terrainH(px, pz) > 14) continue;                                           // 바위산 비탈에는 심지 않는다
+      put(px, pz, s);
+    } }
 
   // 죽음의 숲(따로 굴린 수로 심는다): 보통 나무의 세 곱절이 넘는 큰 나무를 철망 안에 빽빽이. 오솔길·탑 터·냇물은 비운다
   { const R3 = rng(20261044), [cx, cz] = DEATH.c, ST = MB ? 30 : 21;

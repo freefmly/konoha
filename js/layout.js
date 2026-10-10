@@ -100,3 +100,23 @@ const segD = (x, z, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1; i
 // 오솔길에서 얼마나 떨어져 있나(m), 냇물 한가운데에서 얼마나 떨어져 있나(m)
 export const deathTrailDist = (x, z) => (Math.abs(x - DEATH.c[0]) > 260 || Math.abs(z - DEATH.c[1]) > 260 ? 1e9 : Math.min(segD(x, z, DEATH.trail), segD(x, z, DEATH.side)));
 export const deathRiverDist = (x, z) => (Math.abs(x - DEATH.c[0]) > 260 || Math.abs(z - DEATH.c[1]) > 260 ? 1e9 : segD(x, z, DEATH.river.pts));
+
+// 담 밖의 나머지: 엄중 교정 시설(서북쪽 호수 가운데 섬), 정문 밖을 가로지르는 큰 강.
+// a = 담의 작은 문이 난 방향(담 한가운데에서 잰 각도), c = 한가운데, trail = 담 안쪽에서 거기까지의 오솔길
+export const OUTER = (() => {
+  const R0 = WALL.r, P = (a, r, t = 0) => [WALL.cx + Math.cos(a) * r - Math.sin(a) * t, WALL.cz + Math.sin(a) * r + Math.cos(a) * t];
+  const ell = (c, ax, az, n) => Array.from({ length: n }, (_, i) => [c[0] + Math.cos(i / n * Math.PI * 2) * ax, c[1] + Math.sin(i / n * Math.PI * 2) * az]);
+  const ja = -2.256, jc = P(ja, R0 + 150);
+  return {
+    jail: { a: ja, c: jc, ax: 50, az: 44, isle: 19, lake: ell(jc, 50, 44, 40), land: ell(jc, 19, 19, 28), trail: [P(ja, R0 - 22), P(ja, R0), P(ja, R0 + 36, -7), P(ja, R0 + 72, 5), P(ja, R0 + 96)] },
+    river: { pts: [[748, 1101], [705, 1098], [375, 1079], [50, 1093], [-150, 1074], [-695, 1098], [-748, 1102]], w: 22 },
+  };
+})();
+export const jailK = (x, z) => Math.hypot((x - OUTER.jail.c[0]) / OUTER.jail.ax, (z - OUTER.jail.c[1]) / OUTER.jail.az);   // 호수 가장자리가 1
+export const outTrailDist = (x, z) => {
+  let d = 1e9; for (const T of [OUTER.jail]) if (Math.abs(x - T.c[0]) < 260 && Math.abs(z - T.c[1]) < 260) d = Math.min(d, segD(x, z, T.trail));
+  return d;
+};
+export const outRiverDist = (x, z) => (z < 1040 || z > 1135 ? 1e9 : segD(x, z, OUTER.river.pts));
+// 담 밖에서 걸어 다닐 수 있는 자리(죽음의 숲·나라 숲은 따로 본다): 교정 시설의 호수 둘레, 그리로 가는 오솔길, 정문 밖 길과 다리
+export const outerFree = (x, z) => jailK(x, z) < 1.22 || outTrailDist(x, z) < 6 || (Math.abs(x) < 9 && z > WALL.gateZ && z < WALL.gateZ + 96);

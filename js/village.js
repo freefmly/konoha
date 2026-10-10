@@ -4,7 +4,7 @@ import * as THREE from '../vendor/three.module.js';
 import { Builder, addCollider, mat4 } from './build.js';
 import { mat, M, weatherize } from './materials.js';
 import { signBoard } from './arch.js';
-import { CLIFF, STAIR, WALL, SITE, DONE_ZONES, NARA_FOREST, ROOT, DEATH, deathRiverDist } from './layout.js';
+import { CLIFF, STAIR, WALL, SITE, DONE_ZONES, NARA_FOREST, ROOT, DEATH, deathRiverDist, OUTER, jailK, outRiverDist } from './layout.js';
 import { PLAN } from './plan-data.js';
 import { fillCells, PATHS } from './fields.js';
 
@@ -32,7 +32,10 @@ const FLATS = [NARA_FOREST.glade, NARA_FOREST.grave, [DEATH.c[0], DEATH.c[1], DE
 function lowH(x, z) {
   let h = rawLowH(x, z);
   for (const f of FLATS) { const d = Math.hypot(x - f[0], z - f[1]); if (d < f[2] + 16) { const t = sstep(f[2], f[2] + 16, d); h = f[3] * (1 - t) + h * t; } }
-  { const d = deathRiverDist(x, z); if (d < 24) h *= sstep(DEATH.river.w / 2 + 1.5, 24, d); }   // 죽음의 숲의 냇물: 언덕을 물가까지 낮춘다(그래야 물길이 파인다)
+  { const d = deathRiverDist(x, z); if (d < 24) h *= sstep(DEATH.river.w / 2 + 1.5, 24, d); }
+  // 담 밖의 큰 강과 교정 시설의 호수: 언덕을 물가까지 낮춘다
+  { const d = outRiverDist(x, z); if (d < 34) h *= sstep(OUTER.river.w / 2 + 1.5, 34, d); }
+  if (h > 0 && Math.abs(x - OUTER.jail.c[0]) < 90 && Math.abs(z - OUTER.jail.c[1]) < 90) h *= sstep(1.1, 1.55, jailK(x, z));   // 죽음의 숲의 냇물: 언덕을 물가까지 낮춘다(그래야 물길이 파인다)
   return h;
 }
 
@@ -47,9 +50,9 @@ const segDist = (x, z, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1
 export const inPoly = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
 const ringDist = (x, z, poly) => segDist(x, z, [...poly, poly[0]]) * (inPoly(x, z, poly) ? -1 : 1);   // 다각형 가장자리까지(안쪽은 음수)
 const WT = PLAN.water;
-const RIVERS = [WT.naka, WT.stream, WT.brook, DEATH.river].map(r => { const pts = smooth(r.pts); return { pts, w: r.w, box: bbox(pts, r.w / 2 + 6) }; });
-const POOLS = [WT.lake, WT.isle, WT.parkPond, ...WT.ponds].map(poly => ({ poly, box: bbox(poly, 6) }));
-const ISLANDS = [WT.isleLand, WT.parkIsle].map(poly => ({ poly, box: bbox(poly, 4) }));
+const RIVERS = [WT.naka, WT.stream, WT.brook, DEATH.river, OUTER.river].map(r => { const pts = smooth(r.pts); return { pts, w: r.w, box: bbox(pts, r.w / 2 + 6) }; });
+const POOLS = [WT.lake, WT.isle, WT.parkPond, ...WT.ponds, OUTER.jail.lake].map(poly => ({ poly, box: bbox(poly, 6) }));
+const ISLANDS = [WT.isleLand, WT.parkIsle, OUTER.jail.land].map(poly => ({ poly, box: bbox(poly, 4) }));
 const inBox = (x, z, b) => x > b[0] && x < b[2] && z > b[1] && z < b[3];
 // 물길이 땅을 파내는 깊이(0 = 그대로, 1 = 바닥까지)
 function carve(x, z) {
@@ -104,7 +107,7 @@ function buildGround(scene, tintOn) {
   g.fillRect(px(STAIR.x0 - 7), pz(CLIFF.z), (STAIR.x1 - STAIR.x0 + 14) * k, 14 * k); stroke([60, -124], [STAIR.x0 + 4, -141], 9);                       // 바위 오르는 계단 밑과 거기로 가는 길
   for (const b of PLAN.bridges) stroke(b[0], b[1], 8);
   { const tr = NARA_FOREST.trail; for (let i = 0; i < tr.length - 1; i++) stroke(tr[i], tr[i + 1], 3.4); }
-  for (const tr of [DEATH.trail]) for (let i = 0; i < tr.length - 1; i++) stroke(tr[i], tr[i + 1], 3.2);                       // 죽음의 숲의 오솔길   // 나라 숲으로 드는 오솔길
+  for (const tr of [DEATH.trail, OUTER.jail.trail]) for (let i = 0; i < tr.length - 1; i++) stroke(tr[i], tr[i + 1], 3.2);                       // 죽음의 숲의 오솔길   // 나라 숲으로 드는 오솔길
   for (const p of PATHS) for (let i = 0; i < p.pts.length - 1; i++) stroke(p.pts[i], p.pts[i + 1], p.w);        // 못 둘레의 산책길
   const mask = new THREE.CanvasTexture(c);
   mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.anisotropy = 8;
@@ -170,7 +173,8 @@ function buildGround(scene, tintOn) {
   const DX1 = X1 + 240, DZ0 = WALL.cz - FAR + 40 * 68, DZ1 = WALL.cz - FAR + 40 * 82;
   mk(WALL.cx - FAR, WALL.cz - FAR, X0, WALL.cz + FAR, 40, far); mk(X1, WALL.cz - FAR, WALL.cx + FAR, DZ0, 40, far); mk(X1, DZ1, WALL.cx + FAR, WALL.cz + FAR, 40, far);
   mk(DX1, DZ0, WALL.cx + FAR, DZ1, 40, far); mk(X1, DZ0, DX1, DZ1, 4, low);
-  mk(X1 - 40, DZ0 - 40, DX1 + 40, DZ1 + 40, 40, (x, z) => far(x, z) - 3);   // 촘촘한 땅과 성긴 땅이 만나는 이음매의 틈으로 하늘이 비치지 않게, 밑에 한 겹 받친다
+  mk(X1 - 40, DZ0 - 40, DX1 + 40, DZ1 + 40, 40, (x, z) => far(x, z) - 3);
+  for (const [a0, b0, a1, b1] of [[X0 - 40, Z1 - 40, X1 + 40, Z1 + 40], [X0 - 40, Z0 - 40, X1 + 40, Z0 + 40], [X0 - 40, Z0, X0 + 40, Z1], [X1 - 40, Z0, X1 + 40, Z1]]) mk(a0, b0, a1, b1, 40, (x, z) => far(x, z) - 3);   // 촘촘한 땅의 네 가장자리 밑에도 받친다   // 촘촘한 땅과 성긴 땅이 만나는 이음매의 틈으로 하늘이 비치지 않게, 밑에 한 겹 받친다
   mk(X0, WALL.cz - FAR, X1, Z0, 40, far); mk(X0, Z1, X1, WALL.cz + FAR, 40, far);
   // 산 위. 산자락이 땅과 같은 높이로 겹치면 깜빡이므로, 산이 끝난 자리는 땅 밑으로 내린다
   mk(-(CLIFF.half + CLIFF.fall + 12), CLIFF.z - 180, CLIFF.half + CLIFF.fall + 12, CLIFF.z, 4, (x, z) => { const m = mountainH(x, Math.min(z, CLIFF.z - 0.01)), l = lowH(x, z); return m > l + 0.3 ? m : l - 1.5; });
@@ -249,7 +253,7 @@ export async function buildVillage(scene, ctx) {
     { n: '정문', t: '마을의 남쪽 대문. 왼쪽 문짝에 あ, 오른쪽 문짝에 ん이 적혀 있다.', b: [-16, 16, WALL.gateZ - 16, WALL.gateZ + 6] },
     { n: '섬 있는 못', t: '나카 강이 시작되는 못. 제2 훈련장.', poly: WT.isle, b: bounds(WT.isle) },
     ...PLAN.zones.filter(z => !BUILT.has(z.n)).map(z => ({ n: z.name, t: '새 배치의 자리. 아직 빈 터다.', poly: z.poly, b: bounds(z.poly) })),
-    ...PLAN.train.filter(t => t.id === '0').map(t => ({ n: t.name.split(' — ')[0], t: t.name.split(' — ')[1] || '', b: [t.at[0] - 18, t.at[0] + 18, t.at[1] - 18, t.at[1] + 18] })),
+    ...PLAN.train.filter(() => false).map(t => ({ n: t.name.split(' — ')[0], t: t.name.split(' — ')[1] || '', b: [t.at[0] - 18, t.at[0] + 18, t.at[1] - 18, t.at[1] + 18] })),
   ];
   // 바로 가기: 구역마다 번호 자리 앞에 선다(관저 쪽을 등지고 구역을 본다)
   const face = (x, z) => Math.atan2(PLAN.fan[0] - x, PLAN.fan[1] - z) + Math.PI;

@@ -1,7 +1,7 @@
 // 빈 터 메우기 — 담 안에서 블록도 숲도 길도 아닌 채 맨흙으로 남은 자리를 찾아 풀밭(정문 쪽)과 논밭(강 건너 서쪽)으로 돌린다.
 // 자리는 2m 칸으로 한 번만 셈해 두고, 땅 그림(village.js)·쓰임새 그림(streets.js)·논밭 짓기(zones.js)가 함께 읽는다.
 import { PLAN } from './plan-data.js';
-import { WALL, CLIFF, naraTrailDist, deathTrailDist } from './layout.js';
+import { WALL, CLIFF, naraTrailDist, deathTrailDist, outTrailDist } from './layout.js';
 
 const NAKA = PLAN.water.naka.pts;
 // 메울 범위(이 안의 남은 맨흙만 바꾼다). farm = 나카 강 바깥쪽(서쪽 담 밑), meadow = 정문 둘레
@@ -45,7 +45,7 @@ function compute() {
   for (let iz = 0; iz < N; iz++) for (let ix = 0; ix < N; ix++) {
     const x = X0 + (ix + 0.5) * U, z = Z0 + (iz + 0.5) * U, d = Math.hypot(x - WALL.cx, z - WALL.cz);
     if (d > WALL.r - 3 || Math.abs(d - R.ring.r) < R.ring.w / 2 + 1 || Math.hypot(x, z - WALL.gateZ - 7) < 27) continue;
-    const strip = d > R.ring.r && z > CLIFF.z + 10 && naraTrailDist(x, z) > 2.5 && deathTrailDist(x, z) > 2.5;      // 둘레길과 담 사이의 띠는 마을을 빙 둘러 풀밭
+    const strip = d > R.ring.r && z > CLIFF.z + 10 && naraTrailDist(x, z) > 2.5 && deathTrailDist(x, z) > 2.5 && outTrailDist(x, z) > 2.5;      // 둘레길과 담 사이의 띠는 마을을 빙 둘러 풀밭
     const a = areas.find(q => inB(x, z, q.box) && inside(x, z, q.poly));
     if (!a && !strip) continue;
     if (lines.some(l => inB(x, z, l.box) && lineD(x, z, l.pts) < l.d) || solids.some(s => inB(x, z, s.box) && (inside(x, z, s.poly) || (s.pad && lineD(x, z, s.poly) < s.pad))) || pathDist(x, z) < 0.3) continue;
