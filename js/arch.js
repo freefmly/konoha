@@ -15,12 +15,12 @@ const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 export function tilePanel(B, m, o, U, V, w, len, range = null, detail = 4, lip = true) {
   const N = new THREE.Vector3().crossVectors(U, V).normalize();
   const P = 0.3, C = 0.36, AMP = 0.055, LIP = 0.035, du = P / detail;
-  const pos = [], uv = [], idx = [];
+  const pos = [], uv = [], idx = [], hgt = [];
   const wave = u => AMP * Math.pow(Math.abs(Math.cos(Math.PI * u / P)), 0.7);
   const push = (u, v, lift, edge = false) => {
     const h = (edge && range ? 0 : wave(u)) + lift;
     pos.push(o.x + U.x * u + V.x * v + N.x * h, o.y + U.y * u + V.y * v + N.y * h, o.z + U.z * u + V.z * v + N.z * h);
-    uv.push(u, v);
+    uv.push(u, v); hgt.push(h);
     return pos.length / 3 - 1;
   };
   const rg = v => (range ? range(v) : [0, w]);
@@ -35,6 +35,13 @@ export function tilePanel(B, m, o, U, V, w, len, range = null, detail = 4, lip =
     for (let i = i0; i <= i1; i++) { rowA.push(push(i * du, v0, L0)); rowB.push(push(i * du, v1, 0)); }
     rowA.push(push(b0, v0, L0, true)); rowB.push(push(b1, v1, 0, true));
     for (let i = 0; i < rowA.length - 1; i++) idx.push(rowA[i], rowA[i + 1], rowB[i + 1], rowA[i], rowB[i + 1], rowB[i]);
+    // 처마 끝: 물결진 기와 밑이 뚫려 안이 들여다보이지 않게 밑널 높이까지 막는다
+    if (k === 0 && lip && !range) for (let i = 0; i < rowA.length - 1; i++) {
+      const pa = rowA[i], pb = rowA[i + 1], da = hgt[pa] + 0.06, db = hgt[pb] + 0.06;
+      const qa = pos.length / 3; pos.push(pos[pa * 3] - N.x * da, pos[pa * 3 + 1] - N.y * da, pos[pa * 3 + 2] - N.z * da); uv.push(uv[pa * 2], v0); hgt.push(0);
+      pos.push(pos[pb * 3] - N.x * db, pos[pb * 3 + 1] - N.y * db, pos[pb * 3 + 2] - N.z * db); uv.push(uv[pb * 2], v0); hgt.push(0);
+      idx.push(qa, qa + 1, pb, qa, pb, pa);
+    }
     // 기와 아랫단의 두께(턱)
     if (k > 0 && lip) for (let i = 0; i < rowA.length - 1; i++) {
       const pa = rowA[i], pb = rowA[i + 1];

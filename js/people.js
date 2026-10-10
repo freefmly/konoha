@@ -125,12 +125,12 @@ vec3 pplRz(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(v.x * c -
 vec3 pplCol(float f){ return pow(vec3(floor(f / 65536.0), mod(floor(f / 256.0), 256.0), mod(f, 256.0)) / 255.0, vec3(2.2)); }
 // 마디를 돌린다. w = 1이면 자리(관절을 축으로 돈다), 0이면 방향(법선)
 vec3 pplPose(vec3 v, float w){
-  float part = aPS.x, amp = iAnim.y, ges = iAnim.z;
+  float part = aPS.x, amp = max(iAnim.y, 0.0), sit = step(iAnim.y, -0.5), ges = iAnim.z;   // 걷는 세기가 -1이면 걸상에 앉은 자세
   if (part > 0.5) {
     bool arm = part < 4.5, right = (part > 2.5 && part < 4.5) || part > 6.5, lower = mod(part, 2.0) < 0.5;
     float f = iAnim.x + (right ? 3.14159265 : 0.0), a0, a1, az = 0.0;
-    if (arm) { a0 = 0.5 * amp * sin(f); a1 = -(0.16 + amp * (0.3 + 0.2 * sin(f))); az = right ? -0.03 : 0.03; if (right) { a0 -= 1.05 * ges; a1 -= 1.25 * ges; } }
-    else { a0 = -0.55 * amp * sin(f); a1 = amp * (0.1 + 0.8 * max(0.0, cos(f))); }
+    if (arm) { a0 = 0.5 * amp * sin(f); a1 = -(0.16 + amp * (0.3 + 0.2 * sin(f))); az = right ? -0.03 : 0.03; a0 -= 0.35 * sit; a1 -= 0.95 * sit; if (right) { a0 -= 1.05 * ges; a1 -= 1.25 * ges; } }
+    else { a0 = -0.55 * amp * sin(f); a1 = amp * (0.1 + 0.8 * max(0.0, cos(f))) + 1.5 * sit; a0 -= 1.5 * sit; }
     if (lower) v = aJ1 * w + pplRx(v - aJ1 * w, a1);
     v = aJ0 * w + pplRz(pplRx(v - aJ0 * w, a0), az);
   }
@@ -163,6 +163,9 @@ function makeMaterials() {
   return { body, blob };
 }
 
+// 제자리를 지키는 닌자 [x, 발높이, z, 보는 쪽, 살빛, 머리 빛]: 정문 초소의 문지기 둘(걸상에 앉아 창구 밖을 본다)
+const POSTS = [[10.1, -0.25, WALL.gateZ - 11.7, -Math.PI / 2, 0xd0976a, 0x1c1a1c], [10.1, -0.25, WALL.gateZ - 10.3, -Math.PI / 2, 0xdba377, 0x2e221a]];
+
 /* ---------- 생김새와 빛깔 ---------- */
 const LOOKS = [
   { name: '아저씨', n: 15, geo: { kind: 'man', hair: 'short' }, tops: [0xb9a67c, 0x6f8a6a, 0x8a5a4a, 0x5d7f95, 0xa9a39a, 0xc59a4a], bots: [0x4a4a52, 0x5a4a3a, 0x3d4a5a, 0x6a6452], shoes: [0x3a3028, 0x2a2a30], accs: [0x3a3028, 0x6a4a2a, 0x2f3a4a] },
@@ -179,17 +182,21 @@ const SKINS = [0xdba377, 0xd0976a, 0xc4895c, 0xe0ad84, 0xb07a50], HAIRS = [0x1c1
 export async function build(scene, ctx) {
   const MB = ctx.mobile, R = rng(20261010), M = makeMaterials(), cam = ctx.camera;
   const pick = a => a[Math.floor(R() * a.length)];
-  const people = [], meshes = [];
+  const people = [], meshes = [], posts = [];
   for (const L of LOOKS) {
-    const n = Math.max(2, Math.round(L.n * (MB ? 0.45 : 1))), g = bodyGeometry(L.geo);
+    const n0 = Math.max(2, Math.round(L.n * (MB ? 0.45 : 1))), n = n0 + (L.name === '닌자' ? POSTS.length : 0), g = bodyGeometry(L.geo);
     const anim = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3), colA = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3), colB = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
     anim.setUsage(THREE.DynamicDrawUsage);
     g.setAttribute('iAnim', anim); g.setAttribute('iColA', colA); g.setAttribute('iColB', colB);
     const im = new THREE.InstancedMesh(g, M.body, n);
     im.castShadow = false; im.receiveShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     scene.add(im); meshes.push(im);
-    for (let i = 0; i < n; i++) people.push({ L, im, i, anim, colA, colB, x: 0, y: 0, z: 0, yaw: 0, want: 0, on: false, stand: false, mate: null, ph: R() * 6.28, amp: 0, ges: 0, sp: 1.2, s: 1, t: R(), seed: R() * 100 });
+    for (let i = n0; i < n; i++) posts.push({ L, im, i, anim, colA, colB, on: true, stand: true, mate: null, ph: 0, amp: 0, ges: 0, s: 1, seed: i * 2.7, post: POSTS[i - n0] });
+    for (let i = 0; i < n0; i++) people.push({ L, im, i, anim, colA, colB, x: 0, y: 0, z: 0, yaw: 0, want: 0, on: false, stand: false, mate: null, ph: R() * 6.28, amp: 0, ges: 0, sp: 1.2, s: 1, t: R(), seed: R() * 100 });
   }
+  // 제자리를 지키는 사람: 걸상에 앉아 있고, 돌아다니는 사람들과 섞이지 않는다
+  for (const p of posts) { const [x, y, z, yaw, skin, hair] = p.post, o = p.i * 3; p.x = x; p.y = y; p.z = z; p.yaw = p.want = yaw;
+    p.colA.array.set([skin, hair, 0x30364d], o); p.colB.array.set([0x30364d, 0x798274, 0x30364d], o); p.colA.needsUpdate = p.colB.needsUpdate = true; }
   const shade = new THREE.InstancedMesh(new THREE.CircleGeometry(0.36, 18).rotateX(-Math.PI / 2), M.blob, people.length);
   shade.frustumCulled = false; shade.instanceMatrix.setUsage(THREE.DynamicDrawUsage); shade.renderOrder = 2; scene.add(shade); meshes.push(shade);
   people.forEach((p, k) => { p.k = k; });
@@ -281,6 +288,11 @@ export async function build(scene, ctx) {
     }
     // 서로 겹치지 않게 살짝 밀어낸다(걷는 사람끼리만 움직이고, 서 있는 사람은 버틴다)
     if (!row) for (let i = 0; i < people.length; i++) { const a = people[i]; if (!a.on) continue; for (let j = i + 1; j < people.length; j++) { const b = people[j]; if (!b.on || (a.stand && b.stand)) continue; const dx = b.x - a.x, dz = b.z - a.z, d2 = dx * dx + dz * dz; if (d2 > 0.42 || d2 < 1e-6) continue; const d = Math.sqrt(d2), k = (0.65 - d) / d * 0.5, wa = a.stand ? 0 : b.stand ? 2 : 1, wb = b.stand ? 0 : a.stand ? 2 : 1; a.x -= dx * k * wa; a.z -= dz * k * wa; b.x += dx * k * wb; b.z += dz * k * wb; } }
+    for (const p of posts) {   // 앉은 사람: 가끔 한 손을 들고 고개를 조금 돌린다
+      const k = Math.sin(t * 0.4 + p.seed); p.ges += ((k > 0.8 ? 0.7 : 0) - p.ges) * Math.min(1, dt * 3);
+      q.setFromAxisAngle(up, p.want + 0.1 * Math.sin(t * 0.3 + p.seed * 2)); m4.compose(pos.set(p.x, p.y, p.z), q, sc.setScalar(p.s)); p.im.setMatrixAt(p.i, m4);
+      const o = p.i * 3, a = p.anim.array; a[o] = 0; a[o + 1] = -1; a[o + 2] = p.ges;
+    }
     for (const p of people) {
       if (!p.on) { p.im.setMatrixAt(p.i, ZERO); shade.setMatrixAt(p.k, ZERO); continue; }
       q.setFromAxisAngle(up, p.yaw); m4.compose(pos.set(p.x, p.y, p.z), q, sc.setScalar(p.s)); p.im.setMatrixAt(p.i, m4);

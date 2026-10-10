@@ -330,9 +330,9 @@ export function buildWall(scene, K, glows) {
     wall(B, wm2, 'x', z0, z0 + 0.18, x0 + 0.18, x1 - 0.18, 0, 2.7, [{ u0: x0 + 1.4, u1: x0 + 2.6, ys: [[0, 2.15]] }]);
     wall(B, wm2, 'x', z1 - 0.18, z1, x0 + 0.18, x1 - 0.18, 0, 2.7, []);
     B.box(M.floorDark, x0 + 0.18, 0, z0 + 0.18, x1 - 0.18, 0.08, z1 - 0.18);
-    B.box(K.woodL, x0 - 0.35, 0.94, z0 + 0.4, x0 + 0.6, 1.0, z1 - 0.4);                  // 창구 선반(책상)
-    for (const z of [z0 + 0.6, z1 - 0.6]) beamBetween(B, K.wood, V(x0 - 0.3, 0.94, z), V(x0, 0.5, z), 0.06, 0.06);
-    for (let i = 0; i < 3; i++) B.geo(mat('paper', 0xf1ead6), new THREE.CylinderGeometry(0.035, 0.035, 0.34, 10), mat4(x0 - 0.1, 1.04, z0 + 1.2 + i * 0.16, 0, 0.3 * i, Math.PI / 2));   // 출입 명부 두루마리
+    B.box(K.woodL, x0 - 0.35, 0.97, z0 + 0.4, x0 + 0.6, 1.03, z1 - 0.4);                  // 창구 선반(책상)
+    for (const z of [z0 + 0.6, z1 - 0.6]) beamBetween(B, K.wood, V(x0 - 0.3, 0.97, z), V(x0, 0.5, z), 0.06, 0.06);
+    for (let i = 0; i < 3; i++) B.geo(mat('paper', 0xf1ead6), new THREE.CylinderGeometry(0.035, 0.035, 0.34, 10), mat4(x0 - 0.1, 1.07, z0 + 1.2 + i * 0.16, 0, 0.3 * i, Math.PI / 2));   // 출입 명부 두루마리
     for (const z of [z0 + 1.3, z1 - 1.3]) {   // 걸상 둘
       B.geo(K.woodL, new THREE.CylinderGeometry(0.2, 0.2, 0.05, 14), mat4(x0 + 1.1, 0.55, z));
       for (let k = 0; k < 3; k++) { const a = k / 3 * 6.283; beamBetween(B, K.wood, V(x0 + 1.1 + Math.cos(a) * 0.08, 0.53, z + Math.sin(a) * 0.08), V(x0 + 1.1 + Math.cos(a) * 0.2, 0.08, z + Math.sin(a) * 0.2), 0.035, 0.035); }
