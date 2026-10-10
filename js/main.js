@@ -512,8 +512,10 @@ async function init() {
 }
 
 // 문제가 생기면 숨기지 않고 화면에 적는다(폰에서는 콘솔을 볼 수 없다). 통계로도 한 번 보낸다
-const fail = (what, msg) => { console.error(what, msg); const L = $('#loading'); L.classList.remove('hidden'); L.style.zIndex = 60; $('#loadText').textContent = '문제가 생겼습니다 — ' + what + ': ' + msg; statOnce('app_error', { what, message: String(msg).slice(0, 90) }); };
-addEventListener('error', e => fail('오류', (e.message || '알 수 없음') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')));
-addEventListener('unhandledrejection', e => fail('오류', (e.reason && e.reason.message) || e.reason));
+const note = (what, msg) => { console.error(what, msg); statOnce('app_error', { what, message: String(msg).slice(0, 90), device: TOUCH ? 'phone' : 'pc' }); };   // 통계로만 한 번 알린다
+const fail = (what, msg) => { note(what, msg); const L = $('#loading'); L.classList.remove('hidden'); L.style.zIndex = 60; $('#loadText').textContent = '문제가 생겼습니다 — ' + what + ': ' + msg; };   // 더 나아갈 수 없을 때만 화면을 덮는다
+// 돌아가는 중에 난 오류는 화면을 덮지 않는다: 소리·마우스 잡기를 브라우저가 거절한 것처럼 대수롭지 않은 것이 많아, 덮으면 멀쩡한 마을을 가리게 된다
+addEventListener('error', e => note('오류', (e.message || '알 수 없음') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')));
+addEventListener('unhandledrejection', e => note('거절', (e.reason && e.reason.message) || e.reason));
 $('#view').addEventListener('webglcontextlost', () => fail('그래픽', '기기의 그래픽 메모리가 모자라 화면을 그리지 못했습니다'));
 init().catch(e => fail('준비', e.message));
