@@ -34,7 +34,7 @@ const BUILDINGS = [
 ];
 
 async function init() {
-  const say = async t => { $('#loadText').textContent = t; await tick(); await tick(); };
+  const say = async t => { if (!failed) $('#loadText').textContent = t; await tick(); await tick(); };   // 문제를 알린 뒤에는 그 글을 덮어쓰지 않는다
   const canvas = $('#view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // 폰은 화면 점이 아주 촘촘해서 다 그리면 PC보다 점이 많아진다 → 낮춰 그리고, 느려지면 더 낮춘다
@@ -513,9 +513,22 @@ async function init() {
 
 // 문제가 생기면 숨기지 않고 화면에 적는다(폰에서는 콘솔을 볼 수 없다). 통계로도 한 번 보낸다
 const note = (what, msg) => { console.error(what, msg); statOnce('app_error', { what, message: String(msg).slice(0, 90), device: TOUCH ? 'phone' : 'pc' }); };   // 통계로만 한 번 알린다
-const fail = (what, msg) => { note(what, msg); const L = $('#loading'); L.classList.remove('hidden'); L.style.zIndex = 60; $('#loadText').textContent = '문제가 생겼습니다 — ' + what + ': ' + msg; };   // 더 나아갈 수 없을 때만 화면을 덮는다
+let failed = false;
+const fail = (what, msg) => { failed = true; note(what, msg); const L = $('#loading'); L.classList.remove('hidden'); L.style.zIndex = 60; $('#loadText').textContent = '문제가 생겼습니다 — ' + what + ': ' + msg; };   // 더 나아갈 수 없을 때만 화면을 덮는다
 // 돌아가는 중에 난 오류는 화면을 덮지 않는다: 소리·마우스 잡기를 브라우저가 거절한 것처럼 대수롭지 않은 것이 많아, 덮으면 멀쩡한 마을을 가리게 된다
 addEventListener('error', e => note('오류', (e.message || '알 수 없음') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')));
 addEventListener('unhandledrejection', e => note('거절', (e.reason && e.reason.message) || e.reason));
-$('#view').addEventListener('webglcontextlost', () => fail('그래픽', '기기의 그래픽 메모리가 모자라 화면을 그리지 못했습니다'));
+// 그래픽이 끊겼을 때: 브라우저가 곧 되살려 주는 일이 많으므로 바로 포기하지 않고 8초를 기다린다.
+// - 짓는 동안 끊겼다 돌아오면: 아직 그래픽 카드에 올린 것이 없으니 그대로 이어 간다
+// - 다 지은 뒤에 끊겼다 돌아오면: 올려 둔 도형·그림의 사본은 이미 버렸으므로 다시 연다(이어서 세 번째부터는 알리고 멈춘다)
+// - 돌아오지 않으면: 알린다
+let lostT = 0;
+const GFX = '기기의 그래픽 메모리가 모자라 화면을 그리지 못했습니다';
+$('#view').addEventListener('webglcontextlost', () => { note('그래픽', '끊김(' + (window.__ready ? '다 지은 뒤' : $('#loadText').textContent) + ')'); clearTimeout(lostT); lostT = setTimeout(() => fail('그래픽', GFX), 8000); });
+$('#view').addEventListener('webglcontextrestored', () => {
+  clearTimeout(lostT); if (!window.__ready) return;
+  let n = 9; try { n = +sessionStorage.getItem('konoha.lost') || 0; sessionStorage.setItem('konoha.lost', n + 1); } catch (e) {}
+  if (n >= 2) return fail('그래픽', GFX);
+  $('#loading').classList.remove('hidden'); $('#loading').style.zIndex = 60; $('#loadText').textContent = '다시 여는 중…'; setTimeout(() => location.reload(), 600);
+});
 init().catch(e => fail('준비', e.message));
