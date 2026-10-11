@@ -280,9 +280,9 @@ export function buildWall(scene, K, glows) {
   const aE = Math.asin((CLIFF.z + 1 - WALL.cz) / r), a0 = aE, a1 = Math.PI - aE;      // 절벽에서 시작해 남쪽을 돌아 절벽에서 끝난다
   const gw = 6.2 / r, nw = 2.6 / r, na = NARA_FOREST.a;                                    // 정문과, 나라 숲으로 나가는 작은 문
   const da = DEATH.a;                                                                      // 죽음의 숲으로 나가는 작은 문
-  const gate = [{ a0: Math.PI / 2 - gw, a1: Math.PI / 2 + gw, ys: [[0, 8.2]] }, { a0: na - nw, a1: na + nw, ys: [[0, 4.4]] }, { a0: da - nw, a1: da + nw, ys: [[0, 4.4]] }, ...[OUTER.jail.a].map(q => ({ a0: q - nw, a1: q + nw, ys: [[0, 4.4]] }))];   // 교정 시설로 나가는 작은 문
+  const gate = [{ a0: Math.PI / 2 - gw, a1: Math.PI / 2 + gw, ys: [[0, 8.2]] }, { a0: na - nw, a1: na + nw, ys: [[0, 4.4]] }, { a0: da - nw, a1: da + nw, ys: [[0, 4.4]] }, ...[OUTER.jail.a, OUTER.fall.a].map(q => ({ a0: q - nw, a1: q + nw, ys: [[0, 4.4]] }))];   // 교정 시설로 나가는 작은 문
   roundWall(B, wm, WALL.cx, WALL.cz, r - 1.1, r + 1.1, 0, 9, gate, { a0, a1, seg: SEG });
-  roundWall(B, K.stone, WALL.cx, WALL.cz, r - 1.2, r + 1.2, 0, 1.3, [{ a0: Math.PI / 2 - gw, a1: Math.PI / 2 + gw, ys: [[0, 1.3]] }, { a0: na - nw, a1: na + nw, ys: [[0, 1.3]] }, { a0: da - nw, a1: da + nw, ys: [[0, 1.3]] }, ...[OUTER.jail.a].map(q => ({ a0: q - nw, a1: q + nw, ys: [[0, 1.3]] }))], { a0, a1, seg: SEG, collide: false });
+  roundWall(B, K.stone, WALL.cx, WALL.cz, r - 1.2, r + 1.2, 0, 1.3, [{ a0: Math.PI / 2 - gw, a1: Math.PI / 2 + gw, ys: [[0, 1.3]] }, { a0: na - nw, a1: na + nw, ys: [[0, 1.3]] }, { a0: da - nw, a1: da + nw, ys: [[0, 1.3]] }, ...[OUTER.jail.a, OUTER.fall.a].map(q => ({ a0: q - nw, a1: q + nw, ys: [[0, 1.3]] }))], { a0, a1, seg: SEG, collide: false });
   // 담 위 기와: 양쪽으로 흘러내리는 두 면과 용마루
   const N = Math.round(WALL.r * 0.81);
   for (let i = 0; i < N; i++) {

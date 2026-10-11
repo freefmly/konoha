@@ -13,6 +13,18 @@ import { OPEN, BARE } from './zones.js';
 const PI = Math.PI, V = (x, y, z) => new THREE.Vector3(x, y, z);
 const cyl = (rt, rb, h, seg = 10) => new THREE.CylinderGeometry(rt, rb, h, seg);
 
+// 담의 작은 문(제 좌표: 담 밖이 +z). 담 밖 시설로 나가는 문마다 쓴다
+export function wallGate(scene, a, top, sub) {
+  const PLANK = mat('planks', 0x6e5a40), STONE = M.stone, IRON = M.iron;
+  const put = (x, z, ry, make) => { const holder = new THREE.Group(), from = marks(), b = new Builder(); const res = make(b) || null; b.finish(holder); return settle(scene, holder, from, { x, z, ry }, res); };
+  return put(WALL.cx + Math.cos(a) * WALL.r, WALL.cz + Math.sin(a) * WALL.r, PI / 2 - a, b => {
+    for (const s of [-1, 1]) { b.box(M.beam, s * 2.55 - 0.28, 0, -1.4, s * 2.55 + 0.28, 4.4, 1.4); b.box(PLANK, s * 2.3 - 0.07, 0.12, 1.4, s * 2.3 + 0.07, 3.9, 3.6); for (const y of [0.7, 2.0, 3.3]) b.box(IRON, s * 2.3 - 0.09, y, 1.45, s * 2.3 + 0.09, y + 0.1, 3.55, false); }
+    b.box(M.beam, -3.0, 3.95, -1.46, 3.0, 4.5, 1.46, false); b.box(STONE, -2.3, 0, -1.3, 2.3, 0.06, 1.3, false);
+    signBoard(b, top, -5.4, 2.6, -1.16, PI, 2.6, 0.5, { both: false }); signBoard(b, sub, -5.4, 1.85, -1.16, PI, 2.6, 0.4, { both: false, color: '#b3261a' });
+    for (const s of [-1, 1]) { b.box(STONE, s * 3.6 - 0.22, 0, -4.2, s * 3.6 + 0.22, 1.5, -3.76); b.box(STONE, s * 3.6 - 0.3, 1.5, -4.28, s * 3.6 + 0.3, 1.62, -3.68, false); }
+  });
+}
+
 export function outer(scene, out, camera) {
   const B = new Builder(), places = [];
   let seed = 9173; const R = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -20,18 +32,11 @@ export function outer(scene, out, camera) {
   const inst = (g, m, ms) => { const im = new THREE.InstancedMesh(g, m, ms.length); ms.forEach((q, i) => im.setMatrixAt(i, q)); im.instanceMatrix.needsUpdate = true; im.castShadow = true; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); return im; };
   const bx = (m, w, h, d, x, y, z, ry = 0) => B.geo(m, new THREE.BoxGeometry(w, h, d), mat4(x, y, z, 0, ry, 0));
   const put = (x, z, ry, make) => { const holder = new THREE.Group(), from = marks(), b = new Builder(); const res = make(b) || null; b.finish(holder); return settle(scene, holder, from, { x, z, ry }, res); };
-  // 담의 작은 문(제 좌표: 담 밖이 +z)
-  const wallGate = (a, top, sub) => put(WALL.cx + Math.cos(a) * WALL.r, WALL.cz + Math.sin(a) * WALL.r, PI / 2 - a, b => {
-    for (const s of [-1, 1]) { b.box(M.beam, s * 2.55 - 0.28, 0, -1.4, s * 2.55 + 0.28, 4.4, 1.4); b.box(PLANK, s * 2.3 - 0.07, 0.12, 1.4, s * 2.3 + 0.07, 3.9, 3.6); for (const y of [0.7, 2.0, 3.3]) b.box(IRON, s * 2.3 - 0.09, y, 1.45, s * 2.3 + 0.09, y + 0.1, 3.55, false); }
-    b.box(M.beam, -3.0, 3.95, -1.46, 3.0, 4.5, 1.46, false); b.box(STONE, -2.3, 0, -1.3, 2.3, 0.06, 1.3, false);
-    signBoard(b, top, -5.4, 2.6, -1.16, PI, 2.6, 0.5, { both: false }); signBoard(b, sub, -5.4, 1.85, -1.16, PI, 2.6, 0.4, { both: false, color: '#b3261a' });
-    for (const s of [-1, 1]) { b.box(STONE, s * 3.6 - 0.22, 0, -4.2, s * 3.6 + 0.22, 1.5, -3.76); b.box(STONE, s * 3.6 - 0.3, 1.5, -4.28, s * 3.6 + 0.3, 1.62, -3.68, false); }
-  });
 
   /* ================= 엄중 교정 시설: 호수 한가운데의 섬 ================= */
   {
     const J = OUTER.jail, [cx, cz] = J.c, u = [Math.cos(J.a), Math.sin(J.a)], d = [-u[0], -u[1]], FL = 0.5, RI = J.isle;   // d = 섬에서 마을(다리) 쪽
-    wallGate(J.a, '木ノ葉厳重矯正施設', '関係者以外 立入禁止');
+    wallGate(scene, J.a, '木ノ葉厳重矯正施設', '関係者以外 立入禁止');
     const GREY = mat('stone', 0x8f918c), DARK = mat('stone', 0x6d7072), CELL = mat('plaster', 0xb9b6aa), TILE = mat('tile', 0x4a5560);
     // 섬: 물 위로 솟은 돌 기단
     B.geo(GREY, cyl(RI, RI + 0.6, FL + 2.2, 48), mat4(cx, FL - (FL + 2.2) / 2, cz));

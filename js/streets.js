@@ -9,7 +9,7 @@ import { mat, dressLeaves } from './materials.js';
 import { makeKit, boxHouse, towerHouse, WALLS, ROOFS, SHOPS } from './town.js';
 import { treeGeometry, bushGeometry, tuftGeometry, blob } from './flora.js';
 import { PLAN } from './plan-data.js';
-import { WALL, CLIFF, STAIR, SITE, NARA_FOREST, inNaraForest, naraTrailDist, DEATH, inDeathForest, deathTrailDist, deathRiverDist, OUTER, jailK, outTrailDist } from './layout.js';
+import { WALL, CLIFF, STAIR, SITE, NARA_FOREST, inNaraForest, naraTrailDist, DEATH, inDeathForest, deathTrailDist, deathRiverDist, OUTER, jailK, outTrailDist, fallK } from './layout.js';
 import { terrainH, inPoly } from './village.js';
 import { zoneGroups, LOTS, OPEN, BARE } from './zones.js';
 import { fillCells, pathDist, PATHS } from './fields.js';
@@ -391,6 +391,21 @@ export async function build(scene, ctx) {
       const key = Math.floor(x / 4) * 8192 + Math.floor(z / 4); let l = near4.get(key); if (!l) near4.set(key, l = []); l.push(t); trees.push(t); const r = 0.5 * s; addCollider(x - r, y - 1, z - r, x + r, y + 6, z + r); };
     for (let z = CLIFF.z + 5; z < HOK.z - 30; z += 7.5) for (let x = -60; x < 60; x += 7.5) put(x + R2() * 6, z + R2() * 6, 0.85 + R2() * 0.5, 5.5);
     for (let i = 0; i < 16; i++) { const a = (i + R2() * 0.7) / 16 * Math.PI * 2, d = 47.5 + R2() * 8; if (R2() < 0.3) continue; put(HOK.x + Math.sin(a) * d, HOK.z + Math.cos(a) * d, 0.7 + R2() * 0.35, 9); } }
+
+  // 바람 수련 폭포로 가는 숲길과 빈터를 두른 숲(따로 굴린 수로 심는다). 오솔길·빈터·흙벽 자리는 비우고, 길과 빈터에서 멀어질수록 듬성듬성 심는다
+  { const R5 = rng(20261111), F = OUTER.fall, ST = MB ? 17 : 11.5;
+    const put = (x, z, s) => { const y = terrainH(x, z); if (y < -0.05 || outTrailDist(x, z) < 3.8) return; trees.push({ x, y, z, s, ry: R5() * Math.PI * 2, k: Math.floor(R5() * 6), big: false }); const r = 0.5 * s; addCollider(x - r, y - 1, z - r, x + r, y + 6, z + r); };
+    for (const [lu, lt, s] of F.trees) { const [x, z] = F.L(lu, lt); trees.push({ x, y: terrainH(x, z), z, s, ry: R5() * Math.PI * 2, k: Math.floor(R5() * 6), big: false }); addCollider(x - 0.5 * s, -1, z - 0.5 * s, x + 0.5 * s, 6, z + 0.5 * s); }   // 풀밭에 선 나무 둘(하나는 카카시가 기대어 책을 읽던 나무)
+    for (let z = F.c[1] - 170; z < F.c[1] + 170; z += ST) for (let x = WALL.cx + WALL.r + 80; x < F.c[0] + 140; x += ST) {
+      const px = x + R5() * ST * 0.8, pz = z + R5() * ST * 0.8, s = 1.0 + R5() * 0.9, k = fallK(px, pz), q = R5();
+      if (px > WALL.cx + 1074 || Math.hypot(px - WALL.cx, pz - WALL.cz) < WALL.r + 86 || k < 1.05 || inNaraForest(px, pz, 30) || inDeathForest(px, pz, 12)) continue;
+      const lu = (px - F.c[0]) * F.u[0] + (pz - F.c[1]) * F.u[1], lt = Math.abs((pz - F.c[1]) * F.u[0] - (px - F.c[0]) * F.u[1]);
+      if (pz < 266 || (pz > 536 && px > 955)) continue;                                   // 촘촘한 땅이 깔린 데까지만
+      if (lu > F.deck[0] - 4 && lu < F.far + 52 && lt < F.wide + 10) continue;            // 흙 단과 높은 흙벽이 선 자리
+      const off = Math.min(outTrailDist(px, pz), (k - 1) * F.r);
+      if (off > 100 || q < 0.12 + off / 170) continue;
+      put(px, pz, s);
+    } }
 
   // 교정 시설 호수를 두른 숲(따로 굴린 수로 심는다). 오솔길·빈터·물은 비운다
   { const R4 = rng(20261050), J = OUTER.jail, ST = MB ? 16 : 11;

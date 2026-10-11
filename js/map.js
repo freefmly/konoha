@@ -2,7 +2,7 @@
 // 바탕 그림은 배치도의 자리표(PLAN)로 한 번만 그려 두고, 미니맵은 그 그림을 걷는 사람 둘레만 잘라 보는 쪽이 위로 가게 돌려 붙인다.
 // 전체 지도를 편 채 걷는 동안에는 지금 선 자리의 이름과 설명을 옆 종이에 띄우고, 마우스를 풀면(Esc) 마우스를 올린(손가락으로 짚은) 자리의 것을 띄운다.
 import { PLAN } from './plan-data.js';
-import { WALL, CLIFF, NARA_FOREST, SITE, DEATH, OUTER } from './layout.js';
+import { WALL, CLIFF, NARA_FOREST, SITE, DEATH, OUTER, fallDist, outTrailDist, inDeathForest } from './layout.js';
 const HOK = SITE.hokage;
 import { fillCells, farmPlots, PATHS } from './fields.js';
 import { ROOT_PLAN as RP } from './b_root.js';
@@ -23,6 +23,27 @@ function drawFoot(g, list, X, Z, k) {
   g.lineJoin = 'round'; g.strokeStyle = 'rgba(58,42,28,.85)'; g.lineWidth = Math.max(1.2, 0.7 * k);
   for (const f of list) { shape(f); g.stroke(); }
   for (const f of list) { g.fillStyle = f.house ? '#a98d68' : '#c0694c'; shape(f); g.fill(); }
+}
+// 마을 동쪽 들(담 밖, 바람 수련 폭포가 있는 곳)의 지도. 마을 지도에 다 담기지 않는 먼 자리라 따로 한 장을 그린다
+const FIELD = { cx: OUTER.fall.c[0], cz: OUTER.fall.c[1], half: 210, edge: CX + HALF - 22 };   // edge = 이보다 동쪽에 서면 이 지도로 바뀐다
+function drawField() {
+  const N = 1024, c = document.createElement('canvas'); c.width = c.height = N;
+  const g = c.getContext('2d'), k = N / (FIELD.half * 2), X = x => (x - FIELD.cx + FIELD.half) * k, Z = z => (z - FIELD.cz + FIELD.half) * k, W = OUTER.fall, D = W.deck;
+  const line = (pts, w, col) => { g.strokeStyle = col; g.lineWidth = w * k; g.lineCap = g.lineJoin = 'round'; g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(X(p[0]), Z(p[1])) : g.moveTo(X(p[0]), Z(p[1])))); g.stroke(); };
+  let seed = 23; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = '#a9cf82'; g.fillRect(0, 0, N, N);
+  // 숲: 풀밭과 흙벽 자리, 오솔길만 비운다. 남쪽 아래로 죽음의 숲이 걸친다
+  const woods = (x, z) => x < W.c[0] + 150 && fallDist(x, z) > 4 && !(x > W.c[0] + D[0] - 4 && x < W.c[0] + W.far + 46 && Math.abs(z - W.c[1]) < W.wide + 10) && outTrailDist(x, z) > 5;
+  for (let z = FIELD.cz - FIELD.half; z < FIELD.cz + FIELD.half; z += 9) for (let x = FIELD.cx - FIELD.half; x < FIELD.cx + FIELD.half; x += 9) { const tx = x + rnd() * 9, tz = z + rnd() * 9; if (!woods(tx, tz)) continue; g.fillStyle = inDeathForest(tx, tz) ? '#2f5f33' : rnd() < 0.5 ? '#3c7d38' : '#4a8f42'; g.beginPath(); g.arc(X(tx), Z(tz), (3.6 + rnd() * 2.4) * k, 0, Math.PI * 2); g.fill(); }
+  line([...W.trail, W.L(W.front + 10, 0)], 3.4, '#f3e6c4');
+  line(W.river.pts, W.river.w, '#6fb3d9');
+  line([W.L(W.far + 16, -W.wide - 4), W.L(W.far + 16, W.wide + 4)], 30, '#9a7a5c');                                  // 높은 흙벽
+  line([W.L(W.far - 3.5, -W.wide + 5), W.L(W.far - 3.5, W.wide - 5)], 10, '#e8f5fd');                                // 폭포
+  g.lineCap = 'butt'; line([W.L((D[0] + D[1]) / 2, -W.wide), W.L((D[0] + D[1]) / 2, W.wide)], D[1] - D[0], '#8d6c52');   // 흙 단
+  line([W.L((D[0] + D[1]) / 2, -D[3]), W.L((D[0] + D[1]) / 2, D[3])], D[1] - D[0] - 3, '#c9a56f');                 // 단 위의 널
+  { const q = W.L(W.ring[0], W.ring[1]); g.fillStyle = '#ead9b0'; g.beginPath(); g.arc(X(q[0]), Z(q[1]), (W.ring[2] + 2.4) * k, 0, Math.PI * 2); g.fill(); g.fillStyle = '#8a5a34'; for (let i = 0; i < 10; i++) { const a = (i + 0.5) / 10 * Math.PI * 2; g.fillRect(X(q[0] + Math.cos(a) * W.ring[2]) - 2, Z(q[1] + Math.sin(a) * W.ring[2]) - 2, 4, 4); } }
+  for (const [lu, lt, s] of W.trees) { const q = W.L(lu, lt); g.fillStyle = '#347034'; g.beginPath(); g.arc(X(q[0]), Z(q[1]), 6 * s * k, 0, Math.PI * 2); g.fill(); }
+  return c;
 }
 function drawBase(jumps, foot) {
   const c = document.createElement('canvas'); c.width = c.height = S;
@@ -77,6 +98,9 @@ function drawBase(jumps, foot) {
   // 담 밖의 큰 강과 다리, 교정 시설
   line(OUTER.river.pts, OUTER.river.w, '#6fb3d9'); line([[0, 1070], [0, 1106]], 9, '#8a6038');
   line(OUTER.jail.trail, 3.2, ROAD);
+  { const W = OUTER.fall, D = W.deck;   // 바람 수련 폭포: 오솔길, 냇물, 흙 단, 폭포
+    line([...W.trail, W.L(W.front + 10, 0)], 3.2, ROAD); line(W.river.pts, W.river.w, '#6fb3d9'); line([W.L((D[0] + D[1]) / 2, -W.wide), W.L((D[0] + D[1]) / 2, W.wide)], D[1] - D[0], '#8f6f55');
+    line([W.L(W.far - 3, -W.wide + 4), W.L(W.far - 3, W.wide - 4)], 9, '#dff1fb'); line([W.L(W.far + 14, -W.wide), W.L(W.far + 14, W.wide)], 24, '#9a8468'); }
   fill(OUTER.jail.lake, '#6fb3d9'); fill(OUTER.jail.land, '#9a9a94'); { const J = OUTER.jail, u = [Math.cos(J.a), Math.sin(J.a)]; line([[J.c[0] - u[0] * 17, J.c[1] - u[1] * 17], [J.c[0] - u[0] * 50, J.c[1] - u[1] * 50]], 3, '#8a6038'); }
   // 죽음의 숲: 냇물, 오솔길, 철망
   line(DEATH.river.pts, DEATH.river.w, '#6fb3d9'); line(DEATH.trail, 3.2, ROAD); line(DEATH.side, 3.2, ROAD);
@@ -133,7 +157,7 @@ export class VillageMap {
     this.level = -1; this.under = [];                             // 지금 보는 땅속 층(-1 = 땅 위), 층마다 그려 둔 도면
     // 큰 구역의 이름만 지도에 적는다(작은 곳은 짚어 보면 나온다)
     this.labels = PLAN.zones.filter(z => { const xs = z.poly.map(p => p[0]), zs = z.poly.map(p => p[1]); return (Math.max(...xs) - Math.min(...xs)) * (Math.max(...zs) - Math.min(...zs)) > 9000; }).map(z => [z.name.replace(/\(.*\)/, ''), ...centroid(z.poly)])
-      .concat([['호카게 바위', 0, CLIFF.z - 60], ['호카게 관저', HOK.x, HOK.z + 26], ['정문', 0, WALL.gateZ + 26], ['나라 숲', NARA_FOREST.glade[0], NARA_FOREST.glade[1] - 40], ['죽음의 숲', DEATH.c[0], DEATH.c[1] + 70], ['교정 시설', OUTER.jail.c[0], OUTER.jail.c[1] + 58]]);
+      .concat([['호카게 바위', 0, CLIFF.z - 60], ['호카게 관저', HOK.x, HOK.z + 26], ['정문', 0, WALL.gateZ + 26], ['나라 숲', NARA_FOREST.glade[0], NARA_FOREST.glade[1] - 40], ['죽음의 숲', DEATH.c[0], DEATH.c[1] + 70], ['교정 시설', OUTER.jail.c[0], OUTER.jail.c[1] + 58], ['수련 폭포 →', CX + HALF - 62, OUTER.fall.c[1] + 40]]);
     const at = e => { const r = canvas.getBoundingClientRect(), L = this.layer(); return [L.cx + ((e.clientX - r.left) / r.width - 0.5) * L.half * 2, L.cz + ((e.clientY - r.top) / r.height - 0.5) * L.half * 2]; };
     canvas.addEventListener('pointermove', e => { if (!this.follow) this.show(...at(e)); });
     canvas.addEventListener('pointerdown', e => { if (!this.follow) this.show(...at(e)); });
@@ -141,6 +165,7 @@ export class VillageMap {
   }
   // 지금 보는 그림: 땅 위의 마을 지도 또는 땅속 한 층의 도면 { img, cx, cz, half(담는 범위의 반, m) }
   layer() {
+    if (this.level === -2) return this.field || (this.field = { img: drawField(), cx: FIELD.cx, cz: FIELD.cz, half: FIELD.half });
     if (this.level < 0) return this.top || (this.top = { img: this.base, cx: CX, cz: CZ, half: HALF });
     return this.under[this.level] || (this.under[this.level] = { img: drawUnder(this.level), cx: RP.cx, cz: RP.cz, half: RP.half });
   }
@@ -150,6 +175,8 @@ export class VillageMap {
     for (let i = 0; i < RP.levels.length; i++) if (y > RP.levels[i].y - 1.5) return i;
     return RP.levels.length - 1;
   }
+  // 마을 지도에 담기지 않는 동쪽 들에 서 있는가(그러면 지도가 그곳의 것으로 바뀐다)
+  inField(x, z) { return x > FIELD.edge && Math.abs(z - FIELD.cz) < FIELD.half; }
   levelName() { return this.level < 0 ? '' : RP.levels[this.level].name; }
   setLevel(l) { if (l === this.level) return; this.level = l; this.body = null; if (!this.view.classList.contains('hidden')) this.open(); }
   // 그 자리에 걸친 이름표들(좁은 것부터). 층은 가리지 않는다 — 한 건물의 방들이 함께 나온다
@@ -188,7 +215,8 @@ export class VillageMap {
     g.font = `700 ${Math.round(Math.max(10, n / 78))}px "Noto Serif KR", "Nanum Myeongjo", "Batang", serif`;
     if (this.level < 0) {
       for (const j of this.jumps) { g.fillStyle = '#b3352a'; g.strokeStyle = '#fff6e0'; g.lineWidth = Math.max(1, n / 900); g.beginPath(); g.arc(X(j[1]), Z(j[3]), Math.max(2.4, n / 300), 0, Math.PI * 2); g.fill(); g.stroke(); }   // 바로 가기가 있는 곳(전체 지도에서는 잘 보이게 크게)
-      for (const [name, lx, lz] of this.labels) { g.strokeStyle = 'rgba(255,248,228,.92)'; g.lineWidth = Math.max(3, n / 300); g.strokeText(name, X(lx), Z(lz)); g.fillStyle = '#2a231b'; g.fillText(name, X(lx), Z(lz)); }
+      const W = OUTER.fall, far = this.level === -2 ? [['바람 수련 폭포', ...W.L(W.far + 16, 0)], ['흙 단', ...W.L(W.deck[0] - 8, 70)], ['나무 기둥 고리', ...W.L(W.ring[0] - 13, W.ring[1])], ['← 나뭇잎 마을', FIELD.cx - FIELD.half + 46, FIELD.cz + 14], ['죽음의 숲', FIELD.cx - FIELD.half + 60, FIELD.cz + FIELD.half - 30]] : this.labels;
+      for (const [name, lx, lz] of far) { g.strokeStyle = 'rgba(255,248,228,.92)'; g.lineWidth = Math.max(3, n / 300); g.strokeText(name, X(lx), Z(lz)); g.fillStyle = '#2a231b'; g.fillText(name, X(lx), Z(lz)); }
     } else {
       const lv = RP.levels[this.level], put = (name, lx, lz) => { g.strokeStyle = 'rgba(16,17,20,.9)'; g.lineWidth = Math.max(3, n / 300); g.strokeText(name, X(lx), Z(lz)); g.fillStyle = '#e9dfc4'; g.fillText(name, X(lx), Z(lz)); };
       for (const [name, x0, z0, x1, z1] of lv.rooms) put(name, (x0 + x1) / 2, (z0 + z1) / 2);

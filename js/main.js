@@ -10,7 +10,7 @@ import { build as buildPeople, PEOPLE } from './people.js';
 import { VERSION, LOG } from './version.js';
 import { initStats, stat, statOnce } from './stats.js';
 import { Player } from './player.js';
-import { LOT, WALL, SITE, DEATH } from './layout.js';
+import { LOT, WALL, SITE, DEATH, OUTER } from './layout.js';
 import { marks, settle, colliders, leanScene } from './build.js';
 import { buildVillage, terrainH, inPoly } from './village.js';
 
@@ -416,6 +416,7 @@ async function init() {
     const p = camera.position;
     indoor += (cover.enclosure(p.x, p.y, p.z) - indoor) * (1 - Math.exp(-dt * 5));
     sound.update(weather.cur.rain, 0.015 + weather.windNow * 0.11, indoor);
+    { const F = OUTER.fall, e = player.sky ? player.skyPos : player.pos, d = Math.hypot(e.x - (F.c[0] + F.far), Math.max(0, Math.abs(e.z - F.c[1]) - F.wide), player.sky ? e.y * 0.5 : 0); sound.fall(d < 300 ? Math.pow(1 - d / 300, 2.2) : 0); }   // 폭포 소리: 가까울수록 크게
     lampT -= dt;
     if (lampT <= 0) { lampT = 0.25; placeLamps(p); }
     hudT -= dt;
@@ -427,8 +428,9 @@ async function init() {
     if (started && !ui.hud.classList.contains('hidden')) {
       const at = player.sky ? player.skyPos : player.pos;
       // 땅속(뿌리 본거지)에 들어가 있으면 지도도 그 층의 지하 도면으로 바뀐다
-      const deep = !player.sky && player.pos.y < -1.5 ? vmap.levelAt(at.x, player.pos.y, at.z) : -1;
-      if (deep !== vmap.level) { vmap.setLevel(deep); $('#mapView h2').textContent = deep < 0 ? '나뭇잎 마을 지도' : '뿌리 본거지 · ' + vmap.levelName(); }
+      // 담 밖 동쪽 들(바람 수련 폭포)에 나가 있으면 그곳의 지도로 바뀐다(-2)
+      const deep = !player.sky && player.pos.y < -1.5 ? vmap.levelAt(at.x, player.pos.y, at.z) : vmap.inField(at.x, at.z) ? -2 : -1;
+      if (deep !== vmap.level) { vmap.setLevel(deep); $('#mapView h2').textContent = deep === -2 ? '마을 동쪽 들 지도' : deep < 0 ? '나뭇잎 마을 지도' : '뿌리 본거지 · ' + vmap.levelName(); }
       vmap.drawMini(at.x, at.z, player.yaw, deep >= 0 ? Math.min(60, MINI[miniI] * 0.4) : Math.min(760, MINI[miniI] * (player.sky ? Math.max(1.25, Math.min(6, player.skyHeight() / 110)) : 1)));
       // 미니맵 위 팻말과 전체 지도의 현재위치: 지금 선 자리의 이름(자리 찾기는 여섯 장에 한 번)
       if (!(nameTick++ % 6) || mapOpen) {

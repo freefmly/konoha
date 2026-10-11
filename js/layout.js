@@ -107,16 +107,26 @@ export const OUTER = (() => {
   const R0 = WALL.r, P = (a, r, t = 0) => [WALL.cx + Math.cos(a) * r - Math.sin(a) * t, WALL.cz + Math.sin(a) * r + Math.cos(a) * t];
   const ell = (c, ax, az, n) => Array.from({ length: n }, (_, i) => [c[0] + Math.cos(i / n * Math.PI * 2) * ax, c[1] + Math.sin(i / n * Math.PI * 2) * az]);
   const ja = -2.256, jc = P(ja, R0 + 150);
+  // 바람 수련 폭포(담 밖 동쪽, 나라 숲과 죽음의 숲을 지난 바깥): a = 담의 작은 문이 난 방향, c = 풀밭 한가운데, u = 마을에서 폭포 쪽(정동), t = 옆(남쪽).
+  // 마을 쪽부터 풀밭(나무 기둥 고리와 나무 두 그루) → 냇물 → 난간 두른 흙 단 → 물받이 못 → 폭포가 쏟아지는 높은 흙벽. L(앞으로, 옆으로) = 그 자리의 마을 좌표
+  // wide = 폭포의 반폭, deck = 흙 단 [앞면, 뒷면, 높이, 디딤단을 뺀 반폭], far = 높은 흙벽의 앞면, ring = 기둥 고리 [앞, 옆, 반지름], trees = 따로 심는 나무 [앞, 옆, 크기]
+  const fa = 0, fc = P(fa, R0 + 330, -22), fu = [1, 0], FL = (lu, lt) => [fc[0] + lu, fc[1] + lt];
   return {
+    fall: { a: fa, c: fc, u: fu, L: FL, r: 60, reach: 420, wide: 125, front: -62, deck: [22, 31, 13, 104], far: 42, ring: [-24, -12, 3.5], trees: [[-19, -21, 1.7], [-4, 52, 1.25]],
+      river: { pts: [-127, -85, -40, 0, 40, 85, 127].map(t => FL(14 + 1.6 * Math.sin(t * 0.045), t)), w: 11 }, pool: [FL(31, -123), FL(31, 123), FL(41.5, 123), FL(41.5, -123)],
+      trail: [P(fa, R0 - 22), P(fa, R0), P(fa, R0 + 45, 8), P(fa, R0 + 95, -10), P(fa, R0 + 150, -19), P(fa, R0 + 205, -6), P(fa, R0 + 245, -24), P(fa, R0 + 272, -22)] },
     jail: { a: ja, c: jc, ax: 50, az: 44, isle: 19, lake: ell(jc, 50, 44, 40), land: ell(jc, 19, 19, 28), trail: [P(ja, R0 - 22), P(ja, R0), P(ja, R0 + 36, -7), P(ja, R0 + 72, 5), P(ja, R0 + 96)] },
     river: { pts: [[748, 1101], [705, 1098], [375, 1079], [50, 1093], [-150, 1074], [-695, 1098], [-748, 1102]], w: 22 },
   };
 })();
 export const jailK = (x, z) => Math.hypot((x - OUTER.jail.c[0]) / OUTER.jail.ax, (z - OUTER.jail.c[1]) / OUTER.jail.az);   // 호수 가장자리가 1
 export const outTrailDist = (x, z) => {
-  let d = 1e9; for (const T of [OUTER.jail]) if (Math.abs(x - T.c[0]) < 260 && Math.abs(z - T.c[1]) < 260) d = Math.min(d, segD(x, z, T.trail));
+  let d = 1e9; for (const T of [OUTER.jail, OUTER.fall]) { const q = T.reach || 260; if (Math.abs(x - T.c[0]) < q && Math.abs(z - T.c[1]) < q) d = Math.min(d, segD(x, z, T.trail)); }
   return d;
 };
 export const outRiverDist = (x, z) => (z < 1040 || z > 1135 ? 1e9 : segD(x, z, OUTER.river.pts));
 // 담 밖에서 걸어 다닐 수 있는 자리(죽음의 숲·나라 숲은 따로 본다): 교정 시설의 호수 둘레, 그리로 가는 오솔길, 정문 밖 길과 다리
-export const outerFree = (x, z) => jailK(x, z) < 1.22 || outTrailDist(x, z) < 6 || (Math.abs(x) < 9 && z > WALL.gateZ && z < WALL.gateZ + 96);
+// 수련 폭포의 풀밭(걸어 다닐 수 있는 자리: 숲 끝에서 흙 단까지, 모서리가 둥근 네모) 가장자리까지의 거리(m, 안쪽은 음수). fallK는 그 가장자리가 1
+export const fallDist = (x, z) => { const F = OUTER.fall, R = 18, lu = x - F.c[0], lt = z - F.c[1], m = (F.front + F.deck[1]) / 2, qx = Math.abs(lt) - (F.wide + 2 - R), qz = Math.abs(lu - m) - ((F.deck[1] - F.front) / 2 - R); return Math.hypot(Math.max(qx, 0), Math.max(qz, 0)) + Math.min(Math.max(qx, qz), 0) - R; };
+export const fallK = (x, z) => 1 + fallDist(x, z) / OUTER.fall.r;
+export const outerFree = (x, z) => jailK(x, z) < 1.22 || fallK(x, z) < 1.04 || outTrailDist(x, z) < 6 || (Math.abs(x) < 9 && z > WALL.gateZ && z < WALL.gateZ + 96);

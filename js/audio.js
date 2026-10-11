@@ -49,6 +49,14 @@ export class Sound {
     const wl = ctx.createOscillator(), wlg = gain(140); wl.frequency.value = 0.08; wl.connect(wlg); wlg.connect(wbp.frequency); wl.start();
 
     this.thunderBus = gain(1); this.thunderBus.connect(this.wallLP);
+
+    // 폭포: 쏴 하고 쏟아지는 넓은 소리 + 물이 바닥을 때리는 낮은 울림. 폭포에 가까이 갈 때만 켜진다(fall)
+    this.fallBus = gain(0); this.fallBus.connect(this.wallLP);
+    const fh = loop(this.white), fhp = filt('highpass', 350), flp = filt('lowpass', 5200), fhg = gain(0.34);
+    fh.playbackRate.value = 0.9; fh.connect(fhp); fhp.connect(flp); flp.connect(fhg); fhg.connect(this.fallBus);
+    const fr = loop(this.brown), frl = filt('lowpass', 180), frg = gain(0.9);
+    fr.playbackRate.value = 0.8; fr.connect(frl); frl.connect(frg); frg.connect(this.fallBus);
+    const fl = ctx.createOscillator(), flg = gain(0.04); fl.frequency.value = 0.21; fl.connect(flg); flg.connect(fhg.gain); fl.start();
   }
 
   setMuted(m) { this.muted = m; if (this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.9, this.ctx.currentTime, 0.05); }
@@ -63,6 +71,9 @@ export class Sound {
     this.wallLP.frequency.setTargetAtTime(18000 * Math.pow(600 / 18000, indoor), t, 0.18);
     this.wallGain.gain.setTargetAtTime(1 - 0.68 * indoor, t, 0.18);
   }
+
+  // 폭포 소리의 크기 0~1(가까울수록 1)
+  fall(v) { if (this.ctx && Math.abs(v - (this.fallV || 0)) > 0.004) { this.fallV = v; this.fallBus.gain.setTargetAtTime(v * 0.9, this.ctx.currentTime, 0.25); } }
 
   // 천둥: 번개가 먼 만큼 늦게, 멀수록 낮고 길게 울린다
   thunder(dist) {

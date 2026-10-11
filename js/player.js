@@ -8,7 +8,7 @@ const RAD = 0.34, HEIGHT = 1.75, EYE = 1.62, STEP = 0.5, WALK = 4.6, RUN = 9.5, 
 // 모아 뛰기: HOLD초 넘게 누르고 있으면 힘이 모이기 시작해 CHARGE초 만에 가득 찬다. 가득 모으면 LEAP_H(m)까지 솟는다.
 const HOLD = 0.14, CHARGE = 0.9, JUMP_H = JUMP * JUMP / (2 * GRAV), LEAP_H = 13.5;
 // 하늘에서 보기: 가장 낮은·높은 높이(m), 손가락으로 차례로 고르는 높이들, 마을 밖으로 나갈 수 있는 거리
-const SKY_LO = 6, SKY_HI = 900, SKY_STEPS = [70, 160, 340, 650], SKY_OUT = 320;
+const SKY_LO = 6, SKY_HI = 900, SKY_STEPS = [70, 160, 340, 650], SKY_OUT = 560;   // 담 밖 멀리 놓인 수련 폭포까지 날아갈 수 있게
 
 export class Player {
   constructor(camera, dom, terrain) {

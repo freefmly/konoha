@@ -36,6 +36,8 @@ function lowH(x, z) {
   // 담 밖의 큰 강과 교정 시설의 호수: 언덕을 물가까지 낮춘다
   { const d = outRiverDist(x, z); if (d < 34) h *= sstep(OUTER.river.w / 2 + 1.5, 34, d); }
   if (h > 0 && Math.abs(x - OUTER.jail.c[0]) < 90 && Math.abs(z - OUTER.jail.c[1]) < 90) h *= sstep(1.1, 1.55, jailK(x, z));   // 죽음의 숲의 냇물: 언덕을 물가까지 낮춘다(그래야 물길이 파인다)
+  // 바람 수련 폭포의 빈터: 흙벽과 못이 설 자리는 평평하게 고른다
+  { const F = OUTER.fall, lu = x - F.c[0], lt = z - F.c[1]; if (h > 0 && lu > -110 && lu < 140 && Math.abs(lt) < 175) { const qx = Math.abs(lt) - F.wide - 4, qz = Math.abs(lu - 14) - 78; h *= sstep(0, 34, Math.hypot(Math.max(qx, 0), Math.max(qz, 0))); } }
   return h;
 }
 
@@ -50,8 +52,8 @@ const segDist = (x, z, pts) => { let d = 1e9; for (let i = 0; i < pts.length - 1
 export const inPoly = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
 const ringDist = (x, z, poly) => segDist(x, z, [...poly, poly[0]]) * (inPoly(x, z, poly) ? -1 : 1);   // 다각형 가장자리까지(안쪽은 음수)
 const WT = PLAN.water;
-const RIVERS = [WT.naka, WT.stream, WT.brook, DEATH.river, OUTER.river].map(r => { const pts = smooth(r.pts); return { pts, w: r.w, box: bbox(pts, r.w / 2 + 6) }; });
-const POOLS = [WT.lake, WT.isle, WT.parkPond, ...WT.ponds, OUTER.jail.lake].map(poly => ({ poly, box: bbox(poly, 6) }));
+const RIVERS = [WT.naka, WT.stream, WT.brook, DEATH.river, OUTER.river, OUTER.fall.river].map(r => { const pts = smooth(r.pts); return { pts, w: r.w, box: bbox(pts, r.w / 2 + 6) }; });
+const POOLS = [WT.lake, WT.isle, WT.parkPond, ...WT.ponds, OUTER.jail.lake, OUTER.fall.pool].map(poly => ({ poly, box: bbox(poly, 6) }));
 const ISLANDS = [WT.isleLand, WT.parkIsle, OUTER.jail.land].map(poly => ({ poly, box: bbox(poly, 4) }));
 const inBox = (x, z, b) => x > b[0] && x < b[2] && z > b[1] && z < b[3];
 // 물길이 땅을 파내는 깊이(0 = 그대로, 1 = 바닥까지)
@@ -107,7 +109,7 @@ function buildGround(scene, tintOn) {
   g.fillRect(px(STAIR.x0 - 7), pz(CLIFF.z), (STAIR.x1 - STAIR.x0 + 14) * k, 14 * k); stroke([60, -124], [STAIR.x0 + 4, -141], 9);                       // 바위 오르는 계단 밑과 거기로 가는 길
   for (const b of PLAN.bridges) stroke(b[0], b[1], 8);
   { const tr = NARA_FOREST.trail; for (let i = 0; i < tr.length - 1; i++) stroke(tr[i], tr[i + 1], 3.4); }
-  for (const tr of [DEATH.trail, OUTER.jail.trail]) for (let i = 0; i < tr.length - 1; i++) stroke(tr[i], tr[i + 1], 3.2);                       // 죽음의 숲의 오솔길   // 나라 숲으로 드는 오솔길
+  for (const tr of [DEATH.trail, OUTER.jail.trail, OUTER.fall.trail]) for (let i = 0; i < tr.length - 1; i++) stroke(tr[i], tr[i + 1], 3.2);                       // 죽음의 숲의 오솔길   // 나라 숲으로 드는 오솔길
   for (const p of PATHS) for (let i = 0; i < p.pts.length - 1; i++) stroke(p.pts[i], p.pts[i + 1], p.w);        // 못 둘레의 산책길
   const mask = new THREE.CanvasTexture(c);
   mask.flipY = false; mask.colorSpace = THREE.NoColorSpace; mask.anisotropy = 8;
@@ -120,7 +122,7 @@ function buildGround(scene, tintOn) {
   tint.flipY = false; tint.colorSpace = THREE.SRGBColorSpace;
 
   const grass = mat('grass').map;
-  const extra = sh => {
+  const mkExtra = (mask, tint, MP) => sh => {
     sh.uniforms.uMask = { value: mask }; sh.uniforms.uGrass = { value: grass }; sh.uniforms.uTint = { value: tint };
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform sampler2D uMask, uGrass, uTint;')
@@ -136,7 +138,7 @@ function buildGround(scene, tintOn) {
         gGrass.rgb = (gGrass.rgb * 0.62 + vec3(0.055, 0.05, 0.02)) * gTone;
         float gSun = wNoise(gUv * 0.027 + 11.0);
         gGrass.rgb = mix(gGrass.rgb, gGrass.rgb * vec3(1.25, 1.12, 0.7), mix(smoothstep(0.55, 0.8, gSun), smoothstep(0.67, 0.69, gSun), uToon));   // 볕에 바랜 누런 자리
-        vec2 mUv = (gUv - vec2(${MAP.cx.toFixed(1)}, ${MAP.cz.toFixed(1)})) / ${size.toFixed(1)} + 0.5;
+        vec2 mUv = (gUv - vec2(${MP.cx.toFixed(1)}, ${MP.cz.toFixed(1)})) / ${MP.size.toFixed(1)} + 0.5;
         float gM = texture2D(uMask, mUv).r;
         gM = smoothstep(0.38 + 0.1 * uToon, 0.62 - 0.1 * uToon, gM + (wFbm(gUv * 0.8) - 0.5) * 0.5 * (1.0 - 0.6 * uToon));
         vec3 gRock = vec3(0.56, 0.50, 0.41) * mix(0.7 + 0.5 * wFbm(gUv * 0.35), 0.95, uToon);
@@ -146,11 +148,24 @@ function buildGround(scene, tintOn) {
         gCol.rgb = mix(gCol.rgb, gRock, smoothstep(0.82, 0.6, vWNor.y));          // 가파른 비탈은 바위가 드러난다
         diffuseColor *= gCol;`);
   };
-  extra.key = 'ground';
+  const extra = mkExtra(mask, tint, MAP); extra.key = 'ground';
   const t = mat('dirt');
-  const gm = weatherize(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normalMap, roughness: 0.96 }), { puddles: true, extra });
+  const gmMain = weatherize(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normalMap, roughness: 0.96 }), { puddles: true, extra });
+  // 바람 수련 폭포 둘레의 땅: 큰 길 그림이 닿지 않는 먼 자리라, 작은 길 그림을 따로 그려 같은 식으로 입힌다(오솔길과 못가의 흙)
+  const MAP2 = { cx: 900, cz: OUTER.fall.c[1], size: 384, S: 512 };
+  const gm2 = (() => {
+    const F = OUTER.fall, c2 = document.createElement('canvas'); c2.width = c2.height = MAP2.S;
+    const g2 = c2.getContext('2d'), k2 = MAP2.S / MAP2.size, qx = x => (x - MAP2.cx) * k2 + MAP2.S / 2, qz = z => (z - MAP2.cz) * k2 + MAP2.S / 2;
+    g2.fillStyle = '#000'; g2.fillRect(0, 0, MAP2.S, MAP2.S); g2.filter = 'blur(1.5px)'; g2.strokeStyle = g2.fillStyle = '#fff'; g2.lineCap = 'round'; g2.lineWidth = 3.2 * k2;
+    g2.beginPath(); F.trail.forEach((p, i) => (i ? g2.lineTo(qx(p[0]), qz(p[1])) : g2.moveTo(qx(p[0]), qz(p[1])))); g2.lineTo(qx(F.c[0] + F.front + 10), qz(F.c[1])); g2.stroke();
+    { const q = F.L(F.ring[0], F.ring[1]); g2.beginPath(); g2.arc(qx(q[0]), qz(q[1]), (F.ring[2] + 2.2) * k2, 0, Math.PI * 2); g2.fill(); }   // 나무 기둥 고리 안은 맨흙
+    const mask2 = new THREE.CanvasTexture(c2); mask2.flipY = false; mask2.colorSpace = THREE.NoColorSpace; mask2.anisotropy = 8;
+    const c3 = document.createElement('canvas'); c3.width = c3.height = 4; const tint2 = new THREE.CanvasTexture(c3); tint2.flipY = false;
+    const e2 = mkExtra(mask2, tint2, MAP2); e2.key = 'ground2';
+    return weatherize(new THREE.MeshStandardMaterial({ map: t.map, normalMap: t.normalMap, roughness: 0.96 }), { puddles: true, extra: e2 });
+  })();
 
-  const mk = (x0, z0, x1, z1, step, hf) => {
+  const mk = (x0, z0, x1, z1, step, hf, gm = gmMain) => {
     const nx = Math.round((x1 - x0) / step), nz = Math.round((z1 - z0) / step), pos = new Float32Array((nx + 1) * (nz + 1) * 3), idx = new Uint32Array(nx * nz * 6);
     let p = 0, q = 0;
     for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { const x = x0 + (x1 - x0) * i / nx, z = z0 + (z1 - z0) * j / nz; pos[p++] = x; pos[p++] = hf(x, z); pos[p++] = z; }
@@ -171,7 +186,10 @@ function buildGround(scene, tintOn) {
   const far = (x, z) => Math.max(lowH(x, z), mountainH(x, z));
   // 동쪽은 죽음의 숲이 놓인 자리(DX1까지, DZ0~DZ1)만 촘촘하게 뜬다. 자리표는 40m 칸에 맞춘다
   const DX1 = X1 + 240, DZ0 = WALL.cz - FAR + 40 * 68, DZ1 = WALL.cz - FAR + 40 * 82;
-  mk(WALL.cx - FAR, WALL.cz - FAR, X0, WALL.cz + FAR, 40, far); mk(X1, WALL.cz - FAR, WALL.cx + FAR, DZ0, 40, far); mk(X1, DZ1, WALL.cx + FAR, WALL.cz + FAR, 40, far);
+  // 그 북쪽 옆은 바람 수련 폭포가 놓인 자리(WX1까지, WZ0~DZ0)
+  const WX1 = X1 + 360, WZ0 = DZ0 - 40 * 7;
+  mk(WALL.cx - FAR, WALL.cz - FAR, X0, WALL.cz + FAR, 40, far); mk(X1, WALL.cz - FAR, WALL.cx + FAR, WZ0, 40, far); mk(WX1, WZ0, WALL.cx + FAR, DZ0, 40, far); mk(X1, DZ1, WALL.cx + FAR, WALL.cz + FAR, 40, far);
+  mk(X1, WZ0, WX1, DZ0, 4, low, gm2); mk(X1 - 40, WZ0 - 40, WX1 + 40, DZ0 + 40, 40, (x, z) => far(x, z) - 3);
   mk(DX1, DZ0, WALL.cx + FAR, DZ1, 40, far); mk(X1, DZ0, DX1, DZ1, 4, low);
   mk(X1 - 40, DZ0 - 40, DX1 + 40, DZ1 + 40, 40, (x, z) => far(x, z) - 3);
   for (const [a0, b0, a1, b1] of [[X0 - 40, Z1 - 40, X1 + 40, Z1 + 40], [X0 - 40, Z0 - 40, X1 + 40, Z0 + 40], [X0 - 40, Z0, X0 + 40, Z1], [X1 - 40, Z0, X1 + 40, Z1]]) mk(a0, b0, a1, b1, 40, (x, z) => far(x, z) - 3);   // 촘촘한 땅의 네 가장자리 밑에도 받친다   // 촘촘한 땅과 성긴 땅이 만나는 이음매의 틈으로 하늘이 비치지 않게, 밑에 한 겹 받친다
